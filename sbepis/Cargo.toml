@@ -9,13 +9,14 @@ too_many_arguments = "allow"
 eq_op = "allow"
 
 [features]
-debug = ["inspector", "overview_camera", "terminal"]
+debug = ["inspector", "overview_camera", "terminal", "movement_indicators"]
 default = []
 inspector = ["dep:bevy-inspector-egui", "bevy_panorbit_camera?/bevy_egui"]
 metronome = []
 overview_camera = ["dep:bevy_panorbit_camera"]
 terminal = []
 rapier_debug = []
+movement_indicators = []
 
 [dependencies]
 bevy = { version = "0.15.0", features = ["wav", "mp3", "wayland"] }

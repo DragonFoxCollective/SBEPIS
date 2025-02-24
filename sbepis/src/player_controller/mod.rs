@@ -23,6 +23,7 @@ use self::weapons::*;
 
 pub mod camera_controls;
 pub mod movement;
+pub mod speed_indicator;
 pub mod weapons;
 
 #[butler_plugin(build(

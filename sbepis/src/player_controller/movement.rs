@@ -9,13 +9,13 @@ use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin}
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerSpeed {
-	speed: 7.0,
-	sprint_modifier: 2.0,
+	speed: 6.0,
+	sprint_modifier: 1.5,
 	jump_speed: 5.0,
 	friction: 6.0,
 	air_friction: 0.0,
 	acceleration: 8.0,
-	air_acceleration: 6.0,
+	air_acceleration: 2.0,
 })]
 pub struct PlayerSpeed {
 	pub speed: f32,
@@ -61,7 +61,8 @@ fn axes_to_ground_velocity(
 ) {
 	let input = input.single();
 	let (body, mut movement, transform, sprinting) = movement.single_mut();
-	let input_dir = input.clamped_axis_pair(&PlayerAction::Move) * Vec2::new(1.0, -1.0);
+	let input_dir =
+		input.axis_pair(&PlayerAction::Move).clamp_length_max(1.0) * Vec2::new(1.0, -1.0);
 
 	// Set up vectors
 	let velocity = (transform.rotation.inverse() * movement.0).xz();
