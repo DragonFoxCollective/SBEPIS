@@ -13,6 +13,7 @@ use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin}
 	sprint_modifier: 2.0,
 	jump_speed: 5.0,
 	friction: 6.0,
+	air_friction: 0.0,
 	acceleration: 8.0,
 	air_acceleration: 6.0,
 })]
@@ -21,28 +22,52 @@ pub struct PlayerSpeed {
 	pub sprint_modifier: f32,
 	pub jump_speed: f32,
 	pub friction: f32,
+	pub air_friction: f32,
 	pub acceleration: f32,
 	pub air_acceleration: f32,
 }
 
+#[derive(Component)]
+pub struct Sprinting;
+
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 )]
+fn update_sprinting(
+	input: Query<&ActionState<PlayerAction>>,
+	players: Query<Entity, With<PlayerBody>>,
+	mut commands: Commands,
+) {
+	let input = input.single();
+	let player = players.single();
+
+	if input.just_pressed(&PlayerAction::Sprint) {
+		commands.entity(player).insert(Sprinting);
+	}
+	if input.just_released(&PlayerAction::Sprint) {
+		commands.entity(player).remove::<Sprinting>();
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	after = update_sprinting,
+)]
 fn axes_to_ground_velocity(
 	input: Query<&ActionState<PlayerAction>>,
-	mut movement: Query<(&PlayerBody, &mut Movement, &Transform)>,
+	mut movement: Query<(&PlayerBody, &mut Movement, &Transform, Has<Sprinting>)>,
 	speed: Res<PlayerSpeed>,
 	time: Res<Time>,
 ) {
 	let input = input.single();
-	let (body, mut movement, transform) = movement.single_mut();
+	let (body, mut movement, transform, sprinting) = movement.single_mut();
 	let input_dir = input.clamped_axis_pair(&PlayerAction::Move) * Vec2::new(1.0, -1.0);
 
 	// Set up vectors
 	let velocity = (transform.rotation.inverse() * movement.0).xz();
 	let wish_velocity = input_dir
 		* speed.speed
-		* if input.pressed(&PlayerAction::Sprint) {
+		* if sprinting {
 			speed.sprint_modifier
 		} else {
 			1.0
@@ -52,7 +77,7 @@ fn axes_to_ground_velocity(
 	let friction = if body.is_grounded {
 		speed.friction
 	} else {
-		0.0
+		speed.air_friction
 	};
 	let acceleration = if body.is_grounded {
 		speed.acceleration
@@ -61,11 +86,7 @@ fn axes_to_ground_velocity(
 	};
 
 	// Apply friction
-	let friction = if body.is_grounded {
-		-time.delta_secs() * friction * velocity
-	} else {
-		Vec2::ZERO
-	};
+	let friction = -time.delta_secs() * friction * velocity;
 	let velocity = velocity + friction;
 
 	// Do funny quake movement
