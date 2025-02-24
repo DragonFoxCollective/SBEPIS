@@ -55,17 +55,23 @@ fn update_sprinting(
 )]
 fn axes_to_ground_velocity(
 	input: Query<&ActionState<PlayerAction>>,
-	mut movement: Query<(&PlayerBody, &mut Movement, &Transform, Has<Sprinting>)>,
+	mut movement: Query<(
+		&PlayerBody,
+		&mut Movement,
+		&Velocity,
+		&Transform,
+		Has<Sprinting>,
+	)>,
 	speed: Res<PlayerSpeed>,
 	time: Res<Time>,
 ) {
 	let input = input.single();
-	let (body, mut movement, transform, sprinting) = movement.single_mut();
+	let (body, mut movement, velocity, transform, sprinting) = movement.single_mut();
 	let input_dir =
 		input.axis_pair(&PlayerAction::Move).clamp_length_max(1.0) * Vec2::new(1.0, -1.0);
 
 	// Set up vectors
-	let velocity = (transform.rotation.inverse() * movement.0).xz();
+	let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
 	let wish_velocity = input_dir
 		* speed.speed
 		* if sprinting {
