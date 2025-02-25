@@ -5,6 +5,7 @@ use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
+use movement::DirectionalInput;
 
 use crate::camera::PlayerCamera;
 use crate::gridbox_material;
@@ -86,6 +87,7 @@ fn setup(
 			Mob,
 			PlayerBody { is_grounded: false },
 			Inventory::default(),
+			DirectionalInput::default(),
 		))
 		.id();
 
