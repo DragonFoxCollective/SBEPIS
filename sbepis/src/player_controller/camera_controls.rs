@@ -14,13 +14,11 @@ use crate::util::find_in_ancestors;
 pub struct Pitch(pub f32);
 
 #[derive(Component)]
-pub struct PlayerBody {
-	pub is_grounded: bool,
-}
+pub struct PlayerBody;
 
 /// Probably in radians per pixel?
 #[derive(Resource)]
-#[resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.003))]
+#[resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.002))]
 pub struct MouseSensitivity(pub f32);
 
 #[system(

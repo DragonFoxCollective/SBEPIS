@@ -32,6 +32,7 @@ mod skybox;
 pub mod util;
 
 mod prelude {
+	pub use crate::camera::PlayerCameraNode;
 	pub use crate::player_controller::camera_controls::{
 		interact_with, InteractedWith, InteractedWithSet, PlayerBody,
 	};
@@ -69,6 +70,8 @@ fn main() {
 			#[cfg(feature = "overview_camera")]
 			overview_camera::OverviewCameraPlugin,
 			bevy_hanabi::HanabiPlugin,
+			#[cfg(feature = "movement_indicators")]
+			player_controller::speed_indicator::SpeedIndicatorPlugin,
 		));
 
 	app.add_plugins((

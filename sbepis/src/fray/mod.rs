@@ -5,7 +5,7 @@ use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy_butler::*;
 use soundyrust::*;
-use tracks::{FrayTracks, Track, TrackSwitcher};
+use tracks::{FrayTracks, Track};
 
 use crate::camera::PlayerCameraNode;
 use crate::npcs::imp::Imp;
