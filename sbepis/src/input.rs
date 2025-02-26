@@ -91,3 +91,15 @@ pub fn button_just_pressed<T: Actionlike + Copy>(
 		}
 	}
 }
+
+pub fn button_just_released<T: Actionlike + Copy>(
+	action: T,
+) -> impl Fn(Query<&ActionState<T>>) -> bool {
+	move |input: Query<&ActionState<T>>| {
+		if let Some(input) = input.iter().find(|input| !input.disabled()) {
+			input.just_released(&action)
+		} else {
+			false
+		}
+	}
+}

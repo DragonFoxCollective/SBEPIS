@@ -14,9 +14,7 @@ use crate::util::find_in_ancestors;
 pub struct Pitch(pub f32);
 
 #[derive(Component)]
-pub struct PlayerBody {
-	pub is_grounded: bool,
-}
+pub struct PlayerBody;
 
 /// Probably in radians per pixel?
 #[derive(Resource)]

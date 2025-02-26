@@ -5,7 +5,7 @@ use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
-use movement::DirectionalInput;
+use movement::di::DirectionalInput;
 
 use crate::camera::PlayerCamera;
 use crate::gridbox_material;
@@ -85,7 +85,7 @@ fn setup(
 			MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
 			Collider::capsule_y(0.5, 0.25),
 			Mob,
-			PlayerBody { is_grounded: false },
+			PlayerBody,
 			Inventory::default(),
 			DirectionalInput::default(),
 		))
@@ -163,33 +163,6 @@ fn setup(
 		DebugColliderVisualizer,
 		CollisionGroups::new(Group::NONE, Group::NONE),
 	));
-}
-
-#[system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-)]
-fn update_is_grounded(
-	mut bodies: Query<(Entity, &mut PlayerBody, &GlobalTransform)>,
-	rapier_context: Query<&RapierContext>,
-) {
-	let rapier_context = rapier_context.single();
-	for (entity, mut body, transform) in bodies.iter_mut() {
-		body.is_grounded = false;
-		rapier_context.intersections_with_shape(
-			transform.translation() - transform.rotation() * Vec3::Y * 0.5,
-			Quat::IDENTITY,
-			&Collider::ball(0.25),
-			QueryFilter::default(),
-			|collided_entity| {
-				if collided_entity == entity {
-					true
-				} else {
-					body.is_grounded = true;
-					false
-				}
-			},
-		);
-	}
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
