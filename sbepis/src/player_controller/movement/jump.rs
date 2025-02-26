@@ -63,12 +63,13 @@ fn jump(
 ) {
 	for (player, mut velocity, transform) in player_bodies.iter_mut() {
 		println!("Jumping!");
+		if transform.up().dot(velocity.linvel) < 0.0 {
+			velocity.linvel = velocity.linvel.reject_from(transform.up().into());
+		}
 		velocity.linvel += transform.up() * speed.jump_speed;
 		commands
 			.entity(player)
 			.remove::<Dashing>()
 			.remove::<TryingToJump>();
-		// FIXME: Input buffering for jumping doesn't work because the player hasn't stopped yet,
-		// so it just cancels out their fall
 	}
 }
