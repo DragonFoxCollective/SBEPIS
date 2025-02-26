@@ -19,7 +19,9 @@ use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin}
 	air_friction: 0.0,
 	acceleration: 8.0,
 	air_acceleration: 2.0,
-	dash_speed_addon: 6.0,
+
+	dash_speed_addon: 12.0,
+	dash_time: Duration::from_secs_f32(0.3),
 })]
 pub struct PlayerSpeed {
 	pub speed: f32,
@@ -31,6 +33,7 @@ pub struct PlayerSpeed {
 	pub air_acceleration: f32,
 
 	pub dash_speed_addon: f32,
+	pub dash_time: Duration,
 }
 
 #[derive(Component, Default)]
@@ -153,7 +156,7 @@ fn update_walk_velocity(
 			speed_settings.air_acceleration
 		};
 
-		// Apply friction
+		// Apply friction // FIXME: using the the physics velocity applies friction, but it's not the same as the friction in the movement system
 		let friction = -time.delta_secs() * friction * velocity;
 		let velocity = velocity + friction;
 
@@ -177,12 +180,13 @@ fn update_dash_velocity(
 	mut commands: Commands,
 ) {
 	for (player, mut movement, mut velocity, dashing) in movement.iter_mut() {
-		if dashing.duration < Duration::from_secs_f32(0.2) {
+		if dashing.duration < speed_settings.dash_time {
 			velocity.linvel = dashing.velocity;
 			movement.0 = dashing.velocity;
 		} else {
 			velocity.linvel = dashing.velocity.normalize_or_zero()
-				* (dashing.velocity.length() - speed_settings.dash_speed_addon);
+				* (dashing.velocity.length() - speed_settings.dash_speed_addon
+					+ (speed_settings.sprint_modifier - 1.0) * speed_settings.speed);
 			movement.0 = velocity.linvel;
 			commands.entity(player).remove::<Dashing>();
 		}
