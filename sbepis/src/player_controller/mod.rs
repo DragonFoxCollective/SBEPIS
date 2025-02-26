@@ -6,6 +6,7 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use movement::di::DirectionalInput;
+use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
 use crate::gridbox_material;
@@ -25,6 +26,7 @@ use self::weapons::*;
 pub mod camera_controls;
 pub mod movement;
 pub mod speed_indicator;
+pub mod stamina;
 pub mod weapons;
 
 #[butler_plugin(build(
@@ -88,6 +90,11 @@ fn setup(
 			PlayerBody,
 			Inventory::default(),
 			DirectionalInput::default(),
+			Stamina {
+				current: 1.0,
+				max: 1.0,
+				recovery_rate: 0.1,
+			},
 		))
 		.id();
 

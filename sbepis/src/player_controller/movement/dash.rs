@@ -7,6 +7,7 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::stamina::Stamina;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
@@ -83,8 +84,8 @@ fn update_dash_cooldown(
 	in_set = MovementControlSet::UpdateDashing,
 )]
 fn add_dashing(
-	players: Query<
-		(Entity, &Velocity, &DirectionalInput),
+	mut players: Query<
+		(Entity, &Velocity, &DirectionalInput, &mut Stamina),
 		(
 			With<EffectiveGrounded>,
 			With<TryingToDash>,
@@ -95,16 +96,19 @@ fn add_dashing(
 	speed_settings: Res<PlayerSpeed>,
 	mut commands: Commands,
 ) {
-	for (player, velocity, di) in players.iter() {
-		println!("Dashing!");
-		commands
-			.entity(player)
-			.insert(Dashing {
-				duration: Duration::ZERO,
-				velocity: di.world_space.normalize_or(di.forward)
-					* (velocity.linvel.length() + speed_settings.dash_speed_addon),
-			})
-			.remove::<TryingToDash>();
+	for (player, velocity, di, mut stamina) in players.iter_mut() {
+		if stamina.current >= speed_settings.dash_stamina_cost {
+			println!("Dashing!");
+			commands
+				.entity(player)
+				.insert(Dashing {
+					duration: Duration::ZERO,
+					velocity: di.world_space.normalize_or(di.forward)
+						* (velocity.linvel.length() + speed_settings.dash_speed_addon),
+				})
+				.remove::<TryingToDash>();
+			stamina.current -= speed_settings.dash_stamina_cost;
+		}
 	}
 }
 
