@@ -8,10 +8,13 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
-use super::dash::{Dashing, Sprinting};
+use super::dash::Dashing;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
 use super::PlayerSpeed;
+
+#[derive(Component, Default)]
+pub struct Sprinting;
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,

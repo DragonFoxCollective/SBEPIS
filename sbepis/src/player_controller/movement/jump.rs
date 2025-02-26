@@ -13,7 +13,7 @@ use super::grounded::EffectiveGrounded;
 use super::PlayerSpeed;
 
 #[derive(Component, Default)]
-pub struct TryingToJump(pub Duration);
+pub struct TryingToJump(Duration);
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,

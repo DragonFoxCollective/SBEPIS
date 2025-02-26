@@ -15,16 +15,16 @@ use super::grounded::EffectiveGrounded;
 use super::PlayerSpeed;
 
 #[derive(Component, Default)]
-pub struct TryingToDash(pub Duration);
-
-#[derive(Component, Default)]
-pub struct Sprinting;
+pub struct TryingToDash(Duration);
 
 #[derive(Component)]
 pub struct Dashing {
 	pub duration: Duration,
 	pub velocity: Vec3,
 }
+
+#[derive(Component, Default)]
+pub struct DashCooldown(Duration);
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
@@ -59,8 +59,27 @@ fn update_trying_to_dash(
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
+	in_set = MovementControlSet::UpdateDashing,
+)]
+fn update_dash_cooldown(
+	mut players: Query<(Entity, &mut DashCooldown)>,
+	time: Res<Time>,
+	speed_settings: Res<PlayerSpeed>,
+	mut commands: Commands,
+) {
+	for (player, mut dash_cooldown) in players.iter_mut() {
+		dash_cooldown.0 += time.delta();
+		if dash_cooldown.0 >= speed_settings.dash_cooldown {
+			commands.entity(player).remove::<DashCooldown>();
+		}
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
 	after = MovementControlSet::UpdateDi,
 	after = MovementControlSet::UpdateGrounded,
+	after = update_dash_cooldown,
 	in_set = MovementControlSet::UpdateDashing,
 )]
 fn add_dashing(
@@ -70,6 +89,7 @@ fn add_dashing(
 			With<EffectiveGrounded>,
 			With<TryingToDash>,
 			Without<Dashing>,
+			Without<DashCooldown>,
 		),
 	>,
 	speed_settings: Res<PlayerSpeed>,
@@ -106,7 +126,10 @@ fn update_dashing(
 				* (dashing.velocity.length() - speed_settings.dash_speed_addon
 					+ (speed_settings.sprint_modifier - 1.0) * speed_settings.speed);
 			movement.0 = velocity.linvel;
-			commands.entity(player).remove::<Dashing>();
+			commands
+				.entity(player)
+				.remove::<Dashing>()
+				.insert(DashCooldown::default());
 		}
 	}
 }

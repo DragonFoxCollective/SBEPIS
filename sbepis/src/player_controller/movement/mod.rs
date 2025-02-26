@@ -23,6 +23,7 @@ pub mod walk;
 
 	dash_speed_addon: 12.0,
 	dash_time: Duration::from_secs_f32(0.3),
+	dash_cooldown: Duration::from_secs_f32(0.2),
 
 	input_buffer_time: Duration::from_secs_f32(0.1),
 	coyote_time: Duration::from_secs_f32(0.1),
@@ -38,6 +39,7 @@ pub struct PlayerSpeed {
 
 	pub dash_speed_addon: f32,
 	pub dash_time: Duration,
+	pub dash_cooldown: Duration,
 
 	pub input_buffer_time: Duration,
 	pub coyote_time: Duration,
