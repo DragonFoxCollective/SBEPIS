@@ -5,8 +5,8 @@ use bevy::utils::HashMap;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Collider;
 use proposal::*;
-use rand::distributions::{Distribution, Standard};
 use rand::Rng;
+use rand::distributions::{Distribution, Standard};
 use screen::QuestProgressUpdatedSet;
 use uuid::Uuid;
 
@@ -16,7 +16,7 @@ use crate::inventory::{Inventory, InventoryChanged, InventoryChangedSet, Item};
 use crate::menus::*;
 use crate::npcs::imp::Imp;
 use crate::prelude::InteractedWithSet;
-use crate::{gridbox_material, some_or_return, Box};
+use crate::{Box, gridbox_material, some_or_return};
 
 mod proposal;
 mod quest_markers;
@@ -144,15 +144,15 @@ pub struct Quest {
 }
 impl Distribution<Quest> for Standard {
 	fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Quest {
-		let quest_type: QuestType = rng.gen();
+		let quest_type: QuestType = rng.r#gen();
 		match quest_type {
-			QuestType::Kill {
-				amount, ..
-			} => Quest {
+			QuestType::Kill { amount, .. } => Quest {
 				id: QuestId::new(),
 				name: "Awesome Kill Quest".to_string(),
 				quest_type,
-				description: format!("imps killed my grandma... pwease go take revenge on those darn imps for me... kill {amount}!!"),
+				description: format!(
+					"imps killed my grandma... pwease go take revenge on those darn imps for me... kill {amount}!!"
+				),
 			},
 			QuestType::Fetch { .. } => Quest {
 				id: QuestId::new(),

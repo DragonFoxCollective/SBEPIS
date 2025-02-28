@@ -47,7 +47,7 @@ pub fn fire_action_button_events<T: ActionButtonEvent>(
 
 	buttons
 		.iter()
-		.filter(|(_, &interaction)| interaction == Interaction::Pressed)
+		.filter(|&(_, &interaction)| interaction == Interaction::Pressed)
 		.for_each(|(button, _)| {
 			commands.run_system_with_input(system, button.input_manager());
 		});
