@@ -8,10 +8,11 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
+use super::PlayerSpeed;
+use super::crouch::Crouching;
 use super::dash::Dashing;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
-use super::PlayerSpeed;
 
 #[derive(Component, Default)]
 pub struct Sprinting;
@@ -53,21 +54,23 @@ fn update_walk_velocity(
 			&DirectionalInput,
 			Has<Sprinting>,
 			Has<Grounded>,
+			Has<Crouching>,
 		),
 		Without<Dashing>,
 	>,
 	speed_settings: Res<PlayerSpeed>,
 	time: Res<Time>,
 ) {
-	for (mut movement, velocity, transform, di, sprinting, grounded) in movement.iter_mut() {
+	for (mut movement, velocity, transform, di, sprinting, grounded, crouching) in
+		movement.iter_mut()
+	{
 		// Set up vectors
 		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
 		let wish_velocity = di.input
-			* speed_settings.speed
-			* if sprinting {
-				speed_settings.sprint_modifier
-			} else {
-				1.0
+			* match (sprinting, crouching) {
+				(true, false) => speed_settings.sprint_speed,
+				(false, true) => speed_settings.sneak_speed,
+				(_, _) => speed_settings.speed,
 			};
 		let wish_speed = wish_velocity.length();
 		let wish_direction = wish_velocity.normalize_or_zero();

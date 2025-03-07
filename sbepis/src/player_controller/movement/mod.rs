@@ -15,7 +15,9 @@ pub mod walk;
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerSpeed {
 	speed: 6.0,
-	sprint_modifier: 1.5,
+	sneak_speed: 3.0,
+	sprint_speed: 9.0,
+
 	friction: 6.0,
 	air_friction: 0.0,
 	acceleration: 8.0,
@@ -34,7 +36,9 @@ pub mod walk;
 })]
 pub struct PlayerSpeed {
 	pub speed: f32,
-	pub sprint_modifier: f32,
+	pub sneak_speed: f32,
+	pub sprint_speed: f32,
+
 	pub friction: f32,
 	pub air_friction: f32,
 	pub acceleration: f32,

@@ -11,9 +11,9 @@ use crate::player_controller::stamina::Stamina;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
+use super::PlayerSpeed;
 use super::di::DirectionalInput;
 use super::grounded::EffectiveGrounded;
-use super::PlayerSpeed;
 
 #[derive(Component, Default)]
 pub struct TryingToDash(Duration);
@@ -128,7 +128,7 @@ fn update_dashing(
 		if dashing.duration >= speed_settings.dash_time {
 			velocity.linvel = dashing.velocity.normalize_or_zero()
 				* (dashing.velocity.length() - speed_settings.dash_speed_addon
-					+ (speed_settings.sprint_modifier - 1.0) * speed_settings.speed);
+					+ (speed_settings.sprint_speed - speed_settings.speed));
 			movement.0 = velocity.linvel;
 			commands
 				.entity(player)
