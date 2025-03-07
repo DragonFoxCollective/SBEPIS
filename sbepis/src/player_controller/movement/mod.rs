@@ -5,6 +5,7 @@ use bevy_butler::*;
 
 use crate::player_controller::PlayerControllerPlugin;
 
+pub mod crouch;
 pub mod dash;
 pub mod di;
 pub mod grounded;
@@ -54,6 +55,7 @@ pub enum MovementControlSet {
 	UpdateJumping,
 	UpdateDashing,
 	UpdateSprinting,
+	UpdateCrouching,
 	DoHorizontalMovement,
 	DoVerticalMovement,
 }

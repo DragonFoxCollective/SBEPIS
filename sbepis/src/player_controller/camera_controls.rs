@@ -7,14 +7,14 @@ use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 use crate::camera::PlayerCamera;
+use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::util::find_in_ancestors;
 
-#[derive(Component)]
-pub struct Pitch(pub f32);
+use super::PlayerBody;
 
 #[derive(Component)]
-pub struct PlayerBody;
+pub struct Pitch(pub f32);
 
 /// Probably in radians per pixel?
 #[derive(Resource)]
@@ -23,6 +23,7 @@ pub struct MouseSensitivity(pub f32);
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
+	after = MovementControlSet::UpdateCrouching,
 )]
 fn rotate_camera_and_body(
 	input: Query<&ActionState<PlayerAction>>,

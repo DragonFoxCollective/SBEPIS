@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{animated_field, AnimationTarget, AnimationTargetId};
+use bevy::animation::{AnimationTarget, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 use bevy::render::mesh::CapsuleUvProfile;
@@ -12,8 +12,8 @@ use bevy_rapier3d::prelude::QueryFilter;
 use crate::camera::PlayerCamera;
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
-use crate::player_controller::weapons::{EntityHit, WeaponAnimation};
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::weapons::{EntityHit, WeaponAnimation};
 
 #[derive(Component)]
 pub struct RiflePivot {
@@ -122,7 +122,7 @@ pub fn spawn_rifle(
 	let rifle_pivot = commands
 		.spawn((
 			Name::new("Rifle Pivot"),
-			Transform::from_translation(Vec3::new(0.25, 0.0, -0.5)),
+			Transform::from_translation(Vec3::new(0.25, 0.75, -0.5)),
 			Visibility::default(),
 			RiflePivot {
 				barrel: rifle_barrel,
