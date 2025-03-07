@@ -33,8 +33,9 @@ pub mod util;
 
 mod prelude {
 	pub use crate::camera::PlayerCameraNode;
+	pub use crate::player_controller::PlayerBody;
 	pub use crate::player_controller::camera_controls::{
-		interact_with, InteractedWith, InteractedWithSet, PlayerBody,
+		InteractedWith, InteractedWithSet, interact_with,
 	};
 }
 

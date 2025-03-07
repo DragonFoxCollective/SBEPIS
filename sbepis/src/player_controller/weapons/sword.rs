@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{animated_field, AnimationTarget, AnimationTargetId};
+use bevy::animation::{AnimationTarget, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 use bevy::render::mesh::CapsuleUvProfile;
@@ -153,7 +153,8 @@ pub fn spawn_sword(
 	let sword_pivot = commands
 		.spawn((
 			Name::new("Sword Pivot"),
-			Transform::from_rotation(Quat::from_rotation_y(-PI * 0.5)),
+			Transform::from_translation(Vec3::Y * 0.75)
+				.with_rotation(Quat::from_rotation_y(-PI * 0.5)),
 			SwordPivot { blade: sword_blade },
 			SweepPivot {
 				sweeper_length: 0.2,

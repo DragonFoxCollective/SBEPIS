@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{animated_field, AnimationTarget, AnimationTargetId};
+use bevy::animation::{AnimationTarget, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 use bevy::render::mesh::CapsuleUvProfile;
@@ -96,6 +96,7 @@ pub fn spawn_hammer(
 	let hammer_pivot = commands
 		.spawn((
 			Name::new("Hammer Pivot"),
+			Transform::from_translation(Vec3::Y * 0.75),
 			HammerPivot { head: hammer_head },
 			SweepPivot {
 				sweeper_length: 0.2,

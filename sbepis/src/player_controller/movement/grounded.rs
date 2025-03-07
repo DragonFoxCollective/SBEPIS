@@ -20,20 +20,21 @@ pub struct EffectiveGrounded(pub Duration);
 	in_set = MovementControlSet::UpdateGrounded,
 )]
 fn update_is_grounded(
-	mut bodies: Query<(Entity, &GlobalTransform), With<PlayerBody>>,
+	mut bodies: Query<(Entity, &GlobalTransform, &PlayerBody)>,
 	rapier_context: Query<&RapierContext>,
 	mut commands: Commands,
 ) {
 	let rapier_context = rapier_context.single();
-	for (entity, transform) in bodies.iter_mut() {
+	for (player, transform, body) in bodies.iter_mut() {
+		let collider_entity = body.collider;
 		let mut grounded = false;
 		rapier_context.intersections_with_shape(
-			transform.translation() - transform.rotation() * Vec3::Y * 0.5,
+			transform.translation(),
 			Quat::IDENTITY,
 			&Collider::ball(0.25),
 			QueryFilter::default(),
 			|collided_entity| {
-				if collided_entity == entity {
+				if collided_entity == collider_entity {
 					true
 				} else {
 					grounded = true;
@@ -42,9 +43,9 @@ fn update_is_grounded(
 			},
 		);
 		if grounded {
-			commands.entity(entity).insert(Grounded);
+			commands.entity(player).insert(Grounded);
 		} else {
-			commands.entity(entity).remove::<Grounded>();
+			commands.entity(player).remove::<Grounded>();
 		}
 	}
 }

@@ -5,6 +5,7 @@ use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
+use movement::crouch::{CrouchingAssets, StandingAssets};
 use movement::di::DirectionalInput;
 use stamina::Stamina;
 
@@ -54,6 +55,7 @@ fn setup(
 					.with(PlayerAction::Jump, KeyCode::Space)
 					.with_dual_axis(PlayerAction::Look, MouseMove::default())
 					.with(PlayerAction::Sprint, KeyCode::ShiftLeft)
+					.with(PlayerAction::Crouch, KeyCode::ControlLeft)
 					.with(PlayerAction::Use, MouseButton::Left)
 					.with(PlayerAction::Interact, KeyCode::KeyE)
 					.with(PlayerAction::NextWeapon, MouseScrollDirection::UP)
@@ -70,24 +72,44 @@ fn setup(
 		.id();
 	menu_stack.push(input);
 
+	let standing_assets = StandingAssets {
+		mesh: Mesh3d(
+			meshes.add(
+				Capsule3d::new(0.25, 1.0)
+					.mesh()
+					.rings(1)
+					.latitudes(8)
+					.longitudes(16)
+					.uv_profile(CapsuleUvProfile::Fixed),
+			),
+		),
+		mesh_transform: Transform::from_translation(Vec3::Y * 0.75),
+		collider: Collider::capsule_y(0.5, 0.25),
+		collider_transform: Transform::from_translation(Vec3::Y * 0.75),
+		camera_transform: Transform::from_translation(Vec3::Y * 1.25),
+	};
+	let crouching_assets = CrouchingAssets {
+		mesh: Mesh3d(
+			meshes.add(
+				Capsule3d::new(0.25, 0.5)
+					.mesh()
+					.rings(1)
+					.latitudes(8)
+					.longitudes(16)
+					.uv_profile(CapsuleUvProfile::Fixed),
+			),
+		),
+		mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
+		collider: Collider::capsule_y(0.25, 0.25),
+		collider_transform: Transform::from_translation(Vec3::Y * 0.5),
+		camera_transform: Transform::from_translation(Vec3::Y * 0.75),
+	};
+
 	let body = commands
 		.spawn((
 			Name::new("Player Body"),
 			Transform::from_translation(Vec3::new(5.0, 10.0, 0.0)),
-			Mesh3d(
-				meshes.add(
-					Capsule3d::new(0.25, 1.0)
-						.mesh()
-						.rings(1)
-						.latitudes(8)
-						.longitudes(16)
-						.uv_profile(CapsuleUvProfile::Fixed),
-				),
-			),
-			MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
-			Collider::capsule_y(0.5, 0.25),
 			Mob,
-			PlayerBody,
 			Inventory::default(),
 			DirectionalInput::default(),
 			Stamina {
@@ -98,11 +120,28 @@ fn setup(
 		))
 		.id();
 
+	let collider = commands
+		.spawn((
+			standing_assets.collider_transform,
+			standing_assets.collider.clone(),
+		))
+		.set_parent(body)
+		.id();
+
+	let mesh = commands
+		.spawn((
+			standing_assets.mesh_transform,
+			standing_assets.mesh.clone(),
+			MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
+		))
+		.set_parent(body)
+		.id();
+
 	let camera = commands
 		.spawn((
 			Name::new("Player Camera"),
 			Camera3d::default(),
-			Transform::from_translation(Vec3::Y * 0.5),
+			standing_assets.camera_transform,
 			Projection::Perspective(PerspectiveProjection {
 				fov: 70.0 / 180. * PI,
 				..default()
@@ -113,6 +152,12 @@ fn setup(
 		))
 		.set_parent(body)
 		.id();
+
+	commands.entity(body).insert(PlayerBody {
+		camera,
+		collider,
+		mesh,
+	});
 
 	let (hammer_pivot, _hammer_head) = spawn_hammer(
 		&mut commands,
@@ -170,6 +215,9 @@ fn setup(
 		DebugColliderVisualizer,
 		CollisionGroups::new(Group::NONE, Group::NONE),
 	));
+
+	commands.insert_resource(standing_assets);
+	commands.insert_resource(crouching_assets);
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
@@ -178,6 +226,7 @@ pub enum PlayerAction {
 	Jump,
 	Look,
 	Sprint,
+	Crouch,
 	Use,
 	Interact,
 	NextWeapon,
@@ -193,6 +242,7 @@ impl Actionlike for PlayerAction {
 			PlayerAction::Jump => InputControlKind::Button,
 			PlayerAction::Look => InputControlKind::DualAxis,
 			PlayerAction::Sprint => InputControlKind::Button,
+			PlayerAction::Crouch => InputControlKind::Button,
 			PlayerAction::Use => InputControlKind::Button,
 			PlayerAction::Interact => InputControlKind::Button,
 			PlayerAction::NextWeapon => InputControlKind::Button,
@@ -202,4 +252,11 @@ impl Actionlike for PlayerAction {
 			PlayerAction::OpenStaff => InputControlKind::Button,
 		}
 	}
+}
+
+#[derive(Component)]
+pub struct PlayerBody {
+	pub camera: Entity,
+	pub mesh: Entity,
+	pub collider: Entity,
 }
