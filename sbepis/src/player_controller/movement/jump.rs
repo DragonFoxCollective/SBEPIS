@@ -8,9 +8,10 @@ use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin};
 
+use super::PlayerSpeed;
+use super::crouch::Crouching;
 use super::dash::Dashing;
 use super::grounded::EffectiveGrounded;
-use super::PlayerSpeed;
 
 #[derive(Component, Default)]
 pub struct TryingToJump(Duration);
@@ -55,18 +56,22 @@ fn update_trying_to_jump(
 )]
 fn jump(
 	mut player_bodies: Query<
-		(Entity, &mut Velocity, &Transform),
+		(Entity, &mut Velocity, &Transform, Has<Crouching>),
 		(With<EffectiveGrounded>, With<TryingToJump>),
 	>,
 	speed: Res<PlayerSpeed>,
 	mut commands: Commands,
 ) {
-	for (player, mut velocity, transform) in player_bodies.iter_mut() {
+	for (player, mut velocity, transform, crouching) in player_bodies.iter_mut() {
 		println!("Jumping!");
 		if transform.up().dot(velocity.linvel) < 0.0 {
 			velocity.linvel = velocity.linvel.reject_from(transform.up().into());
 		}
-		velocity.linvel += transform.up() * speed.jump_speed;
+		velocity.linvel += transform.up()
+			* match crouching {
+				false => speed.jump_speed,
+				true => speed.high_jump_speed,
+			};
 		commands
 			.entity(player)
 			.remove::<Dashing>()
