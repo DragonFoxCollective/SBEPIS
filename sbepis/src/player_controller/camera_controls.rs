@@ -55,8 +55,6 @@ fn rotate_camera_and_body(
 
 		body_transform.rotation *= Quat::from_rotation_y(-delta.x * sensitivity.0);
 
-		// Football imparts torque on body and LockedAxes doesn't work
-		// reject_from is projection on the plane normal to the vec
 		body_velocity.angvel = body_velocity
 			.angvel
 			.reject_from(body_transform.rotation * Vec3::Z);

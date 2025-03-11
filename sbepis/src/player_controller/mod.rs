@@ -122,14 +122,20 @@ fn setup(
 
 	let collider = commands
 		.spawn((
+			Name::new("Player Collider"),
 			standing_assets.collider_transform,
 			standing_assets.collider.clone(),
+			Friction {
+				coefficient: 0.0,
+				combine_rule: CoefficientCombineRule::Min,
+			},
 		))
 		.set_parent(body)
 		.id();
 
 	let mesh = commands
 		.spawn((
+			Name::new("Player Mesh"),
 			standing_assets.mesh_transform,
 			standing_assets.mesh.clone(),
 			MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),

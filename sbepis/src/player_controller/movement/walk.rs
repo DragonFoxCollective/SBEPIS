@@ -3,6 +3,7 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
+use crate::entity::movement::ExecuteMovementSet;
 use crate::input::{button_just_pressed, button_just_released};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
@@ -44,6 +45,7 @@ fn remove_sprinting(players: Query<Entity, With<PlayerBody>>, mut commands: Comm
 	after = MovementControlSet::UpdateDashing,
 	after = MovementControlSet::UpdateSprinting,
 	in_set = MovementControlSet::DoHorizontalMovement,
+	before = ExecuteMovementSet,
 )]
 fn update_walk_velocity(
 	mut movement: Query<
@@ -85,7 +87,7 @@ fn update_walk_velocity(
 			speed_settings.air_acceleration
 		};
 
-		// Apply friction // FIXME: using the the physics velocity applies friction, but it's not the same as the friction in the movement system
+		// Apply friction
 		let friction = -time.delta_secs() * friction * velocity;
 		let velocity = velocity + friction;
 
