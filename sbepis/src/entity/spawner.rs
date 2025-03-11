@@ -26,7 +26,9 @@ pub struct SpawnerActivatedSet;
 
 #[derive(Event)]
 #[event(plugin = EntityPlugin)]
-pub struct EntitySpawned(pub Entity);
+pub struct EntitySpawned {
+	pub _entity: Entity,
+}
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EntitySpawnedSet;
 

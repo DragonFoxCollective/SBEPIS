@@ -69,6 +69,6 @@ fn spawn_consort(
 				MeshMaterial3d(gridbox_material("magenta", &mut materials, &asset_server)),
 				Collider::capsule_y(0.25, 0.25),
 			));
-		ev_spawned.send(EntitySpawned(ev.entity));
+		ev_spawned.send(EntitySpawned { _entity: ev.entity });
 	}
 }

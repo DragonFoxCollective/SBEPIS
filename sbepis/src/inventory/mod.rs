@@ -4,8 +4,8 @@ use bevy_rapier3d::prelude::*;
 use screen::*;
 
 use crate::menus::{MenuManipulationSet, OpenMenuBinding};
-use crate::player_controller::camera_controls::InteractedWithSet;
 use crate::player_controller::PlayerAction;
+use crate::player_controller::camera_controls::InteractedWithSet;
 
 mod screen;
 
@@ -59,7 +59,9 @@ fn pick_up_items(
 			.insert(Visibility::Hidden)
 			.insert(ColliderDisabled);
 		ev_picked_up.send(ItemPickedUp(ev.0));
-		ev_inventory_changed.send(InventoryChanged(inventory_entity));
+		ev_inventory_changed.send(InventoryChanged {
+			_inventory: inventory_entity,
+		});
 	}
 }
 
@@ -81,7 +83,9 @@ use crate::menus::show_menu_on_action;
 
 #[derive(Event)]
 #[event(plugin = InventoryPlugin)]
-pub struct InventoryChanged(pub Entity);
+pub struct InventoryChanged {
+	pub _inventory: Entity,
+}
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InventoryChangedSet;
 

@@ -71,7 +71,7 @@ impl ImpAssets {
 pub struct ImpAnimations {
 	pub idle: AnimationNodeIndex,
 	pub run: AnimationNodeIndex,
-	pub attack: AnimationNodeIndex,
+	pub _attack: AnimationNodeIndex,
 }
 
 #[system(
@@ -168,7 +168,7 @@ fn spawn_imp(
 					let imp_animations = ImpAnimations {
 						idle: nodes[0],
 						run: nodes[1],
-						attack: nodes[2],
+						_attack: nodes[2],
 					};
 
 					let mut animation_player = AnimationPlayer::default();
@@ -204,7 +204,7 @@ fn spawn_imp(
 				},
 			);
 
-		ev_spawned.send(EntitySpawned(imp));
+		ev_spawned.send(EntitySpawned { _entity: imp });
 	}
 }
 
