@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use dash::DashAssets;
 
 use crate::player_controller::PlayerControllerPlugin;
 
@@ -66,4 +67,11 @@ pub enum MovementControlSet {
 	UpdateCrouching,
 	DoHorizontalMovement,
 	DoVerticalMovement,
+}
+
+#[system(plugin = PlayerControllerPlugin, schedule = Startup)]
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+	commands.insert_resource(DashAssets {
+		sound: asset_server.load("ultrakill dash sound.mp3"),
+	});
 }

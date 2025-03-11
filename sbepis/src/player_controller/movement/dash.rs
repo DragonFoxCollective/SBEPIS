@@ -15,6 +15,11 @@ use super::PlayerSpeed;
 use super::di::DirectionalInput;
 use super::grounded::EffectiveGrounded;
 
+#[derive(Resource)]
+pub struct DashAssets {
+	pub sound: Handle<AudioSource>,
+}
+
 #[derive(Component, Default)]
 pub struct TryingToDash(Duration);
 
@@ -95,6 +100,7 @@ fn add_dashing(
 	>,
 	speed_settings: Res<PlayerSpeed>,
 	mut commands: Commands,
+	assets: Res<DashAssets>,
 ) {
 	for (player, velocity, di, mut stamina) in players.iter_mut() {
 		if stamina.current >= speed_settings.dash_stamina_cost {
@@ -107,7 +113,10 @@ fn add_dashing(
 						* (velocity.linvel.length() + speed_settings.dash_speed_addon),
 				})
 				.remove::<TryingToDash>();
+
 			stamina.current -= speed_settings.dash_stamina_cost;
+
+			commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
 		}
 	}
 }
