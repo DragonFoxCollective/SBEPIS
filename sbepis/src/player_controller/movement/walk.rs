@@ -9,11 +9,32 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
-use super::PlayerSpeed;
 use super::crouch::Crouching;
 use super::dash::Dashing;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
+
+#[derive(Resource)]
+#[resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
+	speed: 6.0,
+	sneak_speed: 3.0,
+	sprint_speed: 9.0,
+
+	friction: 6.0,
+	air_friction: 0.0,
+	acceleration: 8.0,
+	air_acceleration: 2.0,
+})]
+pub struct PlayerWalkSettings {
+	pub speed: f32,
+	pub sneak_speed: f32,
+	pub sprint_speed: f32,
+
+	pub friction: f32,
+	pub air_friction: f32,
+	pub acceleration: f32,
+	pub air_acceleration: f32,
+}
 
 #[derive(Component, Default)]
 pub struct Sprinting;
@@ -60,7 +81,7 @@ fn update_walk_velocity(
 		),
 		Without<Dashing>,
 	>,
-	speed_settings: Res<PlayerSpeed>,
+	walk_settings: Res<PlayerWalkSettings>,
 	time: Res<Time>,
 ) {
 	for (mut movement, velocity, transform, di, sprinting, grounded, crouching) in
@@ -70,21 +91,21 @@ fn update_walk_velocity(
 		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
 		let wish_velocity = di.input
 			* match (sprinting, crouching) {
-				(true, false) => speed_settings.sprint_speed,
-				(false, true) => speed_settings.sneak_speed,
-				(_, _) => speed_settings.speed,
+				(true, false) => walk_settings.sprint_speed,
+				(false, true) => walk_settings.sneak_speed,
+				(_, _) => walk_settings.speed,
 			};
 		let wish_speed = wish_velocity.length();
 		let wish_direction = wish_velocity.normalize_or_zero();
 		let friction = if grounded {
-			speed_settings.friction
+			walk_settings.friction
 		} else {
-			speed_settings.air_friction
+			walk_settings.air_friction
 		};
 		let acceleration = if grounded {
-			speed_settings.acceleration
+			walk_settings.acceleration
 		} else {
-			speed_settings.air_acceleration
+			walk_settings.air_acceleration
 		};
 
 		// Apply friction

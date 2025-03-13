@@ -7,7 +7,7 @@ use bevy_rapier3d::prelude::*;
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
-use super::PlayerSpeed;
+use super::CoyoteTimeSettings;
 
 #[derive(Component, Default)]
 pub struct Grounded;
@@ -74,11 +74,11 @@ fn update_effective_grounded_time(
 	mut players: Query<(Entity, &mut EffectiveGrounded), Without<Grounded>>,
 	time: Res<Time>,
 	mut commands: Commands,
-	speed_settings: Res<PlayerSpeed>,
+	coyote_time_settings: Res<CoyoteTimeSettings>,
 ) {
 	for (player, mut grounded) in players.iter_mut() {
 		grounded.0 += time.delta();
-		if grounded.0 >= speed_settings.coyote_time {
+		if grounded.0 >= coyote_time_settings.coyote_time {
 			commands.entity(player).remove::<EffectiveGrounded>();
 		}
 	}

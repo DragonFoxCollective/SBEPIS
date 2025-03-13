@@ -8,10 +8,20 @@ use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin};
 
-use super::PlayerSpeed;
+use super::CoyoteTimeSettings;
 use super::crouch::Crouching;
 use super::dash::Dashing;
 use super::grounded::EffectiveGrounded;
+
+#[derive(Resource)]
+#[resource(plugin = PlayerControllerPlugin, init = PlayerJumpSettings {
+	jump_speed: 5.0,
+	high_jump_speed: 7.0,
+})]
+pub struct PlayerJumpSettings {
+	pub jump_speed: f32,
+	pub high_jump_speed: f32,
+}
 
 #[derive(Component, Default)]
 pub struct TryingToJump(Duration);
@@ -35,13 +45,13 @@ fn add_trying_to_jump(players: Query<Entity, With<PlayerBody>>, mut commands: Co
 fn update_trying_to_jump(
 	mut players: Query<(Entity, &mut TryingToJump)>,
 	time: Res<Time>,
-	speed_settings: Res<PlayerSpeed>,
+	cotote_time_settings: Res<CoyoteTimeSettings>,
 	mut commands: Commands,
 ) {
 	for (player, mut trying_to_jump) in players.iter_mut() {
 		trying_to_jump.0 += time.delta();
 		println!("Trying to jump: {:.2?}", trying_to_jump.0.as_secs_f32());
-		if trying_to_jump.0 >= speed_settings.input_buffer_time {
+		if trying_to_jump.0 >= cotote_time_settings.input_buffer_time {
 			commands.entity(player).remove::<TryingToJump>();
 		}
 	}
@@ -59,7 +69,7 @@ fn jump(
 		(Entity, &mut Velocity, &Transform, Has<Crouching>),
 		(With<EffectiveGrounded>, With<TryingToJump>),
 	>,
-	speed: Res<PlayerSpeed>,
+	speed: Res<PlayerJumpSettings>,
 	mut commands: Commands,
 ) {
 	for (player, mut velocity, transform, crouching) in player_bodies.iter_mut() {
