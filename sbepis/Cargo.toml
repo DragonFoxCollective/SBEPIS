@@ -39,6 +39,7 @@ blenvy = { git = "https://github.com/jwright159/Blenvy.git" }
 bevy-butler = "0.5.4-alpha.3"
 bevy_hanabi = "0.14.0"
 typetag = "0.2.19"
+return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
 
 [build-dependencies]
 winres = "0.1"

@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_butler::*;
 use bevy_rapier3d::geometry::Collider;
+use return_ok::{ok_or_continue, some_or_return};
 
 use crate::entity::spawner::{
 	EntitySpawned, EntitySpawnedSet, SpawnerActivated, SpawnerActivatedSet,
@@ -18,7 +19,6 @@ use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
 use crate::player_controller::weapons::EntityDamaged;
 use crate::util::AnimationRootReference;
-use crate::{ok_or_continue, some_or_return};
 
 use super::name_tags::{NameTagAssets, SpawnNameTag};
 

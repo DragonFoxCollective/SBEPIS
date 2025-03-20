@@ -10,12 +10,12 @@ use bevy_hanabi::prelude::*;
 use faker_rand::en_us::names::FirstName;
 use meshtext::{Face, MeshGenerator, MeshText, TextSection};
 use rand::seq::{IteratorRandom, SliceRandom};
+use return_ok::some_or_return;
 use serde::Deserialize;
 
 use crate::entity::spawner::EntitySpawnedSet;
 use crate::entity::{EntityKilled, EntityKilledSet};
 use crate::npcs::NpcPlugin;
-use crate::some_or_return;
 
 #[derive(Resource)]
 pub struct NameTagAssets {

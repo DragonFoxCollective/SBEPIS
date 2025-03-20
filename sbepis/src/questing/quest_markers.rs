@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use return_ok::{some_or_continue, some_or_return};
 
 use crate::entity::EntityKilledSet;
 use crate::questing::{QuestGiver, QuestingPlugin, Quests};
-use crate::{some_or_continue, some_or_return};
 
 #[derive(Component)]
 pub struct SpawnQuestMarker;

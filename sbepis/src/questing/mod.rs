@@ -7,6 +7,7 @@ use bevy_rapier3d::prelude::Collider;
 use proposal::*;
 use rand::Rng;
 use rand::distributions::{Distribution, Standard};
+use return_ok::some_or_return;
 use screen::QuestProgressUpdatedSet;
 use uuid::Uuid;
 
@@ -16,7 +17,7 @@ use crate::inventory::{Inventory, InventoryChanged, InventoryChangedSet, Item};
 use crate::menus::*;
 use crate::npcs::imp::Imp;
 use crate::prelude::InteractedWithSet;
-use crate::{Box, gridbox_material, some_or_return};
+use crate::{Box, gridbox_material};
 
 mod proposal;
 mod quest_markers;

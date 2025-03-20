@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-
-use crate::ok_or_return;
+use return_ok::ok_or_return;
 
 #[butler_plugin]
 pub struct PlayerCameraPlugin;
