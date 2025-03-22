@@ -10,9 +10,10 @@ use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
 use super::crouch::Crouching;
-use super::dash::Dashing;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
+use super::sprint::Sprinting;
+use super::stand::Standing;
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
@@ -37,34 +38,38 @@ pub struct PlayerWalkSettings {
 }
 
 #[derive(Component, Default)]
-pub struct Sprinting;
+pub struct Walking;
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateSprinting,
-	run_if = button_just_pressed(PlayerAction::Sprint),
+	in_set = MovementControlSet::UpdateState,
+	run_if = button_just_pressed(PlayerAction::Move),
 )]
-fn add_sprinting(players: Query<Entity, With<PlayerBody>>, mut commands: Commands) {
+fn standing_to_walking(
+	players: Query<Entity, (With<PlayerBody>, With<Standing>)>,
+	mut commands: Commands,
+) {
 	for player in players.iter() {
-		commands.entity(player).insert(Sprinting);
+		commands.entity(player).remove::<Standing>().insert(Walking);
 	}
 }
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateSprinting,
-	run_if = button_just_released(PlayerAction::Sprint),
+	in_set = MovementControlSet::UpdateState,
+	run_if = button_just_released(PlayerAction::Move),
 )]
-fn remove_sprinting(players: Query<Entity, With<PlayerBody>>, mut commands: Commands) {
+fn walking_to_standing(
+	players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
+	mut commands: Commands,
+) {
 	for player in players.iter() {
-		commands.entity(player).remove::<Sprinting>();
+		commands.entity(player).remove::<Walking>().insert(Standing);
 	}
 }
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::UpdateDashing,
-	after = MovementControlSet::UpdateSprinting,
 	in_set = MovementControlSet::DoHorizontalMovement,
 	before = ExecuteMovementSet,
 )]
@@ -77,23 +82,24 @@ fn update_walk_velocity(
 			&DirectionalInput,
 			Has<Sprinting>,
 			Has<Grounded>,
-			Has<Crouching>,
 		),
-		Without<Dashing>,
+		Or<(
+			With<Standing>,
+			With<Walking>,
+			With<Sprinting>,
+			With<Crouching>,
+		)>, // FIXME: removed sneaking
 	>,
 	walk_settings: Res<PlayerWalkSettings>,
 	time: Res<Time>,
 ) {
-	for (mut movement, velocity, transform, di, sprinting, grounded, crouching) in
-		movement.iter_mut()
-	{
+	for (mut movement, velocity, transform, di, sprinting, grounded) in movement.iter_mut() {
 		// Set up vectors
 		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
 		let wish_velocity = di.input
-			* match (sprinting, crouching) {
-				(true, false) => walk_settings.sprint_speed,
-				(false, true) => walk_settings.sneak_speed,
-				(_, _) => walk_settings.speed,
+			* match sprinting {
+				true => walk_settings.sprint_speed,
+				_ => walk_settings.speed,
 			};
 		let wish_speed = wish_velocity.length();
 		let wish_direction = wish_velocity.normalize_or_zero();

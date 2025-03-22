@@ -7,6 +7,8 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
+use super::stand::Standing;
+
 #[derive(Resource)]
 pub struct StandingAssets {
 	pub mesh: Mesh3d,
@@ -31,15 +33,18 @@ pub struct Crouching;
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateCrouching,
+	in_set = MovementControlSet::UpdateState,
 )]
-fn add_crouching(
-	players: Query<(Entity, &PlayerBody)>,
+fn standing_to_crouching(
+	players: Query<(Entity, &PlayerBody), With<Standing>>,
 	assets: Res<CrouchingAssets>,
 	mut commands: Commands,
 ) {
 	for (player, body) in players.iter() {
-		commands.entity(player).insert(Crouching);
+		commands
+			.entity(player)
+			.remove::<Standing>()
+			.insert(Crouching);
 		commands
 			.entity(body.mesh)
 			.insert((assets.mesh.clone(), assets.mesh_transform));
@@ -53,15 +58,18 @@ fn add_crouching(
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateCrouching,
+	in_set = MovementControlSet::UpdateState,
 )]
-fn remove_crouching(
-	players: Query<(Entity, &PlayerBody)>,
+fn crouching_to_standing(
+	players: Query<(Entity, &PlayerBody), With<Crouching>>,
 	assets: Res<StandingAssets>,
 	mut commands: Commands,
 ) {
 	for (player, body) in players.iter() {
-		commands.entity(player).remove::<Crouching>();
+		commands
+			.entity(player)
+			.remove::<Crouching>()
+			.insert(Standing);
 		commands
 			.entity(body.mesh)
 			.insert((assets.mesh.clone(), assets.mesh_transform));

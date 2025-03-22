@@ -5,8 +5,10 @@ use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
+use movement::MovementControlSet;
 use movement::crouch::{CrouchingAssets, StandingAssets};
 use movement::di::DirectionalInput;
+use movement::stand::Standing;
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
@@ -32,6 +34,12 @@ pub mod weapons;
 
 #[butler_plugin(build(
 	add_plugins(InputManagerMenuPlugin::<PlayerAction>::default()),
+	configure_sets(Update, (
+		MovementControlSet::UpdateDi.before(MovementControlSet::UpdateState),
+		MovementControlSet::UpdateGrounded.before(MovementControlSet::UpdateState),
+		MovementControlSet::DoHorizontalMovement.after(MovementControlSet::UpdateState),
+		MovementControlSet::DoVerticalMovement.after(MovementControlSet::UpdateState),
+	)),
 ))]
 pub struct PlayerControllerPlugin;
 
@@ -117,6 +125,7 @@ fn setup(
 				max: 1.0,
 				recovery_rate: 0.1,
 			},
+			Standing,
 		))
 		.id();
 

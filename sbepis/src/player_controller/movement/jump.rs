@@ -29,7 +29,7 @@ pub struct TryingToJump(Duration);
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_pressed(PlayerAction::Jump),
-	in_set = MovementControlSet::UpdateJumping,
+	in_set = MovementControlSet::UpdateState,
 )]
 fn add_trying_to_jump(players: Query<Entity, With<PlayerBody>>, mut commands: Commands) {
 	for player in players.iter() {
@@ -39,7 +39,7 @@ fn add_trying_to_jump(players: Query<Entity, With<PlayerBody>>, mut commands: Co
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateJumping,
+	in_set = MovementControlSet::UpdateState,
 	before = add_trying_to_jump,
 )]
 fn update_trying_to_jump(
@@ -60,8 +60,6 @@ fn update_trying_to_jump(
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	after = MovementControlSet::DoHorizontalMovement,
-	after = MovementControlSet::UpdateGrounded,
-	after = MovementControlSet::UpdateJumping,
 	in_set = MovementControlSet::DoVerticalMovement,
 )]
 fn jump(
