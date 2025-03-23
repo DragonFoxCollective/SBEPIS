@@ -36,10 +36,23 @@ pub struct PlayerSlideSettings {
 	pub turn_friction: f32,
 }
 
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Resource)]
+pub struct SlideAssets {
+	pub sound: Handle<AudioSource>,
+}
+
+#[system(plugin = PlayerControllerPlugin, schedule = Startup)]
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+	commands.insert_resource(SlideAssets {
+		sound: asset_server.load("slide.mp3"),
+	});
+}
+
+#[derive(Component, Clone, Reflect)]
 #[reflect(Component)]
 pub struct Sliding {
 	pub current_friction: f32,
+	pub sound: Entity,
 }
 
 #[system(
@@ -50,13 +63,20 @@ pub struct Sliding {
 fn walking_to_sliding(
 	players: Query<(Entity, &PlayerBody), With<Walking>>,
 	assets: Res<CrouchingAssets>,
+	slide_assets: Res<SlideAssets>,
 	mut commands: Commands,
 ) {
 	for (player, body) in players.iter() {
-		commands
-			.entity(player)
-			.remove::<Walking>()
-			.insert(Sliding::default());
+		let sound = commands
+			.spawn((
+				AudioPlayer::new(slide_assets.sound.clone()),
+				PlaybackSettings::LOOP,
+			))
+			.id();
+		commands.entity(player).remove::<Walking>().insert(Sliding {
+			current_friction: 0.0,
+			sound,
+		});
 		commands
 			.entity(body.mesh)
 			.insert((assets.mesh.clone(), assets.mesh_transform));
@@ -73,18 +93,19 @@ fn walking_to_sliding(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn sliding_to_standing_or_walking(
-	players: Query<(Entity, &PlayerBody), With<Sliding>>,
+	players: Query<(Entity, &PlayerBody, &Sliding)>,
 	assets: Res<StandingAssets>,
 	mut commands: Commands,
 	input: Query<&ActionState<PlayerAction>>,
 ) {
 	let input = input.single();
-	for (player, body) in players.iter() {
+	for (player, body, sliding) in players.iter() {
 		if button_pressed(input, &PlayerAction::Move) {
 			commands.entity(player).remove::<Sliding>().insert(Walking);
 		} else {
 			commands.entity(player).remove::<Sliding>().insert(Standing);
 		}
+		commands.entity(sliding.sound).despawn();
 		commands
 			.entity(body.mesh)
 			.insert((assets.mesh.clone(), assets.mesh_transform));
