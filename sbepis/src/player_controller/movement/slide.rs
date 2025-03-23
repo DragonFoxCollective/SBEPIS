@@ -131,7 +131,10 @@ fn update_slide_velocity(
 				.map_from_01(slide_settings.friction..max_friction)
 		};
 
-		let friction = -time.delta_secs() * friction * velocity;
+		let friction = -time.delta_secs()
+			* friction
+			* (velocity.length() - slide_settings.speed_cap).max(0.0)
+			* velocity.normalize_or_zero();
 		let velocity = velocity + friction;
 
 		movement.0 = transform.rotation * Vec3::new(velocity.x, 0.0, velocity.y);
