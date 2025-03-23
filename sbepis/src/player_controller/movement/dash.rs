@@ -57,7 +57,7 @@ pub struct DashCooldown(Duration);
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_pressed(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateDashing,
+	in_set = MovementControlSet::UpdateState,
 )]
 fn add_trying_to_dash(players: Query<Entity, With<PlayerBody>>, mut commands: Commands) {
 	for player in players.iter() {
@@ -67,7 +67,7 @@ fn add_trying_to_dash(players: Query<Entity, With<PlayerBody>>, mut commands: Co
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateDashing,
+	in_set = MovementControlSet::UpdateState,
 	before = add_trying_to_dash,
 )]
 fn update_trying_to_dash(
@@ -87,7 +87,7 @@ fn update_trying_to_dash(
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateDashing,
+	before = update_trying_to_dash,
 )]
 fn update_dash_cooldown(
 	mut players: Query<(Entity, &mut DashCooldown)>,
@@ -107,8 +107,8 @@ fn update_dash_cooldown(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	after = MovementControlSet::UpdateDi,
 	after = MovementControlSet::UpdateGrounded,
-	after = update_dash_cooldown,
-	in_set = MovementControlSet::UpdateDashing,
+	after = add_trying_to_dash,
+	in_set = MovementControlSet::UpdateState,
 )]
 fn add_dashing(
 	mut players: Query<
@@ -145,8 +145,8 @@ fn add_dashing(
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateDashing,
-	before = add_trying_to_dash,
+	in_set = MovementControlSet::UpdateState,
+	before = add_dashing,
 )]
 fn update_dashing(
 	mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,
@@ -172,7 +172,6 @@ fn update_dashing(
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::UpdateDashing,
 	in_set = MovementControlSet::DoHorizontalMovement,
 )]
 fn update_dash_velocity(mut movement: Query<(&mut Movement, &mut Velocity, &Dashing)>) {

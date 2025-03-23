@@ -23,7 +23,7 @@ pub struct MouseSensitivity(pub f32);
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::UpdateCrouching,
+	after = MovementControlSet::UpdateState,
 )]
 fn rotate_camera_and_body(
 	input: Query<&ActionState<PlayerAction>>,

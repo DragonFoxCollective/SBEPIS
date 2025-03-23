@@ -7,6 +7,8 @@ use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use movement::crouch::{CrouchingAssets, StandingAssets};
 use movement::di::DirectionalInput;
+use movement::stand::Standing;
+use movement::{DebugState, MovementControlSet};
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
@@ -32,6 +34,12 @@ pub mod weapons;
 
 #[butler_plugin(build(
 	add_plugins(InputManagerMenuPlugin::<PlayerAction>::default()),
+	configure_sets(Update, (
+		MovementControlSet::UpdateDi.before(MovementControlSet::UpdateState),
+		MovementControlSet::UpdateGrounded.before(MovementControlSet::UpdateState),
+		MovementControlSet::DoHorizontalMovement.after(MovementControlSet::UpdateState),
+		MovementControlSet::DoVerticalMovement.after(MovementControlSet::UpdateState),
+	)),
 ))]
 pub struct PlayerControllerPlugin;
 
@@ -117,6 +125,7 @@ fn setup(
 				max: 1.0,
 				recovery_rate: 0.1,
 			},
+			Standing,
 		))
 		.id();
 
@@ -206,6 +215,7 @@ fn setup(
 	commands.spawn((
 		Name::new("Damage Numbers"),
 		Text("Damage".to_owned()),
+		TextLayout::new_with_justify(JustifyText::Right),
 		Node {
 			position_type: PositionType::Absolute,
 			bottom: Val::Px(5.0),
@@ -213,6 +223,20 @@ fn setup(
 			..default()
 		},
 		DamageNumbers,
+		TargetCamera(camera),
+	));
+
+	commands.spawn((
+		Name::new("Debug State"),
+		Text("State".to_owned()),
+		TextLayout::new_with_justify(JustifyText::Right),
+		Node {
+			position_type: PositionType::Absolute,
+			top: Val::Px(5.0),
+			right: Val::Px(5.0),
+			..default()
+		},
+		DebugState,
 		TargetCamera(camera),
 	));
 
