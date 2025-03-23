@@ -2,10 +2,11 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use leafwing_input_manager::prelude::ActionState;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
-use crate::input::{button_just_pressed, button_just_released};
+use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
@@ -13,6 +14,7 @@ use crate::util::MapRange;
 
 use super::crouch::{CrouchingAssets, StandingAssets};
 use super::di::DirectionalInput;
+use super::stand::Standing;
 use super::walk::Walking;
 
 #[derive(Resource)]
@@ -70,13 +72,19 @@ fn walking_to_sliding(
 	run_if = button_just_released(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn sliding_to_walking(
+fn sliding_to_standing_or_walking(
 	players: Query<(Entity, &PlayerBody), With<Sliding>>,
 	assets: Res<StandingAssets>,
 	mut commands: Commands,
+	input: Query<&ActionState<PlayerAction>>,
 ) {
+	let input = input.single();
 	for (player, body) in players.iter() {
-		commands.entity(player).remove::<Sliding>().insert(Walking);
+		if button_pressed(input, &PlayerAction::Move) {
+			commands.entity(player).remove::<Sliding>().insert(Walking);
+		} else {
+			commands.entity(player).remove::<Sliding>().insert(Standing);
+		}
 		commands
 			.entity(body.mesh)
 			.insert((assets.mesh.clone(), assets.mesh_transform));

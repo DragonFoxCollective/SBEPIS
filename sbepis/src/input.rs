@@ -82,21 +82,21 @@ pub fn map_action_to_event<Action: Actionlike + MapsToEvent<EventB>, EventB: Eve
 
 const UNIVERSAL_DEADZONE: f32 = 0.05;
 
+pub fn button_pressed<T: Actionlike + Copy>(input: &ActionState<T>, action: &T) -> bool {
+	match action.input_control_kind() {
+		InputControlKind::Button => input.pressed(action),
+		InputControlKind::Axis => input.value(action) > UNIVERSAL_DEADZONE,
+		InputControlKind::DualAxis => input.axis_pair(action).length() > UNIVERSAL_DEADZONE,
+		InputControlKind::TripleAxis => input.axis_triple(action).length() > UNIVERSAL_DEADZONE,
+	}
+}
+
 pub fn button_just_pressed<T: Actionlike + Copy>(
 	action: T,
 ) -> impl Fn(Query<&ActionState<T>>, Local<bool>) -> bool {
 	move |input: Query<&ActionState<T>>, mut last: Local<bool>| {
 		if let Some(input) = input.iter().find(|input| !input.disabled()) {
-			let value = match action.input_control_kind() {
-				InputControlKind::Button => input.pressed(&action),
-				InputControlKind::Axis => input.value(&action) > UNIVERSAL_DEADZONE,
-				InputControlKind::DualAxis => {
-					input.axis_pair(&action).length() > UNIVERSAL_DEADZONE
-				}
-				InputControlKind::TripleAxis => {
-					input.axis_triple(&action).length() > UNIVERSAL_DEADZONE
-				}
-			};
+			let value = button_pressed(input, &action);
 			let result = !*last && value;
 			*last = value;
 			result
@@ -111,16 +111,7 @@ pub fn button_just_released<T: Actionlike + Copy>(
 ) -> impl Fn(Query<&ActionState<T>>, Local<bool>) -> bool {
 	move |input: Query<&ActionState<T>>, mut last: Local<bool>| {
 		if let Some(input) = input.iter().find(|input| !input.disabled()) {
-			let value = match action.input_control_kind() {
-				InputControlKind::Button => input.pressed(&action),
-				InputControlKind::Axis => input.value(&action) > UNIVERSAL_DEADZONE,
-				InputControlKind::DualAxis => {
-					input.axis_pair(&action).length() > UNIVERSAL_DEADZONE
-				}
-				InputControlKind::TripleAxis => {
-					input.axis_triple(&action).length() > UNIVERSAL_DEADZONE
-				}
-			};
+			let value = button_pressed(input, &action);
 			let result = *last && !value;
 			*last = value;
 			result
