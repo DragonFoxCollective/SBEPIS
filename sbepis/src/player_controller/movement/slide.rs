@@ -1,34 +1,44 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_rapier3d::prelude::*;
 
+use crate::entity::Movement;
+use crate::entity::movement::ExecuteMovementSet;
 use crate::input::{button_just_pressed, button_just_released};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
+use crate::util::MapRange;
 
 use super::crouch::{CrouchingAssets, StandingAssets};
+use super::di::DirectionalInput;
 use super::walk::Walking;
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerSlideSettings {
-	slide_speed_cap: 10.0,
-	slide_friction: 1.0,
-	slide_forward_friction: 0.1,
-	slide_break_friction: 10.0,
-	slide_turn_radius: 0.5,
-	slide_turn_friction: 1.0,
+	speed_cap: 10.0,
+	friction: 1.0,
+	forward_friction: 0.1,
+	brake_friction: 10.0,
+	turn_radius: 0.5,
+	turn_friction: 1.0,
 })]
 pub struct PlayerSlideSettings {
-	pub slide_speed_cap: f32,
-	pub slide_friction: f32,
-	pub slide_forward_friction: f32,
-	pub slide_break_friction: f32,
-	pub slide_turn_radius: f32,
-	pub slide_turn_friction: f32,
+	pub speed_cap: f32,
+	pub friction: f32,
+	pub forward_friction: f32,
+	pub brake_friction: f32,
+	pub turn_radius: f32,
+	pub turn_friction: f32,
 }
 
-#[derive(Component, Default)]
-pub struct Sliding;
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component)]
+pub struct Sliding {
+	pub current_friction: f32,
+}
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
@@ -41,7 +51,10 @@ fn walking_to_sliding(
 	mut commands: Commands,
 ) {
 	for (player, body) in players.iter() {
-		commands.entity(player).remove::<Walking>().insert(Sliding);
+		commands
+			.entity(player)
+			.remove::<Walking>()
+			.insert(Sliding::default());
 		commands
 			.entity(body.mesh)
 			.insert((assets.mesh.clone(), assets.mesh_transform));
@@ -71,5 +84,56 @@ fn sliding_to_walking(
 			.entity(body.collider)
 			.insert((assets.collider.clone(), assets.collider_transform));
 		commands.entity(body.camera).insert(assets.camera_transform);
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	in_set = MovementControlSet::DoHorizontalMovement,
+	before = ExecuteMovementSet,
+)]
+fn update_slide_velocity(
+	mut movement: Query<(&mut Movement, &Velocity, &Transform, &DirectionalInput), With<Sliding>>,
+	slide_settings: Res<PlayerSlideSettings>,
+	time: Res<Time>,
+) {
+	// This is stupid, why can't I store this anywhere?
+	let easing = EasingCurve::new(
+		slide_settings.brake_friction,
+		slide_settings.turn_friction,
+		EaseFunction::CircularInOut,
+	)
+	.reparametrize_linear(Interval::new(0.0, PI / 2.0).unwrap())
+	.unwrap()
+	.chain(
+		EasingCurve::new(
+			slide_settings.turn_friction,
+			slide_settings.forward_friction,
+			EaseFunction::CircularInOut,
+		)
+		.reparametrize_linear(Interval::new(PI / 2.0, PI).unwrap())
+		.unwrap(),
+	)
+	.unwrap();
+
+	for (mut movement, velocity, transform, di) in movement.iter_mut() {
+		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
+
+		let friction = if velocity == Vec2::ZERO || di.input == Vec2::ZERO {
+			slide_settings.friction
+		} else {
+			let angle = di.input.angle_to(Vec2::Y).abs();
+			let max_friction = easing
+				.sample(angle)
+				.unwrap_or_else(|| panic!("Angle out of bounds: {:?}", angle));
+			di.input
+				.length()
+				.map_from_01(slide_settings.friction..max_friction)
+		};
+
+		let friction = -time.delta_secs() * friction * velocity;
+		let velocity = velocity + friction;
+
+		movement.0 = transform.rotation * Vec3::new(velocity.x, 0.0, velocity.y);
 	}
 }
