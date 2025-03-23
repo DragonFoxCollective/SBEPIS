@@ -12,6 +12,7 @@ use crate::prelude::PlayerBody;
 use super::crouch::Crouching;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
+use super::sneak::Sneaking;
 use super::sprint::Sprinting;
 use super::stand::Standing;
 
@@ -81,6 +82,7 @@ fn update_walk_velocity(
 			&Transform,
 			&DirectionalInput,
 			Has<Sprinting>,
+			Has<Sneaking>,
 			Has<Grounded>,
 		),
 		Or<(
@@ -88,17 +90,21 @@ fn update_walk_velocity(
 			With<Walking>,
 			With<Sprinting>,
 			With<Crouching>,
-		)>, // FIXME: removed sneaking
+			With<Sneaking>,
+		)>,
 	>,
 	walk_settings: Res<PlayerWalkSettings>,
 	time: Res<Time>,
 ) {
-	for (mut movement, velocity, transform, di, sprinting, grounded) in movement.iter_mut() {
+	for (mut movement, velocity, transform, di, sprinting, sneaking, grounded) in
+		movement.iter_mut()
+	{
 		// Set up vectors
 		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
 		let wish_velocity = di.input
-			* match sprinting {
-				true => walk_settings.sprint_speed,
+			* match (sprinting, sneaking) {
+				(true, false) => walk_settings.sprint_speed,
+				(false, true) => walk_settings.sneak_speed,
 				_ => walk_settings.speed,
 			};
 		let wish_speed = wish_velocity.length();

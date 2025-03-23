@@ -7,6 +7,7 @@ use dash::Dashing;
 use grounded::Grounded;
 use jump::TryingToJump;
 use slide::Sliding;
+use sneak::Sneaking;
 use sprint::Sprinting;
 use stand::Standing;
 use walk::Walking;
@@ -21,6 +22,7 @@ pub mod di;
 pub mod grounded;
 pub mod jump;
 pub mod slide;
+pub mod sneak;
 pub mod sprint;
 pub mod stand;
 pub mod walk;
@@ -56,6 +58,7 @@ fn check_states(
 			Has<Walking>,
 			Has<Sprinting>,
 			Has<Crouching>,
+			Has<Sneaking>,
 			Has<Dashing>,
 			Has<Sliding>,
 			Has<Grounded>,
@@ -65,7 +68,7 @@ fn check_states(
 	>,
 ) {
 	for tup in players.iter() {
-		let arr: [bool; 8] = tup.into();
+		let arr: [bool; 9] = tup.into();
 		let has = arr
 			.into_iter()
 			.enumerate()
@@ -76,10 +79,11 @@ fn check_states(
 						1 => "Walking",
 						2 => "Sprinting",
 						3 => "Crouching",
-						4 => "Dashing",
-						5 => "Sliding",
-						6 => "Grounded",
-						7 => "TryingToJump",
+						4 => "Sneaking",
+						5 => "Dashing",
+						6 => "Sliding",
+						7 => "Grounded",
+						8 => "TryingToJump",
 						_ => unreachable!(),
 					})
 				} else {
