@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -5,6 +6,7 @@ use bevy_butler::*;
 use crouch::Crouching;
 use dash::Dashing;
 use grounded::Grounded;
+use itertools::Itertools;
 use jump::TryingToJump;
 use slide::Sliding;
 use sneak::Sneaking;
@@ -46,6 +48,9 @@ pub enum MovementControlSet {
 	DoVerticalMovement,
 }
 
+#[derive(Component)]
+pub struct DebugState;
+
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	after = MovementControlSet::DoHorizontalMovement,
@@ -66,31 +71,27 @@ fn check_states(
 		),
 		With<PlayerBody>,
 	>,
+	mut debug_states: Query<&mut Text, With<DebugState>>,
 ) {
+	let mut debug_state = debug_states.single_mut();
 	for tup in players.iter() {
 		let arr: [bool; 9] = tup.into();
 		let has = arr
 			.into_iter()
-			.enumerate()
-			.filter_map(|(index, has)| {
-				if has {
-					Some(match index {
-						0 => "Standing",
-						1 => "Walking",
-						2 => "Sprinting",
-						3 => "Crouching",
-						4 => "Sneaking",
-						5 => "Dashing",
-						6 => "Sliding",
-						7 => "Grounded",
-						8 => "TryingToJump",
-						_ => unreachable!(),
-					})
-				} else {
-					None
-				}
-			})
-			.collect::<Vec<_>>();
-		println!("Player state: {:?}", has);
+			.zip([
+				type_name::<Standing>(),
+				type_name::<Walking>(),
+				type_name::<Sprinting>(),
+				type_name::<Crouching>(),
+				type_name::<Sneaking>(),
+				type_name::<Dashing>(),
+				type_name::<Sliding>(),
+				type_name::<Grounded>(),
+				type_name::<TryingToJump>(),
+			])
+			.filter_map(|(has, name)| if has { Some(name) } else { None })
+			.map(|name| name.split("::").last().unwrap())
+			.join("\n");
+		debug_state.0 = has;
 	}
 }

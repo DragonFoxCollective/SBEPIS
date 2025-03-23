@@ -5,10 +5,10 @@ use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
-use movement::MovementControlSet;
 use movement::crouch::{CrouchingAssets, StandingAssets};
 use movement::di::DirectionalInput;
 use movement::stand::Standing;
+use movement::{DebugState, MovementControlSet};
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
@@ -215,6 +215,7 @@ fn setup(
 	commands.spawn((
 		Name::new("Damage Numbers"),
 		Text("Damage".to_owned()),
+		TextLayout::new_with_justify(JustifyText::Right),
 		Node {
 			position_type: PositionType::Absolute,
 			bottom: Val::Px(5.0),
@@ -222,6 +223,20 @@ fn setup(
 			..default()
 		},
 		DamageNumbers,
+		TargetCamera(camera),
+	));
+
+	commands.spawn((
+		Name::new("Debug State"),
+		Text("State".to_owned()),
+		TextLayout::new_with_justify(JustifyText::Right),
+		Node {
+			position_type: PositionType::Absolute,
+			top: Val::Px(5.0),
+			right: Val::Px(5.0),
+			..default()
+		},
+		DebugState,
 		TargetCamera(camera),
 	));
 
