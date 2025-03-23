@@ -2,7 +2,6 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
@@ -22,7 +21,7 @@ use super::walk::Walking;
 	friction: 1.0,
 	forward_friction: 0.1,
 	brake_friction: 10.0,
-	turn_radius: 0.5,
+	turn_factor: 0.2,
 	turn_friction: 1.0,
 })]
 pub struct PlayerSlideSettings {
@@ -30,7 +29,8 @@ pub struct PlayerSlideSettings {
 	pub friction: f32,
 	pub forward_friction: f32,
 	pub brake_friction: f32,
-	pub turn_radius: f32,
+	/// In (radians per second) / (meters per second)
+	pub turn_factor: f32,
 	pub turn_friction: f32,
 }
 
@@ -93,7 +93,7 @@ fn sliding_to_walking(
 	before = ExecuteMovementSet,
 )]
 fn update_slide_velocity(
-	mut movement: Query<(&mut Movement, &Velocity, &Transform, &DirectionalInput), With<Sliding>>,
+	mut movement: Query<(&mut Movement, &Transform, &DirectionalInput), With<Sliding>>,
 	slide_settings: Res<PlayerSlideSettings>,
 	time: Res<Time>,
 ) {
@@ -116,8 +116,8 @@ fn update_slide_velocity(
 	)
 	.unwrap();
 
-	for (mut movement, velocity, transform, di) in movement.iter_mut() {
-		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
+	for (mut movement, transform, di) in movement.iter_mut() {
+		let velocity = (transform.rotation.inverse() * movement.0).xz();
 
 		let friction = if velocity == Vec2::ZERO || di.input == Vec2::ZERO {
 			slide_settings.friction
@@ -136,6 +136,10 @@ fn update_slide_velocity(
 			* (velocity.length() - slide_settings.speed_cap).max(0.0)
 			* velocity.normalize_or_zero();
 		let velocity = velocity + friction;
+
+		let turn_angle =
+			slide_settings.turn_factor * velocity.length() * di.input.x * time.delta_secs();
+		let velocity = Vec2::from_angle(turn_angle).rotate(velocity);
 
 		movement.0 = transform.rotation * Vec3::new(velocity.x, 0.0, velocity.y);
 	}
