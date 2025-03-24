@@ -8,12 +8,14 @@ use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
 use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 use crate::util::MapRange;
 
-use super::crouch::{CrouchingAssets, StandingAssets};
+use super::crouch::{CrouchingAssets, StandingAssets, to_crouching_assets, to_standing_assets};
 use super::di::DirectionalInput;
+use super::sneak::Sneaking;
 use super::stand::Standing;
 use super::walk::Walking;
 
@@ -25,6 +27,7 @@ use super::walk::Walking;
 	brake_friction: 10.0,
 	turn_factor: 0.2,
 	turn_friction: 1.0,
+	to_crouch_speed_threshold: 1.5,
 })]
 pub struct PlayerSlideSettings {
 	pub speed_cap: f32,
@@ -34,6 +37,7 @@ pub struct PlayerSlideSettings {
 	/// In (radians per second) / (meters per second)
 	pub turn_factor: f32,
 	pub turn_friction: f32,
+	pub to_crouch_speed_threshold: f32,
 }
 
 #[derive(Resource)]
@@ -77,13 +81,7 @@ fn walking_to_sliding(
 			current_friction: 0.0,
 			sound,
 		});
-		commands
-			.entity(body.mesh)
-			.insert((assets.mesh.clone(), assets.mesh_transform));
-		commands
-			.entity(body.collider)
-			.insert((assets.collider.clone(), assets.collider_transform));
-		commands.entity(body.camera).insert(assets.camera_transform);
+		to_crouching_assets(body, &mut commands, &assets);
 	}
 }
 
@@ -106,13 +104,35 @@ fn sliding_to_standing_or_walking(
 			commands.entity(player).remove::<Sliding>().insert(Standing);
 		}
 		commands.entity(sliding.sound).despawn();
-		commands
-			.entity(body.mesh)
-			.insert((assets.mesh.clone(), assets.mesh_transform));
-		commands
-			.entity(body.collider)
-			.insert((assets.collider.clone(), assets.collider_transform));
-		commands.entity(body.camera).insert(assets.camera_transform);
+		to_standing_assets(body, &mut commands, &assets);
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	in_set = MovementControlSet::UpdateState,
+)]
+fn sliding_to_crouching_or_sneaking(
+	players: Query<(Entity, &Sliding, &Movement)>,
+	mut commands: Commands,
+	slide_settings: Res<PlayerSlideSettings>,
+	input: Query<&ActionState<PlayerAction>>,
+) {
+	let input = input.single();
+	for (player, sliding, movement) in players.iter() {
+		if movement.0.length() > slide_settings.to_crouch_speed_threshold {
+			continue;
+		}
+
+		if button_pressed(input, &PlayerAction::Move) {
+			commands.entity(player).remove::<Sliding>().insert(Sneaking);
+		} else {
+			commands
+				.entity(player)
+				.remove::<Sliding>()
+				.insert(Crouching);
+		}
+		commands.entity(sliding.sound).despawn();
 	}
 }
 

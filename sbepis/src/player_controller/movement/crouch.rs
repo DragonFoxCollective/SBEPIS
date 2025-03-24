@@ -27,6 +27,26 @@ pub struct CrouchingAssets {
 	pub camera_transform: Transform,
 }
 
+pub fn to_standing_assets(body: &PlayerBody, commands: &mut Commands, assets: &StandingAssets) {
+	commands
+		.entity(body.mesh)
+		.insert((assets.mesh.clone(), assets.mesh_transform));
+	commands
+		.entity(body.collider)
+		.insert((assets.collider.clone(), assets.collider_transform));
+	commands.entity(body.camera).insert(assets.camera_transform);
+}
+
+pub fn to_crouching_assets(body: &PlayerBody, commands: &mut Commands, assets: &CrouchingAssets) {
+	commands
+		.entity(body.mesh)
+		.insert((assets.mesh.clone(), assets.mesh_transform));
+	commands
+		.entity(body.collider)
+		.insert((assets.collider.clone(), assets.collider_transform));
+	commands.entity(body.camera).insert(assets.camera_transform);
+}
+
 #[derive(Component, Default)]
 pub struct Crouching;
 
@@ -45,13 +65,7 @@ fn standing_to_crouching(
 			.entity(player)
 			.remove::<Standing>()
 			.insert(Crouching);
-		commands
-			.entity(body.mesh)
-			.insert((assets.mesh.clone(), assets.mesh_transform));
-		commands
-			.entity(body.collider)
-			.insert((assets.collider.clone(), assets.collider_transform));
-		commands.entity(body.camera).insert(assets.camera_transform);
+		to_crouching_assets(body, &mut commands, &assets);
 	}
 }
 
@@ -70,12 +84,6 @@ fn crouching_to_standing(
 			.entity(player)
 			.remove::<Crouching>()
 			.insert(Standing);
-		commands
-			.entity(body.mesh)
-			.insert((assets.mesh.clone(), assets.mesh_transform));
-		commands
-			.entity(body.collider)
-			.insert((assets.collider.clone(), assets.collider_transform));
-		commands.entity(body.camera).insert(assets.camera_transform);
+		to_standing_assets(body, &mut commands, &assets);
 	}
 }

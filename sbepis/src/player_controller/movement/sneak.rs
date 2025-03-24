@@ -6,7 +6,7 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
-use super::crouch::Crouching;
+use super::crouch::{Crouching, StandingAssets, to_standing_assets};
 use super::walk::Walking;
 
 #[derive(Component, Default)]
@@ -52,10 +52,12 @@ fn sneaking_to_crouching(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn sneaking_to_walking(
-	players: Query<Entity, (With<PlayerBody>, With<Sneaking>)>,
+	players: Query<(Entity, &PlayerBody), With<Sneaking>>,
 	mut commands: Commands,
+	assets: Res<StandingAssets>,
 ) {
-	for player in players.iter() {
+	for (player, body) in players.iter() {
 		commands.entity(player).remove::<Sneaking>().insert(Walking);
+		to_standing_assets(body, &mut commands, &assets);
 	}
 }
