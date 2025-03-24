@@ -11,7 +11,7 @@ use crate::camera::PlayerCameraNode;
 use crate::npcs::imp::Imp;
 use crate::player_controller::weapons::{EntityHit, EntityHitSet};
 use crate::prelude::PlayerBody;
-use crate::util::MapRange;
+use crate::util::MapRangeBetween;
 
 mod tracks;
 
@@ -140,9 +140,9 @@ impl FrayMusic {
 
 	fn single_beat_modifier(&self, factor: f32) -> f32 {
 		(self.beat_progress() * factor)
-			.map_range(0.0..1.0, 0.0..TAU)
+			.map_range_between(0.0..1.0, 0.0..TAU)
 			.cos()
-			.map_range(-1.0..1.0, 0.0..1.0)
+			.map_range_between(-1.0..1.0, 0.0..1.0)
 			/ factor
 	}
 

@@ -157,13 +157,16 @@ fn update_slide_velocity(
 				.unwrap_or_else(|| panic!("Angle out of bounds: {:?}", angle));
 			di.input
 				.length()
-				.map_from_01(slide_settings.friction..max_friction)
+				.map_range(slide_settings.friction..max_friction)
 		};
 
-		let friction = -time.delta_secs()
-			* friction
-			* (velocity.length() - slide_settings.speed_cap).max(0.0)
-			* velocity.normalize_or_zero();
+		let friction_velocity = di.input.y.min(0.0).abs().map_range(
+			velocity
+				..((velocity.length() - slide_settings.speed_cap).max(0.0)
+					* velocity.normalize_or_zero()),
+		);
+
+		let friction = -time.delta_secs() * friction * friction_velocity;
 		let velocity = velocity + friction;
 
 		let turn_angle =

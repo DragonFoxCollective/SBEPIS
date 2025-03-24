@@ -11,7 +11,7 @@ use crate::player_controller::PlayerAction;
 use crate::questing::{
 	QuestAccepted, QuestAcceptedSet, QuestEnded, QuestEndedSet, QuestId, QuestingPlugin, Quests,
 };
-use crate::util::MapRange;
+use crate::util::MapRangeBetween;
 
 #[derive(Component)]
 pub struct QuestScreen;
@@ -283,7 +283,7 @@ fn update_quest_node_progress(
 		);
 		progress_bar.width = Val::Percent(
 			(quest.quest_type.progress() as f32)
-				.map_range(quest.quest_type.progress_range(), 0.0..100.0),
+				.map_range_between(quest.quest_type.progress_range(), 0.0..100.0),
 		);
 	}
 }

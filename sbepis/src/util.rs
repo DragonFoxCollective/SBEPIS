@@ -2,18 +2,31 @@ use bevy::ecs::query::{QueryData, QueryFilter, ROQueryItem};
 use bevy::prelude::*;
 use bevy_rapier3d::math::Real;
 use std::array::IntoIter;
-use std::ops::Range;
+use std::ops::{Add, Mul, Range, Sub};
 
 use crate::camera::PlayerCamera;
 use crate::prelude::PlayerBody;
 
 pub trait MapRange<T> {
-	fn map_range(self, range_in: Range<T>, range_out: Range<T>) -> T;
-	fn map_to_01(self, range_in: Range<T>) -> T;
+	fn map_range(self, range_out: Range<T>) -> T;
+}
+impl<T> MapRange<T> for Real
+where
+	T: Copy + Sub<Output = T> + Mul<Real, Output = T> + Add<Output = T>,
+{
+	#[inline]
+	fn map_range(self, range_out: Range<T>) -> T {
+		(range_out.end - range_out.start) * self + range_out.start
+	}
+}
+
+pub trait MapRangeBetween<T> {
+	fn map_range_between(self, range_in: Range<T>, range_out: Range<T>) -> T;
+	fn map_to_01(self, range_in: Range<T>) -> Self;
 	fn map_from_01(self, range_out: Range<T>) -> T;
 }
-impl MapRange<Real> for Real {
-	fn map_range(self, range_in: Range<Real>, range_out: Range<Real>) -> Real {
+impl MapRangeBetween<Real> for Real {
+	fn map_range_between(self, range_in: Range<Real>, range_out: Range<Real>) -> Real {
 		self.map_to_01(range_in).map_from_01(range_out)
 	}
 

@@ -3,9 +3,9 @@ use bevy_butler::*;
 use soundyrust::Note;
 
 use crate::player_commands::notes::NotePlayed;
-use crate::player_commands::{staff::*, NotesCleared, NotesClearedSet};
 use crate::player_commands::{NotePlayedSet, PlayerCommandsPlugin};
-use crate::util::MapRange;
+use crate::player_commands::{NotesCleared, NotesClearedSet, staff::*};
+use crate::util::MapRangeBetween;
 
 #[derive(Component, Default)]
 pub struct NoteNodeHolder {
@@ -19,7 +19,7 @@ impl NoteNodeHolder {
 	}
 
 	pub fn note_top(&self, note: &Note) -> f32 {
-		(note.position() as f32).map_range(
+		(note.position() as f32).map_range_between(
 			(Note::E4.position() as f32)..(Note::F5.position() as f32),
 			(F5_LINE_TOP + STAFF_HEIGHT - QUARTER_NOTE_WEIRD_SPACING_OFFSET)..F5_LINE_TOP,
 		) - QUARTER_NOTE_TOP_OFFSET
