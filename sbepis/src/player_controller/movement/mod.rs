@@ -3,9 +3,10 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use charge::Charging;
 use crouch::Crouching;
 use dash::{Dashing, TryingToDash};
-use grounded::Grounded;
+use grounded::{EffectiveGrounded, Grounded};
 use itertools::Itertools;
 use jump::TryingToJump;
 use slide::Sliding;
@@ -18,6 +19,7 @@ use crate::player_controller::PlayerControllerPlugin;
 
 use super::PlayerBody;
 
+pub mod charge;
 pub mod crouch;
 pub mod dash;
 pub mod di;
@@ -66,8 +68,10 @@ fn check_states(
 			Has<Sneaking>,
 			Has<Dashing>,
 			Has<TryingToDash>,
+			Has<Charging>,
 			Has<Sliding>,
 			Has<Grounded>,
+			Has<EffectiveGrounded>,
 			Has<TryingToJump>,
 		),
 		With<PlayerBody>,
@@ -76,7 +80,7 @@ fn check_states(
 ) {
 	let mut debug_state = debug_states.single_mut();
 	for tup in players.iter() {
-		let arr: [bool; 10] = tup.into();
+		let arr: [bool; 12] = tup.into();
 		let has = arr
 			.into_iter()
 			.zip([
@@ -87,8 +91,10 @@ fn check_states(
 				type_name::<Sneaking>(),
 				type_name::<Dashing>(),
 				type_name::<TryingToDash>(),
+				type_name::<Charging>(),
 				type_name::<Sliding>(),
 				type_name::<Grounded>(),
+				type_name::<EffectiveGrounded>(),
 				type_name::<TryingToJump>(),
 			])
 			.filter_map(|(has, name)| if has { Some(name) } else { None })

@@ -14,7 +14,8 @@ use crate::prelude::PlayerBody;
 use super::CoyoteTimeSettings;
 use super::di::DirectionalInput;
 use super::grounded::EffectiveGrounded;
-use super::walk::PlayerWalkSettings;
+use super::sprint::Sprinting;
+use super::walk::{PlayerWalkSettings, Walking};
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerDashSettings {
@@ -59,7 +60,7 @@ pub struct DashCooldown(Duration);
 	run_if = button_just_pressed(PlayerAction::Sprint),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn add_trying_to_dash(players: Query<Entity, With<PlayerBody>>, mut commands: Commands) {
+pub fn add_trying_to_dash(players: Query<Entity, With<PlayerBody>>, mut commands: Commands) {
 	for player in players.iter() {
 		commands.entity(player).insert(TryingToDash::default());
 	}
@@ -110,12 +111,13 @@ fn update_dash_cooldown(
 	after = add_trying_to_dash,
 	in_set = MovementControlSet::UpdateState,
 )]
-fn add_dashing(
+fn walking_to_dashing(
 	mut players: Query<
 		(Entity, &Velocity, &DirectionalInput, &mut Stamina),
 		(
 			With<EffectiveGrounded>,
 			With<TryingToDash>,
+			Or<(With<Walking>, With<Sprinting>)>,
 			Without<Dashing>,
 			Without<DashCooldown>,
 		),
@@ -139,6 +141,8 @@ fn add_dashing(
 			stamina.current -= dash_settings.stamina_cost;
 
 			commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
+		} else {
+			println!("Not enough stamina to dash!");
 		}
 	}
 }
@@ -146,7 +150,7 @@ fn add_dashing(
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
-	before = add_dashing,
+	before = walking_to_dashing,
 )]
 fn update_dashing(
 	mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,

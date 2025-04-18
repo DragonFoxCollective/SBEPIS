@@ -9,6 +9,7 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
+use super::charge::Charging;
 use super::crouch::Crouching;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
@@ -81,6 +82,7 @@ fn update_walk_velocity(
 			&Velocity,
 			&Transform,
 			&DirectionalInput,
+			Has<Walking>,
 			Has<Sprinting>,
 			Has<Sneaking>,
 			Has<Grounded>,
@@ -91,21 +93,26 @@ fn update_walk_velocity(
 			With<Sprinting>,
 			With<Crouching>,
 			With<Sneaking>,
+			With<Charging>,
 		)>,
 	>,
 	walk_settings: Res<PlayerWalkSettings>,
 	time: Res<Time>,
 ) {
-	for (mut movement, velocity, transform, di, sprinting, sneaking, grounded) in
+	for (mut movement, velocity, transform, di, walking, sprinting, sneaking, grounded) in
 		movement.iter_mut()
 	{
 		// Set up vectors
 		let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
 		let wish_velocity = di.input
-			* match (sprinting, sneaking) {
-				(true, false) => walk_settings.sprint_speed,
-				(false, true) => walk_settings.sneak_speed,
-				_ => walk_settings.speed,
+			* if walking {
+				walk_settings.speed
+			} else if sprinting {
+				walk_settings.sprint_speed
+			} else if sneaking {
+				walk_settings.sneak_speed
+			} else {
+				0.0
 			};
 		let wish_speed = wish_velocity.length();
 		let wish_direction = wish_velocity.normalize_or_zero();
