@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use charge::Charging;
+use charge::{ChargeCrouching, Charging};
 use crouch::Crouching;
 use dash::{Dashing, TryingToDash};
 use grounded::{EffectiveGrounded, Grounded};
@@ -69,6 +69,7 @@ fn check_states(
 			Has<Dashing>,
 			Has<TryingToDash>,
 			Has<Charging>,
+			Has<ChargeCrouching>,
 			Has<Sliding>,
 			Has<Grounded>,
 			Has<EffectiveGrounded>,
@@ -80,7 +81,10 @@ fn check_states(
 ) {
 	let mut debug_state = debug_states.single_mut();
 	for tup in players.iter() {
-		let arr: [bool; 12] = tup.into();
+		let arr = [
+			tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6, tup.7, tup.8, tup.9, tup.10, tup.11,
+			tup.12,
+		];
 		let has = arr
 			.into_iter()
 			.zip([
@@ -92,6 +96,7 @@ fn check_states(
 				type_name::<Dashing>(),
 				type_name::<TryingToDash>(),
 				type_name::<Charging>(),
+				type_name::<ChargeCrouching>(),
 				type_name::<Sliding>(),
 				type_name::<Grounded>(),
 				type_name::<EffectiveGrounded>(),

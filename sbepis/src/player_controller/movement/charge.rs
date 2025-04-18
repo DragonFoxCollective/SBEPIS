@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 
-use crate::input::button_just_released;
+use crate::input::{button_just_pressed, button_just_released};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::dash::add_trying_to_dash;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
+use crate::prelude::PlayerBody;
 
+use super::crouch::{CrouchingAssets, StandingAssets, to_crouching_assets, to_standing_assets};
 use super::dash::TryingToDash;
 use super::grounded::EffectiveGrounded;
 use super::stand::Standing;
@@ -24,6 +26,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 #[derive(Component)]
 pub struct Charging;
+
+#[derive(Component)]
+pub struct ChargeCrouching;
 
 #[derive(Component)]
 pub struct ChargingSound(pub Entity);
@@ -69,29 +74,56 @@ fn standing_to_charging(
 	run_if = button_just_released(PlayerAction::Sprint),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn charging_to_standing(players: Query<Entity, With<Charging>>, mut commands: Commands) {
-	for player in players.iter() {
+fn charging_to_standing(
+	players: Query<(Entity, &ChargingSound), With<Charging>>,
+	mut commands: Commands,
+) {
+	for (player, charging_sound) in players.iter() {
 		commands
 			.entity(player)
 			.remove::<Charging>()
 			.insert(Standing);
+
+		if let Some(sound) = commands.get_entity(charging_sound.0) {
+			sound.despawn_recursive();
+		}
 	}
 }
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::UpdateState,
+	run_if = button_just_pressed(PlayerAction::Crouch),
+	in_set = MovementControlSet::UpdateState,
 )]
-fn remove_charging_sound(
-	sounds: Query<&ChargingSound>,
-	mut removed_chargings: RemovedComponents<Charging>,
+fn charching_to_charge_crouching(
+	players: Query<(Entity, &PlayerBody), With<Charging>>,
+	assets: Res<CrouchingAssets>,
 	mut commands: Commands,
 ) {
-	for player in removed_chargings.read() {
-		commands.entity(player).remove::<ChargingSound>();
-		let sound = sounds.get(player).expect("ChargingSound not found");
-		if let Some(sound) = commands.get_entity(sound.0) {
-			sound.despawn_recursive();
-		}
+	for (player, body) in players.iter() {
+		commands
+			.entity(player)
+			.remove::<Charging>()
+			.insert(ChargeCrouching);
+		to_crouching_assets(body, &mut commands, &assets);
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	run_if = button_just_released(PlayerAction::Crouch),
+	in_set = MovementControlSet::UpdateState,
+)]
+fn charge_crouching_to_charging(
+	players: Query<(Entity, &PlayerBody), With<ChargeCrouching>>,
+	assets: Res<StandingAssets>,
+	mut commands: Commands,
+) {
+	for (player, body) in players.iter() {
+		commands
+			.entity(player)
+			.remove::<ChargeCrouching>()
+			.insert(Charging);
+		to_standing_assets(body, &mut commands, &assets);
 	}
 }
