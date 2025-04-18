@@ -6,21 +6,39 @@ use bevy_rapier3d::prelude::*;
 
 use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::movement::stand::Standing;
+use crate::player_controller::movement::walk::Walking;
 use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin};
 
 use super::CoyoteTimeSettings;
+use super::charge::Charging;
 use super::crouch::Crouching;
 use super::dash::Dashing;
+use super::di::DirectionalInput;
 use super::grounded::EffectiveGrounded;
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerJumpSettings {
 	jump_speed: 5.0,
 	high_jump_speed: 7.0,
+	charge_jump_speed: 10.0,
 })]
 pub struct PlayerJumpSettings {
 	pub jump_speed: f32,
 	pub high_jump_speed: f32,
+	pub charge_jump_speed: f32,
+}
+
+#[derive(Resource)]
+pub struct JumpAssets {
+	pub charge_jump_sound: Handle<AudioSource>,
+}
+
+#[system(plugin = PlayerControllerPlugin, schedule = Startup)]
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+	commands.insert_resource(JumpAssets {
+		charge_jump_sound: asset_server.load("worms bazooka shoot.mp3"),
+	});
 }
 
 #[derive(Component, Default)]
@@ -64,25 +82,50 @@ fn update_trying_to_jump(
 )]
 fn jump(
 	mut player_bodies: Query<
-		(Entity, &mut Velocity, &Transform, Has<Crouching>),
+		(
+			Entity,
+			&mut Velocity,
+			&Transform,
+			&DirectionalInput,
+			Has<Crouching>,
+			Has<Charging>,
+		),
 		(With<EffectiveGrounded>, With<TryingToJump>),
 	>,
 	speed: Res<PlayerJumpSettings>,
+	assets: Res<JumpAssets>,
 	mut commands: Commands,
 ) {
-	for (player, mut velocity, transform, crouching) in player_bodies.iter_mut() {
+	for (player, mut velocity, transform, di, crouching, charging) in player_bodies.iter_mut() {
 		println!("Jumping!");
 		if transform.up().dot(velocity.linvel) < 0.0 {
 			velocity.linvel = velocity.linvel.reject_from(transform.up().into());
 		}
 		velocity.linvel += transform.up()
-			* match crouching {
-				false => speed.jump_speed,
-				true => speed.high_jump_speed,
+			* if crouching {
+				speed.high_jump_speed
+			} else if charging {
+				speed.charge_jump_speed
+			} else {
+				speed.jump_speed
 			};
 		commands
 			.entity(player)
 			.remove::<Dashing>()
+			.remove::<Charging>()
 			.remove::<TryingToJump>();
+
+		if charging {
+			commands.spawn((
+				AudioPlayer(assets.charge_jump_sound.clone()),
+				PlaybackSettings::DESPAWN,
+			));
+
+			if di.world_space.length() > 0.0 {
+				commands.entity(player).insert(Walking);
+			} else {
+				commands.entity(player).insert(Standing);
+			}
+		}
 	}
 }

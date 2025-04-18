@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use bevy::prelude::*;
 use bevy_butler::*;
 
@@ -25,10 +23,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[derive(Component)]
-pub struct Charging {
-	pub start_time: Instant,
-	pub sound: Entity,
-}
+pub struct Charging;
+
+#[derive(Component)]
+pub struct ChargingSound(pub Entity);
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
@@ -54,15 +52,13 @@ fn standing_to_charging(
 		println!("Charging!");
 
 		let sound = commands
-			.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::ONCE))
+			.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN))
 			.id();
 
 		commands
 			.entity(player)
-			.insert(Charging {
-				start_time: Instant::now(),
-				sound,
-			})
+			.insert(Charging)
+			.insert(ChargingSound(sound))
 			.remove::<TryingToDash>()
 			.remove::<Standing>();
 	}
@@ -73,12 +69,29 @@ fn standing_to_charging(
 	run_if = button_just_released(PlayerAction::Sprint),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn charging_to_standing(players: Query<(Entity, &Charging)>, mut commands: Commands) {
-	for (player, charging) in players.iter() {
-		commands.entity(charging.sound).despawn();
+fn charging_to_standing(players: Query<Entity, With<Charging>>, mut commands: Commands) {
+	for player in players.iter() {
 		commands
 			.entity(player)
 			.remove::<Charging>()
 			.insert(Standing);
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	after = MovementControlSet::UpdateState,
+)]
+fn remove_charging_sound(
+	sounds: Query<&ChargingSound>,
+	mut removed_chargings: RemovedComponents<Charging>,
+	mut commands: Commands,
+) {
+	for player in removed_chargings.read() {
+		commands.entity(player).remove::<ChargingSound>();
+		let sound = sounds.get(player).expect("ChargingSound not found");
+		if let Some(sound) = commands.get_entity(sound.0) {
+			sound.despawn_recursive();
+		}
 	}
 }
