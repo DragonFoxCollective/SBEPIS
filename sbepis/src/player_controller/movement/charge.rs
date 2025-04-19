@@ -82,6 +82,7 @@ fn charging_to_standing(
 		commands
 			.entity(player)
 			.remove::<Charging>()
+			.remove::<ChargingSound>()
 			.insert(Standing);
 
 		if let Some(sound) = commands.get_entity(charging_sound.0) {
@@ -123,6 +124,7 @@ fn charge_crouching_to_charging(
 		commands
 			.entity(player)
 			.remove::<ChargeCrouching>()
+			.remove::<ChargingSound>()
 			.insert(Charging);
 		to_standing_assets(body, &mut commands, &assets);
 	}

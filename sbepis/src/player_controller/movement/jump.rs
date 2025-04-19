@@ -131,6 +131,7 @@ fn jump(
 			.remove::<Dashing>()
 			.remove::<Charging>()
 			.remove::<ChargeCrouching>()
+			.remove::<ChargingSound>()
 			.remove::<TryingToJump>();
 
 		if let Some(charging_sound) = charging_sound {
