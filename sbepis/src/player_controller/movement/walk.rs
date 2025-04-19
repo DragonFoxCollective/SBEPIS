@@ -9,7 +9,7 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
-use super::charge::Charging;
+use super::charge::{ChargeCrouching, Charging};
 use super::crouch::Crouching;
 use super::di::DirectionalInput;
 use super::grounded::Grounded;
@@ -94,6 +94,7 @@ fn update_walk_velocity(
 			With<Crouching>,
 			With<Sneaking>,
 			With<Charging>,
+			With<ChargeCrouching>,
 		)>,
 	>,
 	walk_settings: Res<PlayerWalkSettings>,
