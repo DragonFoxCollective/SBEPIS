@@ -17,9 +17,11 @@ use super::stand::Standing;
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerChargeSettings {
 	max_time: Duration::from_secs_f32(1.0),
+	max_stamina_cost: 1.0,
 })]
 pub struct PlayerChargeSettings {
 	pub max_time: Duration,
+	pub max_stamina_cost: f32,
 }
 
 #[derive(Resource)]
@@ -38,6 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 pub struct ChargingInternal {
 	pub start_time: Instant,
 	pub max_time: Duration,
+	pub max_stamina_cost: f32,
 }
 
 impl ChargingInternal {
@@ -45,11 +48,30 @@ impl ChargingInternal {
 		Self {
 			start_time: Instant::now(),
 			max_time: settings.max_time,
+			max_stamina_cost: settings.max_stamina_cost,
 		}
 	}
 
 	pub fn power(&self) -> f32 {
 		(self.start_time.elapsed().as_secs_f32() / self.max_time.as_secs_f32()).min(1.0)
+	}
+
+	pub fn stamina_cost(&self) -> f32 {
+		self.power() * self.max_stamina_cost
+	}
+
+	pub fn power_and_stamina_cost_from_stamina(&self, stamina: f32) -> (f32, f32) {
+		let power = self.power() * (stamina / self.stamina_cost()).min(1.0);
+		let stamina_cost = self.stamina_cost().min(stamina);
+		debug!(
+			"Given stamina {}, power {}, and stamina_cost {}, resulted in power {} and stamina_cost {}",
+			stamina,
+			self.power(),
+			self.stamina_cost(),
+			power,
+			stamina_cost
+		);
+		(power, stamina_cost)
 	}
 }
 
@@ -61,8 +83,8 @@ impl Charging {
 		Self(ChargingInternal::new(settings))
 	}
 
-	pub fn power(&self) -> f32 {
-		self.0.power()
+	pub fn power_and_stamina_cost_from_stamina(&self, stamina: f32) -> (f32, f32) {
+		self.0.power_and_stamina_cost_from_stamina(stamina)
 	}
 }
 
@@ -76,13 +98,8 @@ impl From<ChargeCrouching> for Charging {
 pub struct ChargeCrouching(pub ChargingInternal);
 
 impl ChargeCrouching {
-	#[allow(dead_code)] // State never entered except from charging
-	pub fn new(settings: &PlayerChargeSettings) -> Self {
-		Self(ChargingInternal::new(settings))
-	}
-
-	pub fn power(&self) -> f32 {
-		self.0.power()
+	pub fn power_and_stamina_cost_from_stamina(&self, stamina: f32) -> (f32, f32) {
+		self.0.power_and_stamina_cost_from_stamina(stamina)
 	}
 }
 

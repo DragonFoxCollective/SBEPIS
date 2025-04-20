@@ -9,6 +9,7 @@ use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::sneak::Sneaking;
 use crate::player_controller::movement::stand::Standing;
 use crate::player_controller::movement::walk::Walking;
+use crate::player_controller::stamina::Stamina;
 use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin};
 use crate::util::MapRangeBetween;
 
@@ -91,6 +92,7 @@ fn jump(
 			&mut Velocity,
 			&Transform,
 			&DirectionalInput,
+			&mut Stamina,
 			Has<Crouching>,
 			Option<&Charging>,
 			Option<&ChargeCrouching>,
@@ -107,6 +109,7 @@ fn jump(
 		mut velocity,
 		transform,
 		di,
+		mut stamina,
 		crouching,
 		charging,
 		charge_crouching,
@@ -121,13 +124,15 @@ fn jump(
 			* if crouching {
 				speed.high_jump_speed
 			} else if let Some(charging) = charging {
-				charging
-					.power()
-					.map_from_01(speed.jump_speed..speed.charge_jump_speed)
+				let (power, stamina_cost) =
+					charging.power_and_stamina_cost_from_stamina(stamina.current);
+				stamina.current -= stamina_cost;
+				power.map_from_01(speed.jump_speed..speed.charge_jump_speed)
 			} else if let Some(charge_crouching) = charge_crouching {
-				charge_crouching
-					.power()
-					.map_from_01(speed.jump_speed..speed.unreal_air_jump_speed)
+				let (power, stamina_cost) =
+					charge_crouching.power_and_stamina_cost_from_stamina(stamina.current);
+				stamina.current -= stamina_cost;
+				power.map_from_01(speed.jump_speed..speed.unreal_air_jump_speed)
 			} else {
 				speed.jump_speed
 			};
