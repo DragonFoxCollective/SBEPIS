@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use bevy::prelude::*;
 use bevy_butler::*;
 
@@ -13,6 +15,14 @@ use super::grounded::EffectiveGrounded;
 use super::stand::Standing;
 
 #[derive(Resource)]
+#[resource(plugin = PlayerControllerPlugin, init = PlayerChargeSettings {
+	max_time: Duration::from_secs_f32(1.0),
+})]
+pub struct PlayerChargeSettings {
+	pub max_time: Duration,
+}
+
+#[derive(Resource)]
 pub struct ChargeAssets {
 	pub sound: Handle<AudioSource>,
 }
@@ -24,11 +34,63 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 	});
 }
 
-#[derive(Component)]
-pub struct Charging;
+#[derive(Clone, Debug)]
+pub struct ChargingInternal {
+	pub start_time: Instant,
+	pub max_time: Duration,
+}
 
-#[derive(Component)]
-pub struct ChargeCrouching;
+impl ChargingInternal {
+	pub fn new(settings: &PlayerChargeSettings) -> Self {
+		Self {
+			start_time: Instant::now(),
+			max_time: settings.max_time,
+		}
+	}
+
+	pub fn power(&self) -> f32 {
+		(self.start_time.elapsed().as_secs_f32() / self.max_time.as_secs_f32()).min(1.0)
+	}
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct Charging(pub ChargingInternal);
+
+impl Charging {
+	pub fn new(settings: &PlayerChargeSettings) -> Self {
+		Self(ChargingInternal::new(settings))
+	}
+
+	pub fn power(&self) -> f32 {
+		self.0.power()
+	}
+}
+
+impl From<ChargeCrouching> for Charging {
+	fn from(charge_crouching: ChargeCrouching) -> Self {
+		Self(charge_crouching.0)
+	}
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct ChargeCrouching(pub ChargingInternal);
+
+impl ChargeCrouching {
+	#[allow(dead_code)] // State never entered except from charging
+	pub fn new(settings: &PlayerChargeSettings) -> Self {
+		Self(ChargingInternal::new(settings))
+	}
+
+	pub fn power(&self) -> f32 {
+		self.0.power()
+	}
+}
+
+impl From<Charging> for ChargeCrouching {
+	fn from(charging: Charging) -> Self {
+		Self(charging.0)
+	}
+}
 
 #[derive(Component)]
 pub struct ChargingSound(pub Entity);
@@ -52,6 +114,7 @@ fn standing_to_charging(
 	>,
 	mut commands: Commands,
 	assets: Res<ChargeAssets>,
+	settings: Res<PlayerChargeSettings>,
 ) {
 	for player in players.iter() {
 		println!("Charging!");
@@ -62,7 +125,7 @@ fn standing_to_charging(
 
 		commands
 			.entity(player)
-			.insert(Charging)
+			.insert(Charging::new(&settings))
 			.insert(ChargingSound(sound))
 			.remove::<TryingToDash>()
 			.remove::<Standing>();
@@ -97,15 +160,15 @@ fn charging_to_standing(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn charching_to_charge_crouching(
-	players: Query<(Entity, &PlayerBody), With<Charging>>,
+	players: Query<(Entity, &PlayerBody, &Charging)>,
 	assets: Res<CrouchingAssets>,
 	mut commands: Commands,
 ) {
-	for (player, body) in players.iter() {
+	for (player, body, charging) in players.iter() {
 		commands
 			.entity(player)
 			.remove::<Charging>()
-			.insert(ChargeCrouching);
+			.insert(ChargeCrouching::from(charging.clone()));
 		to_crouching_assets(body, &mut commands, &assets);
 	}
 }
@@ -116,16 +179,16 @@ fn charching_to_charge_crouching(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn charge_crouching_to_charging(
-	players: Query<(Entity, &PlayerBody), With<ChargeCrouching>>,
+	players: Query<(Entity, &PlayerBody, &ChargeCrouching)>,
 	assets: Res<StandingAssets>,
 	mut commands: Commands,
 ) {
-	for (player, body) in players.iter() {
+	for (player, body, charge_crouching) in players.iter() {
 		commands
 			.entity(player)
 			.remove::<ChargeCrouching>()
 			.remove::<ChargingSound>()
-			.insert(Charging);
+			.insert(Charging::from(charge_crouching.clone()));
 		to_standing_assets(body, &mut commands, &assets);
 	}
 }

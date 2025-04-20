@@ -10,6 +10,7 @@ use crate::player_controller::movement::sneak::Sneaking;
 use crate::player_controller::movement::stand::Standing;
 use crate::player_controller::movement::walk::Walking;
 use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin};
+use crate::util::MapRangeBetween;
 
 use super::CoyoteTimeSettings;
 use super::charge::{ChargeCrouching, Charging, ChargingSound};
@@ -91,8 +92,8 @@ fn jump(
 			&Transform,
 			&DirectionalInput,
 			Has<Crouching>,
-			Has<Charging>,
-			Has<ChargeCrouching>,
+			Option<&Charging>,
+			Option<&ChargeCrouching>,
 			Option<&ChargingSound>,
 		),
 		(With<EffectiveGrounded>, With<TryingToJump>),
@@ -119,10 +120,14 @@ fn jump(
 		velocity.linvel += transform.up()
 			* if crouching {
 				speed.high_jump_speed
-			} else if charging {
-				speed.charge_jump_speed
-			} else if charge_crouching {
-				speed.unreal_air_jump_speed
+			} else if let Some(charging) = charging {
+				charging
+					.power()
+					.map_from_01(speed.jump_speed..speed.charge_jump_speed)
+			} else if let Some(charge_crouching) = charge_crouching {
+				charge_crouching
+					.power()
+					.map_from_01(speed.jump_speed..speed.unreal_air_jump_speed)
 			} else {
 				speed.jump_speed
 			};
@@ -144,7 +149,7 @@ fn jump(
 				sound.despawn_recursive();
 			}
 
-			if charge_crouching {
+			if charge_crouching.is_some() {
 				if di.world_space.length() > 0.0 {
 					commands.entity(player).insert(Sneaking);
 				} else {
