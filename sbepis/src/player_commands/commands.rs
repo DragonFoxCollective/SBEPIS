@@ -168,7 +168,7 @@ impl NotePatternEvent for KillCommandEvent {
 )]
 fn kill(mut ev_kill: EventReader<KillCommandEvent>, mut ev_quit: EventWriter<AppExit>) {
 	for ev in ev_kill.read() {
-		println!("Tried to kill {}", ev.0);
+		debug!("Tried to kill {}", ev.0);
 		if ev.0 {
 			ev_quit.send(AppExit::Success);
 		}

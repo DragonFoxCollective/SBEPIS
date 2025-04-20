@@ -7,11 +7,14 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::movement::charge::charge_walking_to_trying_to_dash;
 use crate::player_controller::stamina::Stamina;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
+use crate::util::MapRangeBetween;
 
 use super::CoyoteTimeSettings;
+use super::charge::{ChargeWalking, ChargingSound};
 use super::di::DirectionalInput;
 use super::grounded::EffectiveGrounded;
 use super::sprint::Sprinting;
@@ -20,15 +23,27 @@ use super::walk::{PlayerWalkSettings, Walking};
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerDashSettings {
 	speed_addon: 12.0,
-	time: Duration::from_secs_f32(0.3),
+	dash_time: Duration::from_secs_f32(0.3),
 	cooldown: Duration::from_secs_f32(0.2),
 	stamina_cost: 0.33,
+
+	charge_min_speed_addon: 12.0,
+	charge_max_speed_addon: 40.0,
+	charge_dash_time: Duration::from_secs_f32(0.3),
+	charge_min_stamina_cost: 0.33,
+	charge_max_stamina_cost: 0.66,
 })]
 pub struct PlayerDashSettings {
 	pub speed_addon: f32,
-	pub time: Duration,
+	pub dash_time: Duration,
 	pub cooldown: Duration,
 	pub stamina_cost: f32,
+
+	pub charge_min_speed_addon: f32,
+	pub charge_max_speed_addon: f32,
+	pub charge_dash_time: Duration,
+	pub charge_min_stamina_cost: f32,
+	pub charge_max_stamina_cost: f32,
 }
 
 #[derive(Resource)]
@@ -49,7 +64,9 @@ pub struct TryingToDash(Duration);
 #[derive(Component)]
 pub struct Dashing {
 	pub duration: Duration,
+	pub max_duration: Duration,
 	pub velocity: Vec3,
+	pub speed_addon: f32,
 }
 
 #[derive(Component, Default)]
@@ -79,7 +96,7 @@ fn update_trying_to_dash(
 ) {
 	for (player, mut trying_to_dash) in players.iter_mut() {
 		trying_to_dash.0 += time.delta();
-		println!("Trying to dash: {:.2?}", trying_to_dash.0.as_secs_f32());
+		debug!("Trying to dash: {:.2?}", trying_to_dash.0.as_secs_f32());
 		if trying_to_dash.0 >= coyote_time_settings.input_buffer_time {
 			commands.entity(player).remove::<TryingToDash>();
 		}
@@ -109,40 +126,98 @@ fn update_dash_cooldown(
 	after = MovementControlSet::UpdateDi,
 	after = MovementControlSet::UpdateGrounded,
 	after = add_trying_to_dash,
+	after = charge_walking_to_trying_to_dash,
 	in_set = MovementControlSet::UpdateState,
 )]
 fn walking_to_dashing(
 	mut players: Query<
-		(Entity, &Velocity, &DirectionalInput, &mut Stamina),
+		(
+			Entity,
+			&Velocity,
+			&DirectionalInput,
+			&mut Stamina,
+			Option<&ChargeWalking>,
+			Option<&ChargingSound>,
+		),
 		(
 			With<EffectiveGrounded>,
 			With<TryingToDash>,
-			Or<(With<Walking>, With<Sprinting>)>,
+			Or<(With<Walking>, With<Sprinting>, With<ChargeWalking>)>,
 			Without<Dashing>,
 			Without<DashCooldown>,
 		),
 	>,
-	dash_settings: Res<PlayerDashSettings>,
+	settings: Res<PlayerDashSettings>,
 	mut commands: Commands,
 	assets: Res<DashAssets>,
 ) {
-	for (player, velocity, di, mut stamina) in players.iter_mut() {
-		if stamina.current >= dash_settings.stamina_cost {
-			println!("Dashing!");
+	for (player, velocity, di, mut stamina, charging, charging_sound) in players.iter_mut() {
+		let (min_stamina_cost, result) = if let Some(charging) = charging {
+			(
+				settings.charge_min_stamina_cost,
+				charging
+					.power_and_stamina_cost_from_stamina(
+						stamina.current,
+						settings.charge_min_stamina_cost,
+						settings.charge_max_stamina_cost,
+					)
+					.map(|(power, charge_stamina_cost)| {
+						(
+							power.map_from_01(
+								settings.charge_min_speed_addon..settings.charge_max_speed_addon,
+							),
+							settings.charge_dash_time,
+							charge_stamina_cost,
+						)
+					}),
+			)
+		} else {
+			(
+				settings.stamina_cost,
+				if stamina.current > settings.stamina_cost {
+					Some((
+						settings.speed_addon,
+						settings.dash_time,
+						settings.stamina_cost,
+					))
+				} else {
+					None
+				},
+			)
+		};
+
+		if let Some((speed_addon, dash_time, stamina_cost)) = result {
+			debug!("Dashing!");
+
+			stamina.current -= stamina_cost;
+
 			commands
 				.entity(player)
 				.insert(Dashing {
 					duration: Duration::ZERO,
+					max_duration: dash_time,
 					velocity: di.world_space.normalize_or(di.forward)
-						* (velocity.linvel.length() + dash_settings.speed_addon),
+						* (velocity.linvel.length() + speed_addon),
+					speed_addon,
 				})
-				.remove::<TryingToDash>();
-
-			stamina.current -= dash_settings.stamina_cost;
+				.remove::<TryingToDash>()
+				.remove::<ChargeWalking>()
+				.remove::<ChargingSound>();
 
 			commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
+
+			if let Some(charging_sound) = charging_sound {
+				if let Some(sound) = commands.get_entity(charging_sound.0) {
+					sound.despawn_recursive();
+				}
+
+				commands.entity(player).insert(Walking);
+			}
 		} else {
-			println!("Not enough stamina to dash!");
+			debug!(
+				"Not enough stamina to dash! Have {}, need {}",
+				stamina.current, min_stamina_cost
+			);
 		}
 	}
 }
@@ -155,15 +230,14 @@ fn walking_to_dashing(
 fn update_dashing(
 	mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,
 	time: Res<Time>,
-	dash_settings: Res<PlayerDashSettings>,
 	walk_settings: Res<PlayerWalkSettings>,
 	mut commands: Commands,
 ) {
 	for (player, mut dashing, mut movement, mut velocity) in players.iter_mut() {
 		dashing.duration += time.delta();
-		if dashing.duration >= dash_settings.time {
+		if dashing.duration >= dashing.max_duration {
 			velocity.linvel = dashing.velocity.normalize_or_zero()
-				* (dashing.velocity.length() - dash_settings.speed_addon
+				* (dashing.velocity.length() - dashing.speed_addon
 					+ (walk_settings.sprint_speed - walk_settings.speed));
 			movement.0 = velocity.linvel;
 			commands

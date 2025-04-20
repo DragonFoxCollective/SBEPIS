@@ -6,7 +6,6 @@ use bevy_rapier3d::prelude::*;
 
 use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::movement::sneak::Sneaking;
 use crate::player_controller::movement::stand::Standing;
 use crate::player_controller::movement::walk::Walking;
 use crate::player_controller::stamina::Stamina;
@@ -14,24 +13,45 @@ use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin}
 use crate::util::MapRangeBetween;
 
 use super::CoyoteTimeSettings;
-use super::charge::{ChargeCrouching, Charging, ChargingSound};
+use super::charge::{ChargeCrouching, ChargeStanding, ChargeWalking, ChargingSound};
 use super::crouch::Crouching;
 use super::dash::Dashing;
-use super::di::DirectionalInput;
 use super::grounded::EffectiveGrounded;
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerJumpSettings {
 	jump_speed: 5.0,
+	jump_stamina_cost: 0.0,
+
 	high_jump_speed: 7.0,
-	charge_jump_speed: 10.0,
-	unreal_air_jump_speed: 15.0,
+	high_jump_stamina_cost: 0.0,
+
+	charge_jump_min_speed: 5.0,
+	charge_jump_max_speed: 10.0,
+	charge_jump_min_stamina_cost: 0.0,
+	charge_jump_max_stamina_cost: 0.33,
+
+	unreal_air_jump_min_speed: 7.0,
+	unreal_air_jump_max_speed: 15.0,
+	unreal_air_jump_min_stamina_cost: 0.0,
+	unreal_air_jump_max_stamina_cost: 0.66,
 })]
 pub struct PlayerJumpSettings {
 	pub jump_speed: f32,
+	pub jump_stamina_cost: f32,
+
 	pub high_jump_speed: f32,
-	pub charge_jump_speed: f32,
-	pub unreal_air_jump_speed: f32,
+	pub high_jump_stamina_cost: f32,
+
+	pub charge_jump_min_speed: f32,
+	pub charge_jump_max_speed: f32,
+	pub charge_jump_min_stamina_cost: f32,
+	pub charge_jump_max_stamina_cost: f32,
+
+	pub unreal_air_jump_min_speed: f32,
+	pub unreal_air_jump_max_speed: f32,
+	pub unreal_air_jump_min_stamina_cost: f32,
+	pub unreal_air_jump_max_stamina_cost: f32,
 }
 
 #[derive(Resource)]
@@ -73,7 +93,7 @@ fn update_trying_to_jump(
 ) {
 	for (player, mut trying_to_jump) in players.iter_mut() {
 		trying_to_jump.0 += time.delta();
-		println!("Trying to jump: {:.2?}", trying_to_jump.0.as_secs_f32());
+		debug!("Trying to jump: {:.2?}", trying_to_jump.0.as_secs_f32());
 		if trying_to_jump.0 >= cotote_time_settings.input_buffer_time {
 			commands.entity(player).remove::<TryingToJump>();
 		}
@@ -91,16 +111,16 @@ fn jump(
 			Entity,
 			&mut Velocity,
 			&Transform,
-			&DirectionalInput,
 			&mut Stamina,
 			Has<Crouching>,
-			Option<&Charging>,
+			Option<&ChargeStanding>,
 			Option<&ChargeCrouching>,
+			Has<ChargeWalking>,
 			Option<&ChargingSound>,
 		),
 		(With<EffectiveGrounded>, With<TryingToJump>),
 	>,
-	speed: Res<PlayerJumpSettings>,
+	settings: Res<PlayerJumpSettings>,
 	assets: Res<JumpAssets>,
 	mut commands: Commands,
 ) {
@@ -108,39 +128,93 @@ fn jump(
 		player,
 		mut velocity,
 		transform,
-		di,
 		mut stamina,
 		crouching,
-		charging,
+		charge_standing,
 		charge_crouching,
+		charge_walking,
 		charging_sound,
 	) in player_bodies.iter_mut()
 	{
-		println!("Jumping!");
-		if transform.up().dot(velocity.linvel) < 0.0 {
-			velocity.linvel = velocity.linvel.reject_from(transform.up().into());
+		let (min_stamina_cost, result) = if crouching {
+			(
+				settings.high_jump_stamina_cost,
+				if stamina.current > settings.high_jump_stamina_cost {
+					Some((settings.high_jump_speed, settings.high_jump_stamina_cost))
+				} else {
+					None
+				},
+			)
+		} else if let Some(charging) = charge_standing {
+			(
+				settings.charge_jump_min_stamina_cost,
+				charging
+					.power_and_stamina_cost_from_stamina(
+						stamina.current,
+						settings.charge_jump_min_stamina_cost,
+						settings.charge_jump_max_stamina_cost,
+					)
+					.map(|(power, stamina_cost)| {
+						(
+							power.map_from_01(
+								settings.charge_jump_min_speed..settings.charge_jump_max_speed,
+							),
+							stamina_cost,
+						)
+					}),
+			)
+		} else if let Some(charge_crouching) = charge_crouching {
+			(
+				settings.unreal_air_jump_min_stamina_cost,
+				charge_crouching
+					.power_and_stamina_cost_from_stamina(
+						stamina.current,
+						settings.unreal_air_jump_min_stamina_cost,
+						settings.unreal_air_jump_max_stamina_cost,
+					)
+					.map(|(power, stamina_cost)| {
+						(
+							power.map_from_01(
+								settings.unreal_air_jump_min_speed
+									..settings.unreal_air_jump_max_speed,
+							),
+							stamina_cost,
+						)
+					}),
+			)
+		} else {
+			(
+				settings.jump_stamina_cost,
+				if stamina.current > settings.jump_stamina_cost {
+					Some((settings.jump_speed, settings.jump_stamina_cost))
+				} else {
+					None
+				},
+			)
+		};
+
+		if let Some((speed, stamina_cost)) = result {
+			debug!("Jumping!");
+
+			stamina.current -= stamina_cost;
+
+			if transform.up().dot(velocity.linvel) < 0.0 {
+				velocity.linvel = velocity.linvel.reject_from(transform.up().into());
+			}
+			velocity.linvel += transform.up() * speed;
+		} else {
+			debug!(
+				"Not enough stamina to jump! Have {}, need {}",
+				stamina.current, min_stamina_cost
+			);
 		}
-		velocity.linvel += transform.up()
-			* if crouching {
-				speed.high_jump_speed
-			} else if let Some(charging) = charging {
-				let (power, stamina_cost) =
-					charging.power_and_stamina_cost_from_stamina(stamina.current);
-				stamina.current -= stamina_cost;
-				power.map_from_01(speed.jump_speed..speed.charge_jump_speed)
-			} else if let Some(charge_crouching) = charge_crouching {
-				let (power, stamina_cost) =
-					charge_crouching.power_and_stamina_cost_from_stamina(stamina.current);
-				stamina.current -= stamina_cost;
-				power.map_from_01(speed.jump_speed..speed.unreal_air_jump_speed)
-			} else {
-				speed.jump_speed
-			};
+
 		commands
 			.entity(player)
 			.remove::<Dashing>()
-			.remove::<Charging>()
+			.remove::<ChargeStanding>()
 			.remove::<ChargeCrouching>()
+			.remove::<ChargeWalking>()
 			.remove::<ChargingSound>()
 			.remove::<TryingToJump>();
 
@@ -155,12 +229,8 @@ fn jump(
 			}
 
 			if charge_crouching.is_some() {
-				if di.world_space.length() > 0.0 {
-					commands.entity(player).insert(Sneaking);
-				} else {
-					commands.entity(player).insert(Crouching);
-				}
-			} else if di.world_space.length() > 0.0 {
+				commands.entity(player).insert(Crouching);
+			} else if charge_walking {
 				commands.entity(player).insert(Walking);
 			} else {
 				commands.entity(player).insert(Standing);

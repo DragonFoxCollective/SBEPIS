@@ -42,7 +42,7 @@ fn add_note_to_holder(
 	for ev in ev_note_played.read() {
 		let note = ev.note;
 
-		println!(
+		debug!(
 			"{} {} {}",
 			note,
 			note.position(),
