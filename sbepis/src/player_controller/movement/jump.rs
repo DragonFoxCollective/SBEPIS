@@ -17,6 +17,7 @@ use super::charge::{ChargeCrouching, ChargeStanding, ChargeWalking, ChargingSoun
 use super::crouch::Crouching;
 use super::dash::Dashing;
 use super::grounded::EffectiveGrounded;
+use super::slide::Sliding;
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerJumpSettings {
@@ -118,7 +119,18 @@ fn jump(
 			Has<ChargeWalking>,
 			Option<&ChargingSound>,
 		),
-		(With<EffectiveGrounded>, With<TryingToJump>),
+		(
+			With<EffectiveGrounded>,
+			With<TryingToJump>,
+			Or<(
+				With<Standing>,
+				With<Walking>,
+				With<Sliding>,
+				With<ChargeStanding>,
+				With<ChargeWalking>,
+				With<ChargeCrouching>,
+			)>,
+		),
 	>,
 	settings: Res<PlayerJumpSettings>,
 	assets: Res<JumpAssets>,

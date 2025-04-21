@@ -13,6 +13,7 @@ use slide::Sliding;
 use sneak::Sneaking;
 use sprint::Sprinting;
 use stand::Standing;
+use trip::{TripRecoverInAir, TripRecoverOnGround, Tripping, TryingToGroundParry};
 use walk::Walking;
 
 use crate::player_controller::PlayerControllerPlugin;
@@ -29,12 +30,13 @@ pub mod slide;
 pub mod sneak;
 pub mod sprint;
 pub mod stand;
+pub mod trip;
 pub mod walk;
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = CoyoteTimeSettings {
-	input_buffer_time: Duration::from_secs_f32(0.1),
-	coyote_time: Duration::from_secs_f32(0.1),
+	input_buffer_time: Duration::from_secs_f32(0.5),
+	coyote_time: Duration::from_secs_f32(0.2),
 })]
 pub struct CoyoteTimeSettings {
 	pub input_buffer_time: Duration,
@@ -67,14 +69,24 @@ fn check_states(
 			Has<Crouching>,
 			Has<Sneaking>,
 			Has<Dashing>,
-			Has<TryingToDash>,
-			Has<ChargeStanding>,
-			Has<ChargeCrouching>,
-			Has<ChargeWalking>,
+			(
+				Has<ChargeStanding>,
+				Has<ChargeCrouching>,
+				Has<ChargeWalking>,
+			),
+			(
+				Has<Tripping>,
+				Has<TripRecoverInAir>,
+				Has<TripRecoverOnGround>,
+			),
 			Has<Sliding>,
 			Has<Grounded>,
 			Has<EffectiveGrounded>,
-			Has<TryingToJump>,
+			(
+				Has<TryingToDash>,
+				Has<TryingToJump>,
+				Has<TryingToGroundParry>,
+			),
 		),
 		With<PlayerBody>,
 	>,
@@ -83,8 +95,8 @@ fn check_states(
 	let mut debug_state = debug_states.single_mut();
 	for tup in players.iter() {
 		let arr = [
-			tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6, tup.7, tup.8, tup.9, tup.10, tup.11,
-			tup.12, tup.13,
+			tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
+			tup.7.2, tup.8, tup.9, tup.10, tup.11.0, tup.11.1, tup.11.2,
 		];
 		let has = arr
 			.into_iter()
@@ -95,14 +107,18 @@ fn check_states(
 				type_name::<Crouching>(),
 				type_name::<Sneaking>(),
 				type_name::<Dashing>(),
-				type_name::<TryingToDash>(),
 				type_name::<ChargeStanding>(),
 				type_name::<ChargeCrouching>(),
 				type_name::<ChargeWalking>(),
+				type_name::<Tripping>(),
+				type_name::<TripRecoverInAir>(),
+				type_name::<TripRecoverOnGround>(),
 				type_name::<Sliding>(),
 				type_name::<Grounded>(),
 				type_name::<EffectiveGrounded>(),
+				type_name::<TryingToDash>(),
 				type_name::<TryingToJump>(),
+				type_name::<TryingToGroundParry>(),
 			])
 			.filter_map(|(has, name)| if has { Some(name) } else { None })
 			.map(|name| name.split("::").last().unwrap())

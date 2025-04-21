@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::input::{button_just_pressed, button_just_released};
+use crate::input::{button_is_pressed, button_is_released};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
@@ -52,7 +52,7 @@ pub struct Crouching;
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Crouch),
+	run_if = button_is_pressed(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
 fn standing_to_crouching(
@@ -71,7 +71,7 @@ fn standing_to_crouching(
 
 #[system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Crouch),
+	run_if = button_is_released(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
 fn crouching_to_standing(

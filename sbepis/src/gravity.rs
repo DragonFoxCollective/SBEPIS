@@ -37,11 +37,22 @@ impl GravitationalField for GravityPoint {
 	}
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 #[require(RigidBody, Velocity)]
 pub struct AffectedByGravity {
+	pub factor: f32,
 	pub acceleration: Vec3,
 	pub up: Vec3,
+}
+
+impl Default for AffectedByGravity {
+	fn default() -> Self {
+		Self {
+			factor: 1.0,
+			acceleration: Vec3::ZERO,
+			up: Vec3::Y,
+		}
+	}
 }
 
 #[system(
@@ -111,6 +122,6 @@ fn calculate_gravity(
 )]
 fn apply_gravity(mut rigidbodies: Query<(&mut Velocity, &AffectedByGravity)>, time: Res<Time>) {
 	for (mut velocity, gravity) in rigidbodies.iter_mut() {
-		velocity.linvel += gravity.acceleration * time.delta_secs();
+		velocity.linvel += gravity.acceleration * gravity.factor * time.delta_secs();
 	}
 }

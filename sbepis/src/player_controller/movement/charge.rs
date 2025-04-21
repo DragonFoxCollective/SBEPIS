@@ -2,8 +2,10 @@ use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_rapier3d::prelude::Velocity;
 
-use crate::input::{button_just_pressed, button_just_released};
+use crate::gravity::AffectedByGravity;
+use crate::input::{button_is_released, button_just_pressed, button_just_released};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::dash::add_trying_to_dash;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
@@ -13,6 +15,7 @@ use super::crouch::{CrouchingAssets, StandingAssets, to_crouching_assets, to_sta
 use super::dash::TryingToDash;
 use super::grounded::EffectiveGrounded;
 use super::stand::Standing;
+use super::trip::{PlayerTripSettings, Tripping};
 
 #[derive(Resource)]
 #[resource(plugin = PlayerControllerPlugin, init = PlayerChargeSettings {
@@ -201,7 +204,7 @@ fn standing_to_charging(
 
 #[system(
     plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Sprint),
+	run_if = button_is_released(PlayerAction::Sprint),
 	in_set = MovementControlSet::UpdateState,
 )]
 fn charging_to_standing(
@@ -254,7 +257,6 @@ fn charge_crouching_to_charging(
 		commands
 			.entity(player)
 			.remove::<ChargeCrouching>()
-			.remove::<ChargingSound>()
 			.insert(ChargeStanding::from(charge_crouching.clone()));
 		to_standing_assets(body, &mut commands, &assets);
 	}
@@ -299,5 +301,42 @@ pub fn charge_walking_to_trying_to_dash(
 ) {
 	for player in players.iter() {
 		commands.entity(player).insert(TryingToDash::default());
+	}
+}
+
+#[system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	run_if = button_just_released(PlayerAction::Sprint),
+	in_set = MovementControlSet::UpdateState,
+)]
+pub fn charge_crouching_to_tripping(
+	mut players: Query<
+		(
+			Entity,
+			Option<&ChargingSound>,
+			&mut AffectedByGravity,
+			&Velocity,
+		),
+		With<ChargeCrouching>,
+	>,
+	mut commands: Commands,
+	trip_settings: Res<PlayerTripSettings>,
+) {
+	for (player, charging_sound, mut gravity, velocity) in players.iter_mut() {
+		commands
+			.entity(player)
+			.remove::<ChargeCrouching>()
+			.insert(Tripping::new(
+				gravity.up,
+				velocity.linvel + gravity.up * trip_settings.upward_speed,
+			));
+
+		gravity.factor = 0.0;
+
+		if let Some(charging_sound) = charging_sound {
+			if let Some(sound) = commands.get_entity(charging_sound.0) {
+				sound.despawn_recursive();
+			}
+		}
 	}
 }
