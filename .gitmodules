@@ -1,3 +1,6 @@
 [submodule "soundyrust"]
 	path = soundyrust
 	url = https://github.com/Dragon-Fox-Collective/soundyrust.git
+[submodule "state-machine"]
+	path = state-machine
+	url = https://github.com/DragonFoxCollective/state-machine.git
