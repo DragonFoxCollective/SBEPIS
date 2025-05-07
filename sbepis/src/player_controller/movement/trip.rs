@@ -18,7 +18,7 @@ use super::slide::{SlideAssets, Sliding};
 use super::stand::Standing;
 
 #[derive(Resource)]
-#[resource(plugin = PlayerControllerPlugin, init = PlayerTripSettings {
+#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerTripSettings {
 	upward_speed: 5.0,
 	stun_time: Duration::from_secs_f32(1.0),
 	ground_parry_speed: 40.0,
@@ -61,7 +61,7 @@ pub struct TryingToGroundParry {
 	pub duration: Duration,
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 )]
@@ -84,7 +84,7 @@ fn tripping_to_trip_recover_air(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::DoHorizontalMovement,
 )]
@@ -103,7 +103,7 @@ fn update_tripping_velocity(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 )]
@@ -119,7 +119,7 @@ fn trip_recover_air_to_trip_recover_ground(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	before = trip_recover_air_to_trip_recover_ground,
@@ -144,7 +144,7 @@ fn update_trip_recover_ground(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_pressed(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
@@ -167,7 +167,7 @@ pub fn add_trying_to_ground_parry(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	before = add_trying_to_ground_parry,
@@ -190,7 +190,7 @@ fn update_trying_to_ground_parry(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	after = add_trying_to_ground_parry,

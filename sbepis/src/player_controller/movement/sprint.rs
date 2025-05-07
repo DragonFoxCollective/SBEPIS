@@ -11,7 +11,7 @@ use super::walk::Walking;
 #[derive(Component, Default)]
 pub struct Sprinting;
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	run_if = button_just_pressed(PlayerAction::Sprint),
@@ -28,7 +28,7 @@ fn walking_to_sprinting(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	run_if = button_just_released(PlayerAction::Sprint),

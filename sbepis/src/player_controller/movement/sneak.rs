@@ -12,7 +12,7 @@ use super::walk::Walking;
 #[derive(Component, Default)]
 pub struct Sneaking;
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_pressed(PlayerAction::Move),
 	in_set = MovementControlSet::UpdateState,
@@ -29,7 +29,7 @@ fn crouching_to_sneaking(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_released(PlayerAction::Move),
 	in_set = MovementControlSet::UpdateState,
@@ -46,7 +46,7 @@ fn sneaking_to_crouching(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_released(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,

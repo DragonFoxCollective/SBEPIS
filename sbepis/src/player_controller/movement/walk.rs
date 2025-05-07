@@ -18,7 +18,7 @@ use super::sprint::Sprinting;
 use super::stand::Standing;
 
 #[derive(Resource)]
-#[resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
+#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
 	speed: 6.0,
 	sneak_speed: 3.0,
 	sprint_speed: 9.0,
@@ -42,7 +42,7 @@ pub struct PlayerWalkSettings {
 #[derive(Component, Default)]
 pub struct Walking;
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	run_if = button_just_pressed(PlayerAction::Move),
@@ -56,7 +56,7 @@ fn standing_to_walking(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 	run_if = button_just_released(PlayerAction::Move),
@@ -70,7 +70,7 @@ fn walking_to_standing(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::DoHorizontalMovement,
 	before = ExecuteMovementSet,

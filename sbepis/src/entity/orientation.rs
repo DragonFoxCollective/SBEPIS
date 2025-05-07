@@ -8,7 +8,7 @@ use crate::gravity::AffectedByGravity;
 #[derive(Component, Default)]
 pub struct GravityOrientation;
 
-#[system(
+#[add_system(
 	plugin = EntityPlugin, schedule = Update,
 	after = ExecuteMovementSet,
 )]
