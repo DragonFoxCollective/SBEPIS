@@ -82,10 +82,6 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 #[add_plugin(to_plugin = crate::SbepisPlugin, init = HanabiPlugin)]
 use bevy_hanabi::HanabiPlugin;
 
-#[cfg(feature = "movement_indicators")]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
-use player_controller::speed_indicator::SpeedIndicatorPlugin;
-
 #[add_system(
 	plugin = SbepisPlugin, schedule = Startup,
 )]

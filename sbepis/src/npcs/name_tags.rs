@@ -373,6 +373,7 @@ fn spawn_name_tags(
             Transform::from_xyz(mesh_text.bbox.size().x * scale * 0.5, 1.1, 0.0)
                 .with_rotation(Quat::from_rotation_y(PI))
                 .with_scale(Vec3::splat(scale)),
+            ChildOf(entity),
         ));
         match material {
             NameTagShader::Standard(material) => {
@@ -382,30 +383,40 @@ fn spawn_name_tags(
                 text_entity.insert(MeshMaterial3d(material));
             }
         }
-        let text_entity = text_entity.insert(ChildOf(entity)).id();
+        let text_entity = text_entity.id();
 
-        let particles = match name_tag.tier {
-            None => vec![],
-            Some(NameTier::Past) => vec![],
-            Some(NameTier::Pgo) => vec![],
-            Some(NameTier::Captcha) => vec![],
-            Some(NameTier::Alchemiter) => vec![],
-            Some(NameTier::Denizen) => vec![asset.denizen_particles.clone()],
-            Some(NameTier::Master) => asset.master_particles.to_vec(),
-        };
-        if !particles.is_empty() {
-            let distance = 0.5;
-            let num_instances = (mesh_text.bbox.size().x / distance).floor().max(1.0);
-            let start_x = mesh_text.bbox.size().x * 0.5 - (num_instances - 1.0) * distance * 0.5;
-            for i in 0..num_instances as usize {
-                let particle = particles[i % particles.len()].clone();
-                commands.spawn((
-                    ParticleEffect::new(particle),
-                    Transform::from_xyz(start_x + i as f32 * distance, 0.2, 0.0),
-                    ChildOf(text_entity),
-                ));
-            }
-        }
+        // idk why they dont work but it makes a bunch of errors. wait until release?
+        // let (particles, particle_trails) = match name_tag.tier {
+        //     None => (vec![], vec![]),
+        //     Some(NameTier::Past) => (vec![], vec![]),
+        //     Some(NameTier::Pgo) => (vec![], vec![]),
+        //     Some(NameTier::Captcha) => (vec![], vec![]),
+        //     Some(NameTier::Alchemiter) => (vec![], vec![]),
+        //     Some(NameTier::Denizen) => (
+        //         vec![asset.denizen_particles.clone()],
+        //         vec![asset.denizen_particles_trails.clone()],
+        //     ),
+        //     Some(NameTier::Master) => (
+        //         asset.master_particles.to_vec(),
+        //         asset.master_particles_trails.to_vec(),
+        //     ),
+        // };
+        // if !particles.is_empty() {
+        //     let distance = 0.5;
+        //     let num_instances = (mesh_text.bbox.size().x / distance).floor().max(1.0);
+        //     let start_x = mesh_text.bbox.size().x * 0.5 - (num_instances - 1.0) * distance * 0.5;
+        //     for i in 0..num_instances as usize {
+        //         let particle = particles[i % particles.len()].clone();
+        //         let particle_trail = particle_trails[i % particles.len()].clone();
+        //         commands
+        //             .spawn((
+        //                 ParticleEffect::new(particle),
+        //                 Transform::from_xyz(start_x + i as f32 * distance, 0.2, 0.0),
+        //                 ChildOf(text_entity),
+        //             ))
+        //             .with_child((ParticleEffect::new(particle_trail),));
+        //     }
+        // }
 
         if !matches!(name_tag.tier, Some(NameTier::Master)) {
             commands.entity(entity).observe(
