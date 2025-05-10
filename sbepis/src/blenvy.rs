@@ -37,7 +37,7 @@ fn create_mesh_collider(
     for scene in scenes.iter() {
         let mut num_colliders = 0;
 
-        for child in children.iter_descendants(scene) {
+        for child in [scene].into_iter().chain(children.iter_descendants(scene)) {
             let mesh = ok_or_continue!(meshes.get(child));
             let mesh = some_or_continue!(mesh_assets.get(&mesh.0));
             let collider = Collider::from_bevy_mesh(mesh, &ComputedColliderShape::default())
@@ -47,6 +47,10 @@ fn create_mesh_collider(
         }
 
         if num_colliders > 0 {
+            println!(
+                "Created mesh collider for {:?}, {:?} meshes used",
+                scene, num_colliders
+            );
             commands.entity(scene).remove::<MeshColliderBlundle>();
         }
     }

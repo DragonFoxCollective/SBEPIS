@@ -71,6 +71,11 @@ use bevy_rapier3d::prelude::RapierPhysicsPlugin;
 use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 
 #[cfg(feature = "inspector")]
+#[add_plugin(to_plugin = crate::SbepisPlugin,
+	init = bevy_inspector_egui::bevy_egui::EguiPlugin { enable_multipass_for_primary_context: true })]
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
+
+#[cfg(feature = "inspector")]
 #[add_plugin(to_plugin = crate::SbepisPlugin)]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -132,7 +137,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) -> Result {
     commands.spawn((SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("levels/World.glb")),
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("sandbox level.glb")),
     ),));
 
     commands.spawn((

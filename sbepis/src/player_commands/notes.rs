@@ -14,11 +14,11 @@ pub struct NotePlayed {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NotePlayedSet;
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <PlayNoteAction, NotePlayed>,
-	in_set = NotePlayedSet,
-)]
+// #[add_system(
+// 	plugin = PlayerCommandsPlugin, schedule = Update,
+// 	generics = <PlayNoteAction, NotePlayed>,
+// 	in_set = NotePlayedSet,
+// )]
 use crate::input::map_action_to_event;
 
 #[derive(Event)]
