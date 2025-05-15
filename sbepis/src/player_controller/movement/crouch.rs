@@ -50,7 +50,7 @@ pub fn to_crouching_assets(body: &PlayerBody, commands: &mut Commands, assets: &
 #[derive(Component, Default)]
 pub struct Crouching;
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_is_pressed(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
@@ -69,7 +69,7 @@ fn standing_to_crouching(
 	}
 }
 
-#[system(
+#[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_is_released(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,

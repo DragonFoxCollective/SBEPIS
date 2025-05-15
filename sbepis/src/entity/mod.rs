@@ -11,20 +11,21 @@ pub mod orientation;
 pub mod spawner;
 
 #[butler_plugin]
+#[add_plugin(to_plugin = crate::SbepisPlugin)]
 pub struct EntityPlugin;
 
 #[derive(Event)]
-#[event(plugin = EntityPlugin)]
+#[add_event(plugin = EntityPlugin)]
 pub struct EntityKilled(pub Entity);
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EntityKilledSet;
 
-#[system(
+#[add_system(
 	plugin = EntityPlugin, schedule = Update,
 	after = EntityKilledSet,
 )]
 fn kill_entities(mut ev_killed: EventReader<EntityKilled>, mut commands: Commands) {
-	for ev in ev_killed.read() {
-		commands.entity(ev.0).despawn_recursive();
-	}
+    for ev in ev_killed.read() {
+        commands.entity(ev.0).despawn();
+    }
 }

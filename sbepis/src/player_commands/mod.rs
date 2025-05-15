@@ -5,14 +5,14 @@ mod staff;
 
 use bevy_butler::*;
 
-use crate::menus::InputManagerMenuPlugin;
-
 use self::commands::*;
 use self::notes::*;
 use self::staff::*;
 
-#[butler_plugin(build(
-	add_plugins(InputManagerMenuPlugin::<CloseStaffAction>::default()),
-	add_plugins(InputManagerMenuPlugin::<PlayNoteAction>::default()),
-))]
+#[butler_plugin]
+#[add_plugin(to_plugin = crate::SbepisPlugin)]
 pub struct PlayerCommandsPlugin;
+
+#[add_plugin(to_plugin = PlayerCommandsPlugin, generics = <CloseStaffAction>)]
+#[add_plugin(to_plugin = PlayerCommandsPlugin, generics = <PlayNoteAction>)]
+use crate::menus::InputManagerMenuPlugin;
