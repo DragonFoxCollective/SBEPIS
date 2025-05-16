@@ -616,8 +616,8 @@ dependencies = [
 
 [[package]]
 name = "bevy-butler"
-version = "0.6.2-alpha.1"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#6cfc65e59da96a5d8cd1110e88a9f2b7626105fe"
+version = "0.6.2"
+source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
 dependencies = [
  "bevy-butler-proc-macro",
  "bevy_app 0.16.0",
@@ -630,11 +630,11 @@ dependencies = [
 
 [[package]]
 name = "bevy-butler-proc-macro"
-version = "0.6.2-alpha.1"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#6cfc65e59da96a5d8cd1110e88a9f2b7626105fe"
+version = "0.6.2-alpha.2"
+source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
 dependencies = [
- "deluxe-core-tg",
- "deluxe-tg",
+ "deluxe",
+ "deluxe-core",
  "proc-macro2",
  "quote",
  "sha256",
@@ -1954,7 +1954,8 @@ checksum = "86f1275dfb4cfef4ffc90c3fa75408964864facf833acc932413d52aa5364ba4"
 [[package]]
 name = "bevy_rapier3d"
 version = "0.30.0"
-source = "git+https://github.com/dimforge/bevy_rapier.git#e9593c16df281c373804aa0bfe8d18ff251db1b2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdf74109573c2c82b05b217cb6101f7e71e6c53ad622aed6c370cc5783c59eb8"
 dependencies = [
  "bevy 0.16.0",
  "bitflags 2.9.1",
@@ -2909,9 +2910,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.22"
+version = "1.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32db95edf998450acc7881c932f94cd9b05c87b4b2599e8bab064753da4acfd1"
+checksum = "5f4ac86a9e5bc1e2b3449ab9d7d3a6a405e3d1bb28d7b9be8614f55846ae3766"
 dependencies = [
  "jobserver",
  "libc",
@@ -3399,23 +3400,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
-name = "deluxe-core"
+name = "deluxe"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddada51c8576df9d6a8450c351ff63042b092c9458b8ac7d20f89cbd0ffd313"
+source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
 dependencies = [
- "arrayvec",
+ "deluxe-core",
+ "deluxe-macros",
+ "once_cell",
  "proc-macro2",
- "quote",
- "strsim",
  "syn 2.0.101",
 ]
 
 [[package]]
-name = "deluxe-core-tg"
+name = "deluxe-core"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9bb2630ffd5d1c33298af458a7003f10ae5321e0e2b0c0d175b086d271890bc"
+source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
 dependencies = [
  "arrayvec",
  "proc-macro2",
@@ -3427,8 +3426,7 @@ dependencies = [
 [[package]]
 name = "deluxe-macros"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f87546d9c837f0b7557e47b8bd6eae52c3c223141b76aa233c345c9ab41d9117"
+source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
 dependencies = [
  "deluxe-core",
  "heck 0.4.1",
@@ -3436,19 +3434,6 @@ dependencies = [
  "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "deluxe-tg"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3f51993e9ea15cdbe7b5f29ac07e1d65939d05953c4b811ee38e73ac42e678f"
-dependencies = [
- "deluxe-core-tg",
- "deluxe-macros",
- "once_cell",
- "proc-macro2",
  "syn 2.0.101",
 ]
 
