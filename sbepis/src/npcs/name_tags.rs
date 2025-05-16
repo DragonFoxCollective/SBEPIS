@@ -29,9 +29,13 @@ pub struct NameTagAssets {
     pub denizen_materials: [Handle<StandardMaterial>; 4],
     pub master_material: Handle<CandyMaterial>,
 
+    #[allow(unused)]
     pub denizen_particles: Handle<EffectAsset>,
+    #[allow(unused)]
     pub denizen_particles_trails: Handle<EffectAsset>,
+    #[allow(unused)]
     pub master_particles: [Handle<EffectAsset>; 2],
+    #[allow(unused)]
     pub master_particles_trails: [Handle<EffectAsset>; 2],
 }
 
@@ -383,7 +387,7 @@ fn spawn_name_tags(
                 text_entity.insert(MeshMaterial3d(material));
             }
         }
-        let text_entity = text_entity.id();
+        // let text_entity = text_entity.id();
 
         // idk why they dont work but it makes a bunch of errors. wait until release?
         // let (particles, particle_trails) = match name_tag.tier {

@@ -25,7 +25,7 @@ mod screen;
 
 pub use quest_markers::SpawnQuestMarker;
 
-// #[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = crate::SbepisPlugin)]
 pub struct QuestingPlugin;
 #[butler_plugin]
 impl Plugin for QuestingPlugin {
@@ -226,18 +226,18 @@ impl MapsToEvent<QuestEnded> for QuestCompleted {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct QuestCompletedSet;
 
-// #[add_system(
-// 	plugin = QuestingPlugin, schedule = Update,
-// 	generics = <QuestDeclined, QuestEnded>,
-// 	after = QuestDeclinedSet,
-// 	in_set = QuestEndedSet,
-// )]
-// #[add_system(
-// 	plugin = QuestingPlugin, schedule = Update,
-// 	generics = <QuestCompleted, QuestEnded>,
-// 	after = QuestCompletedSet,
-// 	in_set = QuestEndedSet,
-// )]
+#[add_system(
+	plugin = QuestingPlugin, schedule = Update,
+	generics = <QuestDeclined, QuestEnded>,
+	after = QuestDeclinedSet,
+	in_set = QuestEndedSet,
+)]
+#[add_system(
+	plugin = QuestingPlugin, schedule = Update,
+	generics = <QuestCompleted, QuestEnded>,
+	after = QuestCompletedSet,
+	in_set = QuestEndedSet,
+)]
 use crate::input::map_event;
 
 type InteractedWithQuestGiverSet = InteractedWithSet<QuestGiver>;
