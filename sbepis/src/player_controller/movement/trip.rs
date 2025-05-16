@@ -196,11 +196,15 @@ fn update_trying_to_ground_parry(
 	before = update_trip_recover_ground,
 )]
 fn ground_parry(
-    players: Query<Entity, (With<TryingToGroundParry>, With<TripRecoverOnGround>)>,
+    mut players: Query<
+        (Entity, &mut Movement, &Transform),
+        (With<TryingToGroundParry>, With<TripRecoverOnGround>),
+    >,
     mut commands: Commands,
     slide_assets: Res<SlideAssets>,
+    trip_settings: Res<PlayerTripSettings>,
 ) {
-    for player in players.iter() {
+    for (player, mut movement, transform) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
 
         let sound = commands
@@ -209,6 +213,7 @@ fn ground_parry(
                 PlaybackSettings::LOOP,
             ))
             .id();
+
         commands
             .entity(player)
             .remove::<TryingToGroundParry>()
@@ -217,5 +222,7 @@ fn ground_parry(
                 current_friction: 0.0,
                 sound,
             });
+
+        movement.0 += transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
     }
 }
