@@ -116,7 +116,7 @@ fn despawn_invalid_health_bars(
                         root_transform.transform_point(Vec3::X * health_bar.length),
                     )
                     .with_rotation(root_transform.rotation),
-                    AffectedByGravity::default(),
+                    AffectedByGravity,
                     Velocity {
                         linvel: root_transform.right().as_vec3()
                             + root_transform.up().as_vec3() * 2.0,

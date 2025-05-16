@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 
+use crate::gravity::AffectedByGravity;
 use crate::input::button_just_pressed;
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::stand::Standing;
@@ -228,7 +229,8 @@ fn jump(
             .remove::<ChargeCrouching>()
             .remove::<ChargeWalking>()
             .remove::<ChargingSound>()
-            .remove::<TryingToJump>();
+            .remove::<TryingToJump>()
+            .insert(AffectedByGravity);
 
         if let Some(charging_sound) = charging_sound {
             commands.spawn((

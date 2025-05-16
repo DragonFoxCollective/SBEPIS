@@ -93,7 +93,7 @@ pub struct BoxBlundle;
 fn create_box(scenes: Query<Entity, With<BoxBlundle>>, mut commands: Commands) {
     for scene in scenes.iter() {
         commands.entity(scene).remove::<BoxBlundle>().insert((
-            AffectedByGravity::default(),
+            AffectedByGravity,
             Velocity {
                 linvel: Vec3::ZERO,
                 angvel: Vec3::new(2.5, 3.4, 1.6),

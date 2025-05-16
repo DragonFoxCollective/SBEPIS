@@ -139,7 +139,6 @@ fn walking_to_dashing(
             &mut Stamina,
             Option<&ChargeWalking>,
             Option<&ChargingSound>,
-            &mut AffectedByGravity,
         ),
         (
             With<EffectiveGrounded>,
@@ -153,9 +152,7 @@ fn walking_to_dashing(
     mut commands: Commands,
     assets: Res<DashAssets>,
 ) {
-    for (player, velocity, di, mut stamina, charging, charging_sound, mut gravity) in
-        players.iter_mut()
-    {
+    for (player, velocity, di, mut stamina, charging, charging_sound) in players.iter_mut() {
         let (min_stamina_cost, result) = if let Some(charging) = charging {
             (
                 settings.charge_min_stamina_cost,
@@ -206,11 +203,10 @@ fn walking_to_dashing(
                 })
                 .remove::<TryingToDash>()
                 .remove::<ChargeWalking>()
-                .remove::<ChargingSound>();
+                .remove::<ChargingSound>()
+                .remove::<AffectedByGravity>();
 
             commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
-
-            gravity.factor = 0.0;
 
             if let Some(charging_sound) = charging_sound {
                 if let Ok(mut sound) = commands.get_entity(charging_sound.0) {
@@ -234,18 +230,12 @@ fn walking_to_dashing(
 	before = walking_to_dashing,
 )]
 fn update_dashing(
-    mut players: Query<(
-        Entity,
-        &mut Dashing,
-        &mut Movement,
-        &mut Velocity,
-        &mut AffectedByGravity,
-    )>,
+    mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,
     time: Res<Time>,
     walk_settings: Res<PlayerWalkSettings>,
     mut commands: Commands,
 ) {
-    for (player, mut dashing, mut movement, mut velocity, mut gravity) in players.iter_mut() {
+    for (player, mut dashing, mut movement, mut velocity) in players.iter_mut() {
         dashing.duration += time.delta();
         if dashing.duration >= dashing.max_duration {
             velocity.linvel = dashing.velocity.normalize_or_zero()
@@ -256,9 +246,8 @@ fn update_dashing(
             commands
                 .entity(player)
                 .remove::<Dashing>()
+                .insert(AffectedByGravity)
                 .insert(DashCooldown::default());
-
-            gravity.factor = 1.0;
         }
     }
 }

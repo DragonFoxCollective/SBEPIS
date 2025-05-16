@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Velocity;
 
-use crate::gravity::AffectedByGravity;
+use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::input::{button_is_released, button_just_pressed, button_just_released};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::dash::add_trying_to_dash;
@@ -310,28 +310,22 @@ pub fn charge_walking_to_trying_to_dash(
 	in_set = MovementControlSet::UpdateState,
 )]
 pub fn charge_crouching_to_tripping(
-    mut players: Query<
-        (
-            Entity,
-            Option<&ChargingSound>,
-            &mut AffectedByGravity,
-            &Velocity,
-        ),
+    players: Query<
+        (Entity, Option<&ChargingSound>, &ComputedGravity, &Velocity),
         With<ChargeCrouching>,
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
 ) {
-    for (player, charging_sound, mut gravity, velocity) in players.iter_mut() {
+    for (player, charging_sound, gravity, velocity) in players.iter() {
         commands
             .entity(player)
             .remove::<ChargeCrouching>()
+            .remove::<AffectedByGravity>()
             .insert(Tripping::new(
                 gravity.up,
                 velocity.linvel + gravity.up * trip_settings.upward_speed,
             ));
-
-        gravity.factor = 0.0;
 
         if let Some(charging_sound) = charging_sound {
             if let Ok(mut sound) = commands.get_entity(charging_sound.0) {

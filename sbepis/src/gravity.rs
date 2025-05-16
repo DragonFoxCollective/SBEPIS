@@ -38,18 +38,28 @@ impl GravitationalField for GravityPoint {
     }
 }
 
-#[derive(Component)]
-#[require(RigidBody, Velocity)]
-pub struct AffectedByGravity {
-    pub factor: f32,
+#[derive(Component, Debug, Default)]
+#[require(ComputedGravity, GravityFactor, RigidBody, Velocity)]
+pub struct AffectedByGravity;
+
+#[derive(Component, Debug)]
+pub struct GravityFactor(pub f32);
+
+impl Default for GravityFactor {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct ComputedGravity {
     pub acceleration: Vec3,
     pub up: Vec3,
 }
 
-impl Default for AffectedByGravity {
+impl Default for ComputedGravity {
     fn default() -> Self {
         Self {
-            factor: 1.0,
             acceleration: Vec3::ZERO,
             up: Vec3::Y,
         }
@@ -60,7 +70,7 @@ impl Default for AffectedByGravity {
 	plugin = GravityPlugin, schedule = Update,
 )]
 fn calculate_gravity(
-    mut rigidbodies: Query<(&Transform, &mut AffectedByGravity)>,
+    mut rigidbodies: Query<(&Transform, &mut ComputedGravity), With<AffectedByGravity>>,
     gravity_fields: Query<(&GlobalTransform, &GravityPriority, &GravityPoint)>,
 ) {
     let field_groups: Vec<Vec<(&GlobalTransform, &GravityPriority, &GravityPoint)>> =
@@ -121,8 +131,14 @@ fn calculate_gravity(
 	plugin = GravityPlugin, schedule = Update,
 	after = calculate_gravity,
 )]
-fn apply_gravity(mut rigidbodies: Query<(&mut Velocity, &AffectedByGravity)>, time: Res<Time>) {
-    for (mut velocity, gravity) in rigidbodies.iter_mut() {
-        velocity.linvel += gravity.acceleration * gravity.factor * time.delta_secs();
+fn apply_gravity(
+    mut rigidbodies: Query<
+        (&mut Velocity, &GravityFactor, &ComputedGravity),
+        With<AffectedByGravity>,
+    >,
+    time: Res<Time>,
+) {
+    for (mut velocity, gravity_factor, computed_gravity) in rigidbodies.iter_mut() {
+        velocity.linvel += computed_gravity.acceleration * gravity_factor.0 * time.delta_secs();
     }
 }
