@@ -98,10 +98,11 @@ fn sliding_to_standing_or_walking(
 ) -> Result {
     let input = input.single()?;
     for (player, body, sliding) in players.iter() {
+        commands.entity(player).remove::<Sliding>();
         if button_pressed(input, &PlayerAction::Move) {
-            commands.entity(player).remove::<Sliding>().insert(Walking);
+            commands.entity(player).insert(Walking);
         } else {
-            commands.entity(player).remove::<Sliding>().insert(Standing);
+            commands.entity(player).insert(Standing);
         }
         commands.entity(sliding.sound).despawn();
         to_standing_assets(body, &mut commands, &assets);

@@ -3,30 +3,36 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Velocity;
+use leafwing_input_manager::prelude::ActionState;
 
 use crate::entity::Movement;
-use crate::gravity::AffectedByGravity;
-use crate::input::button_just_pressed;
+use crate::gravity::{AffectedByGravity, ComputedGravity};
+use crate::input::{button_just_pressed, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
 use super::CoyoteTimeSettings;
 use super::crouch::{StandingAssets, to_standing_assets};
+use super::dash::Dashing;
 use super::grounded::Grounded;
 use super::slide::{SlideAssets, Sliding};
+use super::sprint::Sprinting;
 use super::stand::Standing;
+use super::walk::Walking;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerTripSettings {
 	upward_speed: 5.0,
 	stun_time: Duration::from_secs_f32(1.0),
 	ground_parry_speed: 40.0,
+	trip_speed_threshold: 25.0,
 })]
 pub struct PlayerTripSettings {
     pub upward_speed: f32,
     pub stun_time: Duration,
     pub ground_parry_speed: f32,
+    pub trip_speed_threshold: f32,
 }
 
 #[derive(Component)]
@@ -129,18 +135,24 @@ fn update_trip_recover_ground(
     coyote_time_settings: Res<CoyoteTimeSettings>,
     mut commands: Commands,
     assets: Res<StandingAssets>,
-) {
+    input: Query<&ActionState<PlayerAction>>,
+) -> Result {
+    let input = input.single()?;
     for (player, body, mut trip_recover_ground) in players.iter_mut() {
         trip_recover_ground.duration += time.delta();
         if trip_recover_ground.duration >= coyote_time_settings.coyote_time {
-            commands
-                .entity(player)
-                .remove::<TripRecoverOnGround>()
-                .insert(Standing);
+            commands.entity(player).remove::<TripRecoverOnGround>();
+
+            if button_pressed(input, &PlayerAction::Move) {
+                commands.entity(player).insert(Walking);
+            } else {
+                commands.entity(player).insert(Standing);
+            }
 
             to_standing_assets(body, &mut commands, &assets);
         }
     }
+    Ok(())
 }
 
 #[add_system(
@@ -224,5 +236,45 @@ fn ground_parry(
             });
 
         movement.0 += transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+    }
+}
+
+#[add_system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	in_set = MovementControlSet::UpdateState,
+)]
+fn walking_too_fast_to_tripping(
+    mut players: Query<
+        (Entity, &ComputedGravity, &Velocity, &Transform),
+        (
+            Or<(With<Walking>, With<Standing>, With<Sprinting>)>,
+            Without<Dashing>,
+            With<Grounded>,
+        ),
+    >,
+    mut commands: Commands,
+    trip_settings: Res<PlayerTripSettings>,
+) {
+    for (player, gravity, velocity, transform) in players.iter_mut() {
+        if (transform.rotation.inverse() * velocity.linvel)
+            .xz()
+            .length()
+            < trip_settings.trip_speed_threshold
+        {
+            continue;
+        }
+
+        debug!("Too fast! :(");
+
+        commands
+            .entity(player)
+            .remove::<Walking>()
+            .remove::<Standing>()
+            .remove::<Sprinting>()
+            .remove::<AffectedByGravity>()
+            .insert(Tripping::new(
+                gravity.up,
+                gravity.up * trip_settings.upward_speed,
+            ));
     }
 }

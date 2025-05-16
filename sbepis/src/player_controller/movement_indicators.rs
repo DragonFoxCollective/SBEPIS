@@ -52,12 +52,18 @@ fn setup_speed_indicator(mut commands: Commands) {
 )]
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
-    player: Query<&Velocity, With<PlayerBody>>,
+    player: Query<(&Transform, &Velocity), With<PlayerBody>>,
 ) -> Result {
-    let player = player.single()?;
-    let speed = player.linvel.length();
+    let (transform, velocity) = player.single()?;
+    let speed = velocity.linvel.length();
+    let local_speed = (transform.rotation.inverse() * velocity.linvel)
+        .xz()
+        .length();
     let mut indicator = indicator.single_mut()?;
-    indicator.0 = format!("Speed: {:.2}", speed);
+    indicator.0 = format!(
+        "Global speed: {:.2}\nLocal speed: {:.2}",
+        speed, local_speed
+    );
     Ok(())
 }
 
