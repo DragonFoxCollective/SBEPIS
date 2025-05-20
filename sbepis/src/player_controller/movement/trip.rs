@@ -9,6 +9,7 @@ use crate::entity::Movement;
 use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::input::{button_just_pressed, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::stamina::Stamina;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
@@ -27,12 +28,14 @@ use super::walk::Walking;
 	stun_time: Duration::from_secs_f32(1.0),
 	ground_parry_speed: 40.0,
 	trip_speed_threshold: 25.0,
+	ground_parry_stamina_gain: 0.25,
 })]
 pub struct PlayerTripSettings {
     pub upward_speed: f32,
     pub stun_time: Duration,
     pub ground_parry_speed: f32,
     pub trip_speed_threshold: f32,
+    pub ground_parry_stamina_gain: f32,
 }
 
 #[derive(Component)]
@@ -209,15 +212,17 @@ fn update_trying_to_ground_parry(
 )]
 fn ground_parry(
     mut players: Query<
-        (Entity, &mut Movement, &Transform),
+        (Entity, &mut Movement, &Transform, &Stamina),
         (With<TryingToGroundParry>, With<TripRecoverOnGround>),
     >,
     mut commands: Commands,
     slide_assets: Res<SlideAssets>,
     trip_settings: Res<PlayerTripSettings>,
 ) {
-    for (player, mut movement, transform) in players.iter_mut() {
+    for (player, mut movement, transform, stamina) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
+
+        stamina.current += trip_settings.ground_parry_stamina_gain;
 
         let sound = commands
             .spawn((
