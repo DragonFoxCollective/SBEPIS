@@ -212,14 +212,14 @@ fn update_trying_to_ground_parry(
 )]
 fn ground_parry(
     mut players: Query<
-        (Entity, &mut Movement, &Transform, &Stamina),
+        (Entity, &mut Movement, &Transform, &mut Stamina),
         (With<TryingToGroundParry>, With<TripRecoverOnGround>),
     >,
     mut commands: Commands,
     slide_assets: Res<SlideAssets>,
     trip_settings: Res<PlayerTripSettings>,
 ) {
-    for (player, mut movement, transform, stamina) in players.iter_mut() {
+    for (player, mut movement, transform, mut stamina) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
 
         stamina.current += trip_settings.ground_parry_stamina_gain;
