@@ -6,9 +6,10 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use movement::MovementControlSet;
-use movement::crouch::{CrouchingAssets, StandingAssets};
+use movement::crouch::CrouchingAssets;
 use movement::di::DirectionalInput;
-use movement::stand::Standing;
+use movement::roll::RollingAssets;
+use movement::stand::{Standing, StandingAssets};
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
@@ -62,7 +63,7 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     asset_server: Res<AssetServer>,
     mut menu_stack: ResMut<MenuStack>,
-) {
+) -> Result {
     let input = commands
         .spawn((
             input_manager_bundle(
@@ -119,6 +120,13 @@ fn setup(
         collider: Collider::capsule_y(0.25, 0.25),
         collider_transform: Transform::from_translation(Vec3::Y * 0.5),
         camera_transform: Transform::from_translation(Vec3::Y * 0.75),
+    };
+    let rolling_assets = RollingAssets {
+        mesh: Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(5)?)),
+        mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
+        collider: Collider::ball(0.5),
+        collider_transform: Transform::from_translation(Vec3::Y * 0.5),
+        camera_transform: Transform::from_translation(Vec3::Y * 0.5),
     };
 
     let body = commands
@@ -242,6 +250,9 @@ fn setup(
 
     commands.insert_resource(standing_assets);
     commands.insert_resource(crouching_assets);
+    commands.insert_resource(rolling_assets);
+
+    Ok(())
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]

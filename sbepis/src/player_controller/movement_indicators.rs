@@ -14,6 +14,7 @@ use super::movement::crouch::Crouching;
 use super::movement::dash::{Dashing, TryingToDash};
 use super::movement::grounded::{EffectiveGrounded, Grounded};
 use super::movement::jump::TryingToJump;
+use super::movement::roll::Rolling;
 use super::movement::slide::Sliding;
 use super::movement::sneak::Sneaking;
 use super::movement::sprint::Sprinting;
@@ -114,6 +115,7 @@ fn check_states(
                 Has<TripRecoverOnGround>,
             ),
             Has<Sliding>,
+            Has<Rolling>,
             Has<Grounded>,
             Has<EffectiveGrounded>,
             (
@@ -130,7 +132,7 @@ fn check_states(
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
-            tup.7.2, tup.8, tup.9, tup.10, tup.11.0, tup.11.1, tup.11.2,
+            tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12.0, tup.12.1, tup.12.2,
         ];
         let has = arr
             .into_iter()
@@ -148,6 +150,7 @@ fn check_states(
                 type_name::<TripRecoverInAir>(),
                 type_name::<TripRecoverOnGround>(),
                 type_name::<Sliding>(),
+                type_name::<Rolling>(),
                 type_name::<Grounded>(),
                 type_name::<EffectiveGrounded>(),
                 type_name::<TryingToDash>(),

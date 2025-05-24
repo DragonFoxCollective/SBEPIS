@@ -11,6 +11,7 @@ pub mod dash;
 pub mod di;
 pub mod grounded;
 pub mod jump;
+pub mod roll;
 pub mod slide;
 pub mod sneak;
 pub mod sprint;

@@ -10,10 +10,10 @@ use crate::player_controller::movement::dash::add_trying_to_dash;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
-use super::crouch::{CrouchingAssets, StandingAssets, to_crouching_assets, to_standing_assets};
+use super::crouch::{CrouchingAssets, to_crouching_assets};
 use super::dash::TryingToDash;
 use super::grounded::EffectiveGrounded;
-use super::stand::Standing;
+use super::stand::{Standing, StandingAssets, to_standing_assets};
 use super::trip::{PlayerTripSettings, Tripping};
 
 #[derive(Resource)]

@@ -13,10 +13,10 @@ use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 use crate::util::MapRange;
 
-use super::crouch::{CrouchingAssets, StandingAssets, to_crouching_assets, to_standing_assets};
+use super::crouch::{CrouchingAssets, to_crouching_assets};
 use super::di::DirectionalInput;
 use super::sneak::Sneaking;
-use super::stand::Standing;
+use super::stand::{Standing, StandingAssets, to_standing_assets};
 use super::walk::Walking;
 
 #[derive(Resource)]
@@ -114,7 +114,7 @@ fn sliding_to_standing_or_walking(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
 )]
-fn sliding_to_crouching_or_sneaking(
+pub fn sliding_to_crouching_or_sneaking(
     players: Query<(Entity, &Sliding, &Movement)>,
     mut commands: Commands,
     slide_settings: Res<PlayerSlideSettings>,

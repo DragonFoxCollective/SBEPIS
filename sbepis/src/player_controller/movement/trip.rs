@@ -14,12 +14,11 @@ use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
 use super::CoyoteTimeSettings;
-use super::crouch::{StandingAssets, to_standing_assets};
 use super::dash::Dashing;
 use super::grounded::Grounded;
 use super::slide::{SlideAssets, Sliding};
 use super::sprint::Sprinting;
-use super::stand::Standing;
+use super::stand::{Standing, StandingAssets, to_standing_assets};
 use super::walk::Walking;
 
 #[derive(Resource)]
