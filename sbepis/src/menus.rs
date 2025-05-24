@@ -6,6 +6,7 @@ use bevy_butler::*;
 use leafwing_input_manager::plugin::{InputManagerPlugin, InputManagerSystem};
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 use leafwing_input_manager::{Actionlike, InputControlKind};
+use return_ok::ok_or_return;
 
 use crate::input::InputManagerReference;
 
@@ -153,15 +154,14 @@ fn show_mouse(
     mut ev_activated: EventReader<MenuActivated>,
     menus: Query<(), With<MenuWithMouse>>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
-) -> Result {
-    let mut window = window.single_mut()?;
+) {
+    let mut window = ok_or_return!(window.single_mut());
     for MenuActivated(menu) in ev_activated.read() {
         if menus.get(*menu).is_ok() {
             window.cursor_options.grab_mode = CursorGrabMode::None;
             window.cursor_options.visible = true;
         }
     }
-    Ok(())
 }
 
 #[add_system(
@@ -172,15 +172,14 @@ fn hide_mouse(
     mut ev_activated: EventReader<MenuActivated>,
     menus: Query<(), With<MenuWithoutMouse>>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
-) -> Result {
-    let mut window = window.single_mut()?;
+) {
+    let mut window = ok_or_return!(window.single_mut());
     for MenuActivated(menu) in ev_activated.read() {
         if menus.get(*menu).is_ok() {
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
         }
     }
-    Ok(())
 }
 
 fn enable_input_managers<Action: Actionlike>(
