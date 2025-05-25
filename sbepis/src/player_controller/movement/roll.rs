@@ -91,12 +91,12 @@ fn sprinting_to_rolling(
 	after = rolling_to_sprinting,
 )]
 fn rolling_to_sliding(
-    mut players: Query<(Entity, &PlayerBody), With<Rolling>>,
+    mut players: Query<(Entity, &PlayerBody, &Velocity), With<Rolling>>,
     mut commands: Commands,
     assets: Res<CrouchingAssets>,
     slide_assets: Res<SlideAssets>,
 ) {
-    for (player, body) in players.iter_mut() {
+    for (player, body, velocity) in players.iter_mut() {
         let sound = commands
             .spawn((
                 AudioPlayer::new(slide_assets.sound.clone()),
@@ -111,7 +111,7 @@ fn rolling_to_sliding(
                 current_friction: 0.0,
                 sound,
             })
-            .insert(Movement::default());
+            .insert(Movement(velocity.linvel));
 
         to_crouching_assets(body, &mut commands, &assets);
     }
@@ -123,16 +123,16 @@ fn rolling_to_sliding(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn rolling_to_sprinting(
-    mut players: Query<(Entity, &PlayerBody), With<Rolling>>,
+    mut players: Query<(Entity, &PlayerBody, &Velocity), With<Rolling>>,
     mut commands: Commands,
     assets: Res<StandingAssets>,
 ) {
-    for (player, body) in players.iter_mut() {
+    for (player, body, velocity) in players.iter_mut() {
         commands
             .entity(player)
             .remove::<Rolling>()
             .insert(Sprinting)
-            .insert(Movement::default());
+            .insert(Movement(velocity.linvel));
         to_standing_assets(body, &mut commands, &assets);
     }
 }
