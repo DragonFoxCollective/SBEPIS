@@ -458,7 +458,7 @@ fn add_killed_name_back(
     assets: Res<NameTagAssets>,
     name_tagged: Query<&NameTagged>,
 ) -> Result {
-    let names = names.get_mut(&assets.names).ok_or("Names not found")?;
+    let names = some_or_return_ok!(names.get_mut(&assets.names));
     for ev in ev_killed.read() {
         if let Ok(name_tagged) = name_tagged.get(ev.0) {
             if name_tagged.0.tier.is_some() {

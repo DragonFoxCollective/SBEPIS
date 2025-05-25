@@ -18,6 +18,7 @@ use super::charge::{ChargeCrouching, ChargeStanding, ChargeWalking, ChargingSoun
 use super::crouch::Crouching;
 use super::dash::Dashing;
 use super::grounded::EffectiveGrounded;
+use super::roll::Rolling;
 use super::slide::Sliding;
 
 #[derive(Resource)]
@@ -130,6 +131,7 @@ fn jump(
                 With<ChargeStanding>,
                 With<ChargeWalking>,
                 With<ChargeCrouching>,
+                With<Rolling>,
             )>,
         ),
     >,
