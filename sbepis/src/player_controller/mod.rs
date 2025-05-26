@@ -1,15 +1,12 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use movement::MovementControlSet;
-use movement::crouch::CrouchingAssets;
 use movement::di::DirectionalInput;
-use movement::roll::RollingAssets;
-use movement::stand::{Standing, StandingAssets};
+use movement::stand::Standing;
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
@@ -89,45 +86,36 @@ fn setup(
         .id();
     menu_stack.push(input);
 
-    let standing_assets = StandingAssets {
-        mesh: Mesh3d(
-            meshes.add(
-                Capsule3d::new(0.25, 1.0)
-                    .mesh()
-                    .rings(1)
-                    .latitudes(8)
-                    .longitudes(16)
-                    .uv_profile(CapsuleUvProfile::Fixed),
-            ),
-        ),
-        mesh_transform: Transform::from_translation(Vec3::Y * 0.75),
-        collider: Collider::capsule_y(0.5, 0.25),
-        collider_transform: Transform::from_translation(Vec3::Y * 0.75),
-        camera_transform: Transform::from_translation(Vec3::Y * 1.25),
-    };
-    let crouching_assets = CrouchingAssets {
-        mesh: Mesh3d(
-            meshes.add(
-                Capsule3d::new(0.25, 0.5)
-                    .mesh()
-                    .rings(1)
-                    .latitudes(8)
-                    .longitudes(16)
-                    .uv_profile(CapsuleUvProfile::Fixed),
-            ),
-        ),
-        mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
-        collider: Collider::capsule_y(0.25, 0.25),
-        collider_transform: Transform::from_translation(Vec3::Y * 0.5),
-        camera_transform: Transform::from_translation(Vec3::Y * 0.75),
-    };
-    let rolling_assets = RollingAssets {
-        mesh: Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(5)?)),
-        mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
-        collider: Collider::ball(0.5),
-        collider_transform: Transform::from_translation(Vec3::Y * 0.5),
-        camera_transform: Transform::from_translation(Vec3::Y * 0.5),
-    };
+    let collider = commands
+        .spawn((
+            Name::new("Player Collider"),
+            Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+        ))
+        .id();
+
+    let mesh = commands
+        .spawn((
+            Name::new("Player Mesh"),
+            MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
+        ))
+        .id();
+
+    let camera = commands
+        .spawn((
+            Name::new("Player Camera"),
+            Camera3d::default(),
+            Projection::Perspective(PerspectiveProjection {
+                fov: 70.0 / 180. * PI,
+                ..default()
+            }),
+            PlayerCamera,
+            Pitch(0.0),
+            SpatialListener::new(-0.25),
+        ))
+        .id();
 
     let body = commands
         .spawn((
@@ -142,53 +130,14 @@ fn setup(
                 recovery_rate: 0.1,
             },
             Standing,
-        ))
-        .id();
-
-    let collider = commands
-        .spawn((
-            Name::new("Player Collider"),
-            standing_assets.collider_transform,
-            standing_assets.collider.clone(),
-            Friction {
-                coefficient: 0.0,
-                combine_rule: CoefficientCombineRule::Min,
+            PlayerBody {
+                camera,
+                collider,
+                mesh,
             },
-            ChildOf(body),
         ))
+        .add_children(&[camera, collider, mesh])
         .id();
-
-    let mesh = commands
-        .spawn((
-            Name::new("Player Mesh"),
-            standing_assets.mesh_transform,
-            standing_assets.mesh.clone(),
-            MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
-            ChildOf(body),
-        ))
-        .id();
-
-    let camera = commands
-        .spawn((
-            Name::new("Player Camera"),
-            Camera3d::default(),
-            standing_assets.camera_transform,
-            Projection::Perspective(PerspectiveProjection {
-                fov: 70.0 / 180. * PI,
-                ..default()
-            }),
-            PlayerCamera,
-            Pitch(0.0),
-            SpatialListener::new(-0.25),
-            ChildOf(body),
-        ))
-        .id();
-
-    commands.entity(body).insert(PlayerBody {
-        camera,
-        collider,
-        mesh,
-    });
 
     let (hammer_pivot, _hammer_head) = spawn_hammer(
         &mut commands,
@@ -247,10 +196,6 @@ fn setup(
         DebugColliderVisualizer,
         CollisionGroups::new(Group::NONE, Group::NONE),
     ));
-
-    commands.insert_resource(standing_assets);
-    commands.insert_resource(crouching_assets);
-    commands.insert_resource(rolling_assets);
 
     Ok(())
 }

@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_butler::*;
 use leafwing_input_manager::prelude::ActionState;
+use return_ok::some_or_return_ok;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
@@ -10,13 +11,11 @@ use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
 use crate::util::MapRange;
 
-use super::crouch::{CrouchingAssets, to_crouching_assets};
 use super::di::DirectionalInput;
 use super::sneak::Sneaking;
-use super::stand::{Standing, StandingAssets, to_standing_assets};
+use super::stand::Standing;
 use super::walk::Walking;
 
 #[derive(Resource)]
@@ -52,11 +51,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, Default)]
 #[reflect(Component)]
 pub struct Sliding {
-    pub current_friction: f32,
-    pub sound: Entity,
+    current_friction: f32,
+    sound: Option<Entity>,
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn add_sliding_sound(
+    trigger: Trigger<OnAdd, Sliding>,
+    mut slidings: Query<&mut Sliding>,
+    mut commands: Commands,
+    slide_assets: Res<SlideAssets>,
+) -> Result {
+    let mut sliding = slidings.get_mut(trigger.target())?;
+    let sound = commands
+        .spawn((
+            AudioPlayer::new(slide_assets.sound.clone()),
+            PlaybackSettings::LOOP,
+        ))
+        .id();
+    sliding.sound = Some(sound);
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn remove_sliding_sound(
+    trigger: Trigger<OnRemove, Sliding>,
+    slidings: Query<&Sliding>,
+    mut commands: Commands,
+) -> Result {
+    let sliding = slidings.get(trigger.target())?;
+    commands.entity(some_or_return_ok!(sliding.sound)).despawn();
+    Ok(())
 }
 
 #[add_system(
@@ -64,24 +92,12 @@ pub struct Sliding {
 	run_if = button_just_pressed(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn walking_to_sliding(
-    players: Query<(Entity, &PlayerBody), With<Walking>>,
-    assets: Res<CrouchingAssets>,
-    slide_assets: Res<SlideAssets>,
-    mut commands: Commands,
-) {
-    for (player, body) in players.iter() {
-        let sound = commands
-            .spawn((
-                AudioPlayer::new(slide_assets.sound.clone()),
-                PlaybackSettings::LOOP,
-            ))
-            .id();
-        commands.entity(player).remove::<Walking>().insert(Sliding {
-            current_friction: 0.0,
-            sound,
-        });
-        to_crouching_assets(body, &mut commands, &assets);
+fn walking_to_sliding(players: Query<Entity, With<Walking>>, mut commands: Commands) {
+    for player in players.iter() {
+        commands
+            .entity(player)
+            .remove::<Walking>()
+            .insert(Sliding::default());
     }
 }
 
@@ -91,21 +107,18 @@ fn walking_to_sliding(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn sliding_to_standing_or_walking(
-    players: Query<(Entity, &PlayerBody, &Sliding)>,
-    assets: Res<StandingAssets>,
+    players: Query<Entity, With<Sliding>>,
     mut commands: Commands,
     input: Query<&ActionState<PlayerAction>>,
 ) -> Result {
     let input = input.single()?;
-    for (player, body, sliding) in players.iter() {
+    for player in players.iter() {
         commands.entity(player).remove::<Sliding>();
         if button_pressed(input, &PlayerAction::Move) {
             commands.entity(player).insert(Walking);
         } else {
             commands.entity(player).insert(Standing);
         }
-        commands.entity(sliding.sound).despawn();
-        to_standing_assets(body, &mut commands, &assets);
     }
     Ok(())
 }
@@ -115,26 +128,23 @@ fn sliding_to_standing_or_walking(
 	in_set = MovementControlSet::UpdateState,
 )]
 pub fn sliding_to_crouching_or_sneaking(
-    players: Query<(Entity, &Sliding, &Movement)>,
+    players: Query<(Entity, &Movement), With<Sliding>>,
     mut commands: Commands,
     slide_settings: Res<PlayerSlideSettings>,
     input: Query<&ActionState<PlayerAction>>,
 ) -> Result {
     let input = input.single()?;
-    for (player, sliding, movement) in players.iter() {
+    for (player, movement) in players.iter() {
         if movement.0.length() > slide_settings.to_crouch_speed_threshold {
             continue;
         }
 
+        commands.entity(player).remove::<Sliding>();
         if button_pressed(input, &PlayerAction::Move) {
-            commands.entity(player).remove::<Sliding>().insert(Sneaking);
+            commands.entity(player).insert(Sneaking);
         } else {
-            commands
-                .entity(player)
-                .remove::<Sliding>()
-                .insert(Crouching);
+            commands.entity(player).insert(Crouching);
         }
-        commands.entity(sliding.sound).despawn();
     }
     Ok(())
 }

@@ -1,9 +1,17 @@
 use bevy::prelude::*;
+use bevy::render::mesh::CapsuleUvProfile;
+use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 
+use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::PlayerBody;
 
+use super::charge::ChargeStanding;
+use super::sprint::Sprinting;
+use super::walk::Walking;
+
 #[derive(Resource)]
+#[insert_resource(plugin = PlayerControllerPlugin)]
 pub struct StandingAssets {
     pub mesh: Mesh3d,
     pub mesh_transform: Transform,
@@ -12,7 +20,37 @@ pub struct StandingAssets {
     pub camera_transform: Transform,
 }
 
-pub fn to_standing_assets(body: &PlayerBody, commands: &mut Commands, assets: &StandingAssets) {
+impl FromWorld for StandingAssets {
+    fn from_world(world: &mut World) -> Self {
+        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+
+        StandingAssets {
+            mesh: Mesh3d(
+                meshes.add(
+                    Capsule3d::new(0.25, 1.0)
+                        .mesh()
+                        .rings(1)
+                        .latitudes(8)
+                        .longitudes(16)
+                        .uv_profile(CapsuleUvProfile::Fixed),
+                ),
+            ),
+            mesh_transform: Transform::from_translation(Vec3::Y * 0.75),
+            collider: Collider::capsule_y(0.5, 0.25),
+            collider_transform: Transform::from_translation(Vec3::Y * 0.75),
+            camera_transform: Transform::from_translation(Vec3::Y * 1.25),
+        }
+    }
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn to_standing_assets(
+    trigger: Trigger<OnAdd, (Standing, ChargeStanding, Walking, Sprinting)>,
+    players: Query<&PlayerBody>,
+    assets: Res<StandingAssets>,
+    mut commands: Commands,
+) -> Result {
+    let body = players.get(trigger.target())?;
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));
@@ -20,6 +58,7 @@ pub fn to_standing_assets(body: &PlayerBody, commands: &mut Commands, assets: &S
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
     commands.entity(body.camera).insert(assets.camera_transform);
+    Ok(())
 }
 
 #[derive(Component, Default)]

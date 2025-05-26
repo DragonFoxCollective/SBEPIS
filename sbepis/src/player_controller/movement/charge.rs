@@ -8,12 +8,10 @@ use crate::input::{button_is_released, button_just_pressed, button_just_released
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::dash::add_trying_to_dash;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
 
-use super::crouch::{CrouchingAssets, to_crouching_assets};
 use super::dash::TryingToDash;
 use super::grounded::EffectiveGrounded;
-use super::stand::{Standing, StandingAssets, to_standing_assets};
+use super::stand::Standing;
 use super::trip::{PlayerTripSettings, Tripping};
 
 #[derive(Resource)]
@@ -229,16 +227,14 @@ fn charging_to_standing(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn charching_to_charge_crouching(
-    players: Query<(Entity, &PlayerBody, &ChargeStanding)>,
-    assets: Res<CrouchingAssets>,
+    players: Query<(Entity, &ChargeStanding)>,
     mut commands: Commands,
 ) {
-    for (player, body, charging) in players.iter() {
+    for (player, charging) in players.iter() {
         commands
             .entity(player)
             .remove::<ChargeStanding>()
             .insert(ChargeCrouching::from(charging.clone()));
-        to_crouching_assets(body, &mut commands, &assets);
     }
 }
 
@@ -248,16 +244,14 @@ fn charching_to_charge_crouching(
 	in_set = MovementControlSet::UpdateState,
 )]
 fn charge_crouching_to_charging(
-    players: Query<(Entity, &PlayerBody, &ChargeCrouching)>,
-    assets: Res<StandingAssets>,
+    players: Query<(Entity, &ChargeCrouching)>,
     mut commands: Commands,
 ) {
-    for (player, body, charge_crouching) in players.iter() {
+    for (player, charge_crouching) in players.iter() {
         commands
             .entity(player)
             .remove::<ChargeCrouching>()
             .insert(ChargeStanding::from(charge_crouching.clone()));
-        to_standing_assets(body, &mut commands, &assets);
     }
 }
 

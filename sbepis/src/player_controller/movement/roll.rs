@@ -10,14 +10,14 @@ use crate::player_controller::movement::slide::sliding_to_crouching_or_sneaking;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
-use super::crouch::{Crouching, CrouchingAssets, to_crouching_assets};
+use super::crouch::Crouching;
 use super::dash::Dashing;
-use super::slide::{SlideAssets, Sliding};
+use super::slide::Sliding;
 use super::sneak::Sneaking;
 use super::sprint::Sprinting;
-use super::stand::{StandingAssets, to_standing_assets};
 
 #[derive(Resource)]
+#[insert_resource(plugin = PlayerControllerPlugin)]
 pub struct RollingAssets {
     pub mesh: Mesh3d,
     pub mesh_transform: Transform,
@@ -26,7 +26,28 @@ pub struct RollingAssets {
     pub camera_transform: Transform,
 }
 
-pub fn to_rolling_assets(body: &PlayerBody, commands: &mut Commands, assets: &RollingAssets) {
+impl FromWorld for RollingAssets {
+    fn from_world(world: &mut World) -> Self {
+        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+
+        RollingAssets {
+            mesh: Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap())),
+            mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
+            collider: Collider::ball(0.5),
+            collider_transform: Transform::from_translation(Vec3::Y * 0.5),
+            camera_transform: Transform::from_translation(Vec3::Y * 0.5),
+        }
+    }
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn to_rolling_assets(
+    trigger: Trigger<OnAdd, (Rolling,)>,
+    players: Query<&PlayerBody>,
+    assets: Res<RollingAssets>,
+    mut commands: Commands,
+) -> Result {
+    let body = players.get(trigger.target())?;
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));
@@ -34,6 +55,28 @@ pub fn to_rolling_assets(body: &PlayerBody, commands: &mut Commands, assets: &Ro
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
     commands.entity(body.camera).insert(assets.camera_transform);
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn remove_movement(trigger: Trigger<OnAdd, Rolling>, mut commands: Commands) {
+    commands
+        .entity(trigger.target())
+        .remove::<Movement>()
+        .insert(AffectedByGravity);
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn readd_movement(
+    trigger: Trigger<OnRemove, Rolling>,
+    velocities: Query<&Velocity>,
+    mut commands: Commands,
+) -> Result {
+    let velocity = velocities.get(trigger.target())?;
+    commands
+        .entity(trigger.target())
+        .insert(Movement(velocity.linvel));
+    Ok(())
 }
 
 #[derive(Component)]
@@ -46,19 +89,16 @@ pub struct Rolling;
 	before = sliding_to_crouching_or_sneaking,
 )]
 fn sliding_or_sneaking_or_crouching_to_rolling(
-    mut players: Query<(Entity, &PlayerBody), Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>,
+    mut players: Query<Entity, Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>,
     mut commands: Commands,
-    assets: Res<RollingAssets>,
 ) {
-    for (player, body) in players.iter_mut() {
+    for player in players.iter_mut() {
         commands
             .entity(player)
             .remove::<Sliding>()
             .remove::<Sneaking>()
             .remove::<Crouching>()
-            .remove::<Movement>()
             .insert(Rolling);
-        to_rolling_assets(body, &mut commands, &assets);
     }
 }
 
@@ -67,20 +107,13 @@ fn sliding_or_sneaking_or_crouching_to_rolling(
 	run_if = button_just_pressed(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn sprinting_to_rolling(
-    mut players: Query<(Entity, &PlayerBody), With<Sprinting>>,
-    mut commands: Commands,
-    assets: Res<RollingAssets>,
-) {
-    for (player, body) in players.iter_mut() {
+fn sprinting_to_rolling(mut players: Query<Entity, With<Sprinting>>, mut commands: Commands) {
+    for player in players.iter_mut() {
         commands
             .entity(player)
             .remove::<Sprinting>()
             .remove::<Dashing>()
-            .remove::<Movement>()
-            .insert(Rolling)
-            .insert(AffectedByGravity);
-        to_rolling_assets(body, &mut commands, &assets);
+            .insert(Rolling);
     }
 }
 
@@ -90,30 +123,12 @@ fn sprinting_to_rolling(
 	in_set = MovementControlSet::UpdateState,
 	after = rolling_to_sprinting,
 )]
-fn rolling_to_sliding(
-    mut players: Query<(Entity, &PlayerBody, &Velocity), With<Rolling>>,
-    mut commands: Commands,
-    assets: Res<CrouchingAssets>,
-    slide_assets: Res<SlideAssets>,
-) {
-    for (player, body, velocity) in players.iter_mut() {
-        let sound = commands
-            .spawn((
-                AudioPlayer::new(slide_assets.sound.clone()),
-                PlaybackSettings::LOOP,
-            ))
-            .id();
-
+fn rolling_to_sliding(mut players: Query<Entity, With<Rolling>>, mut commands: Commands) {
+    for player in players.iter_mut() {
         commands
             .entity(player)
             .remove::<Rolling>()
-            .insert(Sliding {
-                current_friction: 0.0,
-                sound,
-            })
-            .insert(Movement(velocity.linvel));
-
-        to_crouching_assets(body, &mut commands, &assets);
+            .insert(Sliding::default());
     }
 }
 
@@ -122,17 +137,11 @@ fn rolling_to_sliding(
 	run_if = button_just_released(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn rolling_to_sprinting(
-    mut players: Query<(Entity, &PlayerBody, &Velocity), With<Rolling>>,
-    mut commands: Commands,
-    assets: Res<StandingAssets>,
-) {
-    for (player, body, velocity) in players.iter_mut() {
+fn rolling_to_sprinting(mut players: Query<Entity, With<Rolling>>, mut commands: Commands) {
+    for player in players.iter_mut() {
         commands
             .entity(player)
             .remove::<Rolling>()
-            .insert(Sprinting)
-            .insert(Movement(velocity.linvel));
-        to_standing_assets(body, &mut commands, &assets);
+            .insert(Sprinting);
     }
 }

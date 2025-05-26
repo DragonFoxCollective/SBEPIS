@@ -11,14 +11,13 @@ use crate::input::{button_just_pressed, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::stamina::Stamina;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
 
 use super::CoyoteTimeSettings;
 use super::dash::Dashing;
 use super::grounded::Grounded;
-use super::slide::{SlideAssets, Sliding};
+use super::slide::Sliding;
 use super::sprint::Sprinting;
-use super::stand::{Standing, StandingAssets, to_standing_assets};
+use super::stand::Standing;
 use super::walk::Walking;
 
 #[derive(Resource)]
@@ -132,15 +131,14 @@ fn trip_recover_air_to_trip_recover_ground(
 	before = trip_recover_air_to_trip_recover_ground,
 )]
 fn update_trip_recover_ground(
-    mut players: Query<(Entity, &PlayerBody, &mut TripRecoverOnGround)>,
+    mut players: Query<(Entity, &mut TripRecoverOnGround)>,
     time: Res<Time>,
     coyote_time_settings: Res<CoyoteTimeSettings>,
     mut commands: Commands,
-    assets: Res<StandingAssets>,
     input: Query<&ActionState<PlayerAction>>,
 ) -> Result {
     let input = input.single()?;
-    for (player, body, mut trip_recover_ground) in players.iter_mut() {
+    for (player, mut trip_recover_ground) in players.iter_mut() {
         trip_recover_ground.duration += time.delta();
         if trip_recover_ground.duration >= coyote_time_settings.coyote_time {
             commands.entity(player).remove::<TripRecoverOnGround>();
@@ -150,8 +148,6 @@ fn update_trip_recover_ground(
             } else {
                 commands.entity(player).insert(Standing);
             }
-
-            to_standing_assets(body, &mut commands, &assets);
         }
     }
     Ok(())
@@ -215,7 +211,6 @@ fn ground_parry(
         (With<TryingToGroundParry>, With<TripRecoverOnGround>),
     >,
     mut commands: Commands,
-    slide_assets: Res<SlideAssets>,
     trip_settings: Res<PlayerTripSettings>,
 ) {
     for (player, mut movement, transform, mut stamina) in players.iter_mut() {
@@ -223,21 +218,11 @@ fn ground_parry(
 
         stamina.current += trip_settings.ground_parry_stamina_gain;
 
-        let sound = commands
-            .spawn((
-                AudioPlayer::new(slide_assets.sound.clone()),
-                PlaybackSettings::LOOP,
-            ))
-            .id();
-
         commands
             .entity(player)
             .remove::<TryingToGroundParry>()
             .remove::<TripRecoverOnGround>()
-            .insert(Sliding {
-                current_friction: 0.0,
-                sound,
-            });
+            .insert(Sliding::default());
 
         movement.0 += transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
     }
