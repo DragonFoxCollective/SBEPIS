@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
+use leafwing_input_manager::prelude::ActionState;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
-use crate::input::{button_just_pressed, button_just_released};
+use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
 use crate::player_controller::movement::slide::sliding_to_crouching_or_sneaking;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
@@ -15,6 +16,7 @@ use super::dash::Dashing;
 use super::slide::Sliding;
 use super::sneak::Sneaking;
 use super::sprint::Sprinting;
+use super::stand::Standing;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin)]
@@ -121,7 +123,7 @@ fn sprinting_to_rolling(mut players: Query<Entity, With<Sprinting>>, mut command
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_released(PlayerAction::Sprint),
 	in_set = MovementControlSet::UpdateState,
-	after = rolling_to_sprinting,
+	after = rolling_to_sprinting_or_standing,
 )]
 fn rolling_to_sliding(mut players: Query<Entity, With<Rolling>>, mut commands: Commands) {
     for player in players.iter_mut() {
@@ -137,11 +139,20 @@ fn rolling_to_sliding(mut players: Query<Entity, With<Rolling>>, mut commands: C
 	run_if = button_just_released(PlayerAction::Crouch),
 	in_set = MovementControlSet::UpdateState,
 )]
-fn rolling_to_sprinting(mut players: Query<Entity, With<Rolling>>, mut commands: Commands) {
+fn rolling_to_sprinting_or_standing(
+    mut players: Query<Entity, With<Rolling>>,
+    mut commands: Commands,
+    input: Query<&ActionState<PlayerAction>>,
+) -> Result {
+    let input = input.single()?;
     for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Rolling>()
-            .insert(Sprinting);
+        commands.entity(player).remove::<Rolling>();
+
+        if button_pressed(input, &PlayerAction::Move) {
+            commands.entity(player).insert(Sprinting);
+        } else {
+            commands.entity(player).insert(Standing);
+        }
     }
+    Ok(())
 }
