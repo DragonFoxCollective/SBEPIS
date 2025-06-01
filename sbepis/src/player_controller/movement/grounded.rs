@@ -15,6 +15,9 @@ pub struct Grounded;
 #[derive(Component, Default)]
 pub struct EffectiveGrounded(pub Duration);
 
+#[derive(Component, Deref, DerefMut, Debug)]
+pub struct GroundedContact(pub RayIntersection);
+
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateGrounded,
@@ -27,23 +30,24 @@ fn update_is_grounded(
     let rapier_context = rapier_context.single()?;
     for (player, transform, body) in bodies.iter_mut() {
         let collider_entity = body.collider;
-        let mut grounded = false;
-        rapier_context.intersections_with_shape(
-            transform.translation(),
-            Quat::IDENTITY,
-            &Collider::ball(0.25),
+        let mut contact = None;
+        rapier_context.intersections_with_ray(
+            transform.translation() + transform.up() * 0.05,
+            transform.down().into(),
+            0.25,
+            true,
             QueryFilter::default(),
-            |collided_entity| {
+            |collided_entity, ray_intersection| {
                 if collided_entity == collider_entity {
                     true
                 } else {
-                    grounded = true;
+                    contact = Some(GroundedContact(ray_intersection));
                     false
                 }
             },
         );
-        if grounded {
-            commands.entity(player).insert(Grounded);
+        if let Some(contact) = contact {
+            commands.entity(player).insert((Grounded, contact));
         } else {
             commands.entity(player).remove::<Grounded>();
         }

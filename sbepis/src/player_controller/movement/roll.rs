@@ -7,7 +7,6 @@ use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::movement::slide::sliding_to_crouching_or_sneaking;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
@@ -88,7 +87,6 @@ pub struct Rolling;
 	plugin = PlayerControllerPlugin, schedule = Update,
 	run_if = button_just_pressed(PlayerAction::Sprint),
 	in_set = MovementControlSet::UpdateState,
-	before = sliding_to_crouching_or_sneaking,
 )]
 fn sliding_or_sneaking_or_crouching_to_rolling(
     mut players: Query<Entity, Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>,

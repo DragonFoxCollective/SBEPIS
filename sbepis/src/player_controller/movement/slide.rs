@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_rapier3d::prelude::Velocity;
 use leafwing_input_manager::prelude::ActionState;
 use return_ok::some_or_return_ok;
 
@@ -9,24 +10,24 @@ use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
 use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::util::MapRange;
 
 use super::di::DirectionalInput;
-use super::sneak::Sneaking;
+use super::grounded::GroundedContact;
 use super::stand::Standing;
 use super::walk::Walking;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerSlideSettings {
-	speed_cap: 10.0,
+	speed_cap: 1.0,
 	friction: 1.0,
 	forward_friction: 0.1,
 	brake_friction: 10.0,
-	turn_factor: 0.2,
+	turn_factor: 2.0,
 	turn_friction: 1.0,
-	to_crouch_speed_threshold: 1.5,
+	direction_physics_resistance: 0.9,
+	speed_physics_resistance: 0.9,
 })]
 pub struct PlayerSlideSettings {
     pub speed_cap: f32,
@@ -36,7 +37,8 @@ pub struct PlayerSlideSettings {
     /// In (radians per second) / (meters per second)
     pub turn_factor: f32,
     pub turn_friction: f32,
-    pub to_crouch_speed_threshold: f32,
+    pub direction_physics_resistance: f32,
+    pub speed_physics_resistance: f32,
 }
 
 #[derive(Resource)]
@@ -54,7 +56,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[derive(Component, Clone, Reflect, Default)]
 #[reflect(Component)]
 pub struct Sliding {
-    current_friction: f32,
     sound: Option<Entity>,
 }
 
@@ -125,37 +126,20 @@ fn sliding_to_standing_or_walking(
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-)]
-pub fn sliding_to_crouching_or_sneaking(
-    players: Query<(Entity, &Movement), With<Sliding>>,
-    mut commands: Commands,
-    slide_settings: Res<PlayerSlideSettings>,
-    input: Query<&ActionState<PlayerAction>>,
-) -> Result {
-    let input = input.single()?;
-    for (player, movement) in players.iter() {
-        if movement.0.length() > slide_settings.to_crouch_speed_threshold {
-            continue;
-        }
-
-        commands.entity(player).remove::<Sliding>();
-        if button_pressed(input, &PlayerAction::Move) {
-            commands.entity(player).insert(Sneaking);
-        } else {
-            commands.entity(player).insert(Crouching);
-        }
-    }
-    Ok(())
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::DoHorizontalMovement,
 	before = ExecuteMovementSet,
 )]
 fn update_slide_velocity(
-    mut movement: Query<(&mut Movement, &Transform, &DirectionalInput), With<Sliding>>,
+    mut player: Query<
+        (
+            &mut Movement,
+            &Transform,
+            &DirectionalInput,
+            &GroundedContact,
+            &Velocity,
+        ),
+        With<Sliding>,
+    >,
     slide_settings: Res<PlayerSlideSettings>,
     time: Res<Time>,
 ) -> Result {
@@ -178,36 +162,58 @@ fn update_slide_velocity(
     )
     .unwrap();
 
-    for (mut movement, transform, di) in movement.iter_mut() {
-        let velocity = (transform.rotation.inverse() * movement.0).xz();
-
-        let friction = if velocity == Vec2::ZERO || di.input == Vec2::ZERO {
-            slide_settings.friction
-        } else {
-            let angle = di.input.angle_to(Vec2::Y).abs();
-            let max_friction = easing
-                .sample(angle)
-                .ok_or(format!("Angle out of bounds: {:?}", angle))?;
-            di.input
-                .length()
-                .map_range(slide_settings.friction..max_friction)
-        };
-
-        let friction_velocity = di.input.y.min(0.0).abs().map_range(
-            velocity
-                ..((velocity.length() - slide_settings.speed_cap).max(0.0)
-                    * velocity.normalize_or_zero()),
+    for (mut movement, transform, di, _contact, velocity) in player.iter_mut() {
+        let current_speed = slide_settings
+            .speed_physics_resistance
+            .map_range(velocity.linvel.length()..movement.0.length());
+        let current_direction = slerp(
+            velocity.linvel.normalize_or_zero(),
+            movement.0.normalize_or_zero(),
+            slide_settings.direction_physics_resistance,
         );
 
-        let friction = -time.delta_secs() * friction * friction_velocity;
-        let velocity = velocity + friction;
+        let center_friction = slide_settings.friction;
+        let outer_friction = {
+            let angle = di.input.angle_to(Vec2::Y).abs();
+            easing
+                .sample(angle)
+                .map(|max_friction| {
+                    di.input
+                        .length()
+                        .map_range(slide_settings.friction..max_friction)
+                })
+                .unwrap_or_default()
+        };
+        let friction = di.input.length().map_range(center_friction..outer_friction);
+        let friction_speed = (current_speed - slide_settings.speed_cap).max(0.0);
 
-        let turn_angle =
-            slide_settings.turn_factor * velocity.length() * di.input.x * time.delta_secs();
-        let velocity = Vec2::from_angle(turn_angle).rotate(velocity);
+        let friction = -time.delta_secs() * friction * friction_speed;
+        let speed = current_speed + friction;
 
-        movement.0 = transform.rotation * Vec3::new(velocity.x, 0.0, velocity.y);
+        let turn_angle = -slide_settings.turn_factor * di.input.x * time.delta_secs();
+        let direction =
+            Quat::from_axis_angle(transform.up().into(), turn_angle) * current_direction;
+
+        // let normal = contact.normal;
+        // let binormal = direction.cross(normal);
+        // let tangent = normal.cross(binormal);
+
+        movement.0 = direction * speed;
     }
 
     Ok(())
+}
+
+fn slerp(from: Vec3, to: Vec3, t: f32) -> Vec3 {
+    if from == Vec3::ZERO {
+        return to;
+    }
+    if to == Vec3::ZERO {
+        return from;
+    }
+    let angle = from.angle_between(to);
+    if angle < f32::EPSILON {
+        return from;
+    }
+    ((1.0 - t) * angle).sin() / angle.sin() * from + (t * angle).sin() / angle.sin() * to
 }
