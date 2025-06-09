@@ -47,7 +47,7 @@ impl FromWorld for CrouchingAssets {
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn to_crouching_assets(
-    trigger: Trigger<OnAdd, (Crouching, Sliding, ChargeCrouching)>,
+    trigger: Trigger<OnAdd, (Crouching, Sliding, ChargeCrouching, Sneaking)>,
     players: Query<&PlayerBody>,
     assets: Res<CrouchingAssets>,
     mut commands: Commands,
