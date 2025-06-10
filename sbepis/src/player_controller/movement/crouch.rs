@@ -5,6 +5,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::input::{button_is_pressed, button_is_released};
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::movement::sneak::Sneaking;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
