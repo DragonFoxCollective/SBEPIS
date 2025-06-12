@@ -10,6 +10,7 @@ use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
 use crate::input::{button_just_pressed, button_just_released, button_pressed};
 use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::util::MapRange;
 
@@ -22,12 +23,12 @@ use super::walk::Walking;
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerSlideSettings {
 	speed_cap: 1.0,
 	friction: 1.0,
-	forward_friction: 0.1,
+	forward_friction: 0.0,
 	brake_friction: 10.0,
 	turn_factor: 2.0,
-	turn_friction: 1.0,
+	turn_friction: 0.0,
 	direction_physics_resistance: 0.9,
-	speed_physics_resistance: 0.9,
+	speed_physics_resistance: 0.0,
 })]
 pub struct PlayerSlideSettings {
     pub speed_cap: f32,
@@ -127,10 +128,44 @@ fn sliding_to_standing_or_walking(
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::DoHorizontalMovement,
+)]
+fn no_air_sliding(
+    mut players: Query<(Entity, Has<Grounded>, &Velocity), With<Sliding>>,
+    mut commands: Commands,
+) {
+    for (player, grounded, velocity) in players.iter_mut() {
+        if grounded {
+            commands
+                .entity(player)
+                .insert_if_new(Movement(velocity.linvel));
+        } else {
+            commands.entity(player).remove::<Movement>();
+        }
+    }
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn readd_movement(
+    trigger: Trigger<OnRemove, Sliding>,
+    mut commands: Commands,
+    players: Query<&Velocity>,
+) {
+    commands.entity(trigger.target()).insert_if_new(
+        players
+            .get(trigger.target())
+            .map(|velocity| Movement(velocity.linvel))
+            .unwrap_or_default(),
+    );
+}
+
+#[add_system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	in_set = MovementControlSet::DoHorizontalMovement,
 	before = ExecuteMovementSet,
+	after = no_air_sliding,
 )]
 fn update_slide_velocity(
-    mut player: Query<
+    mut players: Query<
         (
             &mut Movement,
             &Transform,
@@ -162,7 +197,7 @@ fn update_slide_velocity(
     )
     .unwrap();
 
-    for (mut movement, transform, di, _contact, velocity) in player.iter_mut() {
+    for (mut movement, transform, di, _contact, velocity) in players.iter_mut() {
         let current_speed = slide_settings
             .speed_physics_resistance
             .map_range(velocity.linvel.length()..movement.0.length());

@@ -5,6 +5,7 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
 
+use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSet;
 use crate::prelude::*;
@@ -123,6 +124,7 @@ fn check_states(
                 Has<TryingToJump>,
                 Has<TryingToGroundParry>,
             ),
+            Has<Movement>,
         ),
         With<PlayerBody>,
     >,
@@ -132,7 +134,7 @@ fn check_states(
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
-            tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12.0, tup.12.1, tup.12.2,
+            tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12.0, tup.12.1, tup.12.2, tup.13,
         ];
         let has = arr
             .into_iter()
@@ -156,6 +158,7 @@ fn check_states(
                 type_name::<TryingToDash>(),
                 type_name::<TryingToJump>(),
                 type_name::<TryingToGroundParry>(),
+                type_name::<Movement>(),
             ])
             .filter_map(|(has, name)| if has { Some(name) } else { None })
             .map(|name| name.split("::").last().unwrap())
