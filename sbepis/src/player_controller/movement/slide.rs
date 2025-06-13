@@ -171,7 +171,12 @@ fn update_slide_velocity(
             velocity.linvel.normalize_or_zero(),
             movement.0.normalize_or_zero(),
             slide_settings.direction_physics_resistance,
-        );
+        )
+        .reject_from(transform.up().into())
+            + velocity
+                .linvel
+                .normalize_or_zero()
+                .project_onto(transform.up().into());
 
         let center_friction = slide_settings.friction;
         let outer_friction = {
