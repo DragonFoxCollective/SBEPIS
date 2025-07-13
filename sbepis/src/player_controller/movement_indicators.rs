@@ -1,5 +1,6 @@
 use std::any::type_name;
 
+use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
@@ -166,4 +167,57 @@ fn check_states(
         debug_state.0 = has;
     }
     Ok(())
+}
+
+#[add_system(
+	plugin = MovementIndicatorsPlugin, schedule = Startup,
+)]
+fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
+    for (_, config, _) in config_store.iter_mut() {
+        config.depth_bias = -1.0;
+    }
+}
+
+#[add_system(
+	plugin = MovementIndicatorsPlugin, schedule = Update,
+	after = MovementControlSet::DoHorizontalMovement,
+	after = MovementControlSet::DoVerticalMovement,
+)]
+fn movement_direction_gizmos(
+    mut gizmos: Gizmos,
+    players: Query<(&GlobalTransform, &Velocity, Option<&Movement>), With<PlayerBody>>,
+) {
+    for (transform, velocity, movement) in players.iter() {
+        gizmos.ray(
+            transform.translation(),
+            velocity.linvel.normalize_or_zero(),
+            css::RED,
+        );
+        gizmos.ray(
+            transform.translation(),
+            velocity
+                .linvel
+                .normalize_or_zero()
+                .reject_from(transform.up().into()),
+            css::PINK,
+        );
+
+        if let Some(movement) = movement {
+            gizmos.ray(
+                transform.translation(),
+                movement.0.normalize_or_zero(),
+                css::GREEN,
+            );
+            gizmos.ray(
+                transform.translation(),
+                movement
+                    .0
+                    .normalize_or_zero()
+                    .reject_from(transform.up().into()),
+                css::LIME,
+            );
+        }
+
+        gizmos.ray_2d(Vec2::ZERO, Vec2::X, css::BLUE);
+    }
 }
