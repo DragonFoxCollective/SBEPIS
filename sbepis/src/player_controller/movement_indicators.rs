@@ -63,10 +63,7 @@ fn update_speed_indicator(
         .xz()
         .length();
     let mut indicator = indicator.single_mut()?;
-    indicator.0 = format!(
-        "Global speed: {:.2}\nLocal speed: {:.2}",
-        speed, local_speed
-    );
+    indicator.0 = format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}");
     Ok(())
 }
 

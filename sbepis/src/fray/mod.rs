@@ -200,7 +200,7 @@ fn tick_fray_music(
         let beat = fray_music.subbeats(1);
         let beat_progress = fray_music.beat_progress();
 
-        beat_counter_text.0 = format!("{} {:.2}", beat, beat_progress);
+        beat_counter_text.0 = format!("{beat} {beat_progress:.2}");
 
         #[cfg(feature = "metronome")]
         if beat_counter.beat != beat {
