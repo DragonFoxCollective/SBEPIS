@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkGenerator;
-use bevy_marching_cubes::height_sampler::{HeightSampler, NoiseHeightSampler};
+use bevy_marching_cubes::height_sampler::{HeightSampler, NoiseRadiusSampler};
 use fastnoise_lite::*;
 
 use crate::{gridbox_material, prelude::*};
@@ -16,7 +16,7 @@ fn spawn_worldgen_test(
     asset_server: Res<AssetServer>,
 ) -> Result {
     let mut noise = FastNoiseLite::with_seed(1);
-    noise.set_frequency(Some(0.3));
+    noise.set_frequency(Some(1.5));
     noise.set_noise_type(Some(NoiseType::Cellular));
     noise.set_cellular_return_type(Some(CellularReturnType::Distance2Sub));
 
@@ -24,7 +24,7 @@ fn spawn_worldgen_test(
         surface_threshold: 0.5,
         num_voxels: 50,
         chunk_size: 10.0,
-        terrain_sampler: NoiseHeightSampler(noise)
+        terrain_sampler: NoiseRadiusSampler(noise)
             .scaled(5.0)
             .offset(5.0)
             .build_radius_density(),
