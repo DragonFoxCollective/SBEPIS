@@ -73,8 +73,7 @@ use bevy_rapier3d::prelude::RapierPhysicsPlugin;
 use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 
 #[cfg(feature = "inspector")]
-#[add_plugin(to_plugin = crate::SbepisPlugin,
-	init = bevy_inspector_egui::bevy_egui::EguiPlugin { enable_multipass_for_primary_context: true })]
+#[add_plugin(to_plugin = crate::SbepisPlugin)]
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 
 #[cfg(feature = "inspector")]
