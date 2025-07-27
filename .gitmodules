@@ -4,6 +4,6 @@
 [submodule "state-machine"]
 	path = state-machine
 	url = https://github.com/DragonFoxCollective/state-machine.git
-[submodule "marching-cubes"]
-	path = marching-cubes
+[submodule "bevy-marching-cubes"]
+	path = bevy-marching-cubes
 	url = https://github.com/DragonFoxCollective/bevy-marching-cubes.git
