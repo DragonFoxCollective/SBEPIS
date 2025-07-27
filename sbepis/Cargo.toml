@@ -40,6 +40,7 @@ bevy-butler = { git = "https://github.com/TGRCdev/bevy-butler.git" }
 typetag = "0.2.19"
 return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
 bevy_skein = "0.2.1"
+fastnoise-lite = "1.1.1"
 
 [build-dependencies]
 winres = "0.1"

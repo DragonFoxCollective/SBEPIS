@@ -28,8 +28,10 @@ mod player_controller;
 mod questing;
 mod skybox;
 pub mod util;
+mod worldgen;
 
 mod prelude {
+    pub use crate::SbepisPlugin;
     pub use crate::camera::PlayerCameraNode;
     pub use crate::player_controller::PlayerBody;
     pub use crate::player_controller::camera_controls::{
