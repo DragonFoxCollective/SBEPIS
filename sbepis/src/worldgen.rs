@@ -30,12 +30,25 @@ fn spawn_worldgen_test(
             .build_radius_density(),
     };
 
-    commands.spawn((
-        Name::new("Worldgen"),
-        Mesh3d(meshes.add(chunk_generator.generate_chunk(IVec3::ZERO))),
-        MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
-        Transform::from_xyz(0.0, 4.0, 0.0),
-    ));
+    for offset in [
+        IVec3::new(0, 0, 0),
+        IVec3::new(-1, 0, 0),
+        IVec3::new(0, -1, 0),
+        IVec3::new(0, 0, -1),
+        IVec3::new(-1, -1, 0),
+        IVec3::new(-1, 0, -1),
+        IVec3::new(0, -1, -1),
+        IVec3::new(-1, -1, -1),
+    ] {
+        commands.spawn((
+            Name::new("Worldgen"),
+            Mesh3d(meshes.add(chunk_generator.generate_chunk(offset))),
+            MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
+            Transform::from_translation(
+                Vec3::new(0.0, 4.0, 0.0) + offset.as_vec3() * chunk_generator.chunk_size,
+            ),
+        ));
+    }
 
     Ok(())
 }
