@@ -41,6 +41,10 @@ typetag = "0.2.19"
 return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
 bevy_skein = "0.2.1"
 fastnoise-lite = "1.1.1"
+bevy-marching-cubes = { path = "../bevy-marching-cubes", features = [
+	"noise_sampler",
+	"height_sampler",
+] }
 
 [build-dependencies]
 winres = "0.1"

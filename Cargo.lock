@@ -609,7 +609,6 @@ name = "bevy-marching-cubes"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy-inspector-egui",
  "bevy_panorbit_camera",
  "fastnoise-lite",
 ]
@@ -5382,6 +5381,7 @@ dependencies = [
  "bevy",
  "bevy-butler",
  "bevy-inspector-egui",
+ "bevy-marching-cubes",
  "bevy_common_assets",
  "bevy_hanabi",
  "bevy_panorbit_camera",
