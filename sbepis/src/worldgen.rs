@@ -11,7 +11,10 @@ use fastnoise_lite::*;
 use crate::{gridbox_material, prelude::*};
 
 #[derive(Resource, Default, Debug)]
-#[insert_resource(plugin = SbepisPlugin)]
+#[insert_resource(plugin = SbepisPlugin, init = ChunkLoading {
+	loading_radius: 3,
+	..default()
+})]
 pub struct ChunkLoading {
     pub loading_radius: i32,
     pub loaded_chunks: HashSet<IVec3>,
@@ -30,20 +33,22 @@ pub struct Worldgen {
 
 fn planet_worldgen() -> Worldgen {
     let mut noise = FastNoiseLite::with_seed(1);
-    noise.set_frequency(Some(1.5));
+    noise.set_frequency(Some(0.3));
     noise.set_noise_type(Some(NoiseType::Cellular));
     noise.set_cellular_return_type(Some(CellularReturnType::Distance2Sub));
 
+    let generator = PlanetGenerator {
+        surface_threshold: 0.5,
+        num_voxels: 50,
+        chunk_size: 10.0,
+        terrain_sampler: NoiseHeightSampler(noise)
+            .scaled(5.0)
+            .offset(5.0)
+            .build_density(),
+    };
+
     Worldgen {
-        generator: Arc::new(ChunkGenerator {
-            surface_threshold: 0.5,
-            num_voxels: 50,
-            chunk_size: 10.0,
-            terrain_sampler: NoiseHeightSampler(noise)
-                .scaled(5.0)
-                .offset(5.0)
-                .build_density(),
-        }),
+        generator: Arc::new(generator),
     }
 }
 
@@ -79,26 +84,32 @@ fn start_loading_chunks(
 ) {
     let chunk_size = worldgen.generator.chunk_size;
     for in_chunk in players.iter() {
-        let chunk_position = in_chunk.0;
+        for x in -chunk_loading.loading_radius..=chunk_loading.loading_radius {
+            for y in -chunk_loading.loading_radius..=chunk_loading.loading_radius {
+                for z in -chunk_loading.loading_radius..=chunk_loading.loading_radius {
+                    let chunk_position = in_chunk.0 + IVec3::new(x, y, z);
 
-        if !chunk_loading.loaded_chunks.contains(&chunk_position) {
-            chunk_loading.loaded_chunks.insert(chunk_position);
+                    if !chunk_loading.loaded_chunks.contains(&chunk_position) {
+                        chunk_loading.loaded_chunks.insert(chunk_position);
 
-            debug!("Generating chunk at {chunk_position:?}");
+                        debug!("Generating chunk at {chunk_position:?}");
 
-            let generator = worldgen.generator.clone();
-            let chunks_to_insert = chunk_loading.chunks_to_insert.clone();
+                        let generator = worldgen.generator.clone();
+                        let chunks_to_insert = chunk_loading.chunks_to_insert.clone();
 
-            AsyncComputeTaskPool::get()
-                .spawn(async move {
-                    let mesh = generator.generate_chunk(chunk_position);
-                    chunks_to_insert.lock().unwrap().push((
-                        chunk_position,
-                        chunk_position.as_vec3() * chunk_size,
-                        mesh,
-                    ));
-                })
-                .detach();
+                        AsyncComputeTaskPool::get()
+                            .spawn(async move {
+                                let mesh = generator.generate_chunk(chunk_position);
+                                chunks_to_insert.lock().unwrap().push((
+                                    chunk_position,
+                                    chunk_position.as_vec3() * chunk_size,
+                                    mesh,
+                                ));
+                            })
+                            .detach();
+                    }
+                }
+            }
         }
     }
 }
