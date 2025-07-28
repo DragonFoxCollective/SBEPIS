@@ -15,6 +15,7 @@ use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
+use crate::worldgen::InChunk;
 
 use self::camera_controls::*;
 use self::weapons::hammer::*;
@@ -135,6 +136,7 @@ fn setup(
                 collider,
                 mesh,
             },
+            InChunk::default(),
         ))
         .add_children(&[camera, collider, mesh])
         .id();

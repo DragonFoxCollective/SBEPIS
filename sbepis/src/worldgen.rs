@@ -10,18 +10,19 @@ use fastnoise_lite::*;
 
 use crate::{gridbox_material, prelude::*};
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 #[insert_resource(plugin = SbepisPlugin)]
 pub struct ChunkLoading {
+    pub loading_radius: i32,
     pub loaded_chunks: HashSet<IVec3>,
     pub chunks_to_insert: Arc<Mutex<Vec<(IVec3, Vec3, Mesh)>>>,
 }
 
 pub type PlanetGenerator = ChunkGenerator<
-    RadiusDensitySampler<OffsetHeightSampler<ScaleHeightSampler<NoiseRadiusSampler>>>,
+    HeightDensitySampler<OffsetHeightSampler<ScaleHeightSampler<NoiseHeightSampler>>>,
 >;
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 #[insert_resource(plugin = SbepisPlugin, init = planet_worldgen())]
 pub struct Worldgen {
     pub generator: Arc<PlanetGenerator>,
@@ -38,11 +39,33 @@ fn planet_worldgen() -> Worldgen {
             surface_threshold: 0.5,
             num_voxels: 50,
             chunk_size: 10.0,
-            terrain_sampler: NoiseRadiusSampler(noise)
+            terrain_sampler: NoiseHeightSampler(noise)
                 .scaled(5.0)
                 .offset(5.0)
-                .build_radius_density(),
+                .build_density(),
         }),
+    }
+}
+
+#[derive(Component, Default, Debug)]
+pub struct InChunk(pub IVec3);
+
+#[add_system(
+	plugin = SbepisPlugin, schedule = Update,
+)]
+fn update_in_chunks(
+    worldgen: Res<Worldgen>,
+    mut players: Query<(&mut InChunk, &GlobalTransform), Changed<GlobalTransform>>,
+) {
+    for (mut in_chunk, player_transform) in players.iter_mut() {
+        let chunk_position = (player_transform.translation() / worldgen.generator.chunk_size)
+            .floor()
+            .as_ivec3();
+
+        // Properly update change detection
+        if in_chunk.0 != chunk_position {
+            in_chunk.0 = chunk_position;
+        }
     }
 }
 
@@ -52,13 +75,11 @@ fn planet_worldgen() -> Worldgen {
 fn start_loading_chunks(
     worldgen: Res<Worldgen>,
     mut chunk_loading: ResMut<ChunkLoading>,
-    players: Query<&Transform, With<PlayerBody>>,
+    players: Query<&InChunk, Changed<InChunk>>,
 ) {
     let chunk_size = worldgen.generator.chunk_size;
-    for player_transform in players.iter() {
-        let chunk_position = (player_transform.translation / chunk_size)
-            .floor()
-            .as_ivec3();
+    for in_chunk in players.iter() {
+        let chunk_position = in_chunk.0;
 
         if !chunk_loading.loaded_chunks.contains(&chunk_position) {
             chunk_loading.loaded_chunks.insert(chunk_position);
