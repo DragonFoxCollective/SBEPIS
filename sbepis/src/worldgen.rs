@@ -8,7 +8,7 @@ use crate::{gridbox_material, prelude::*};
 #[add_plugin(to_plugin = SbepisPlugin, generics = <MyComputeSampler, StandardMaterial>)]
 use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
-#[insert_resource(plugin = SbepisPlugin, init = ChunkGenerator::<MyComputeSampler>::new(0.0, 10, 10.0))]
+#[insert_resource(plugin = SbepisPlugin, init = ChunkGenerator::<MyComputeSampler>::new(0.0, 50, 10.0))]
 use bevy_marching_cubes::chunk_generator::ChunkGenerator;
 
 #[derive(TypePath)]
