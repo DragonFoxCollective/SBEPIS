@@ -275,10 +275,10 @@ fn end_quest_if_giver_killed(
     quest_givers: Query<&QuestGiver>,
 ) {
     for &EntityKilled(entity) in ev_killed.read() {
-        if let Ok(quest_proposal) = quest_givers.get(entity) {
-            if let Some(quest_id) = quest_proposal.given_quest {
-                ev_ended.write(QuestEnded(quest_id));
-            }
+        if let Ok(quest_proposal) = quest_givers.get(entity)
+            && let Some(quest_id) = quest_proposal.given_quest
+        {
+            ev_ended.write(QuestEnded(quest_id));
         }
     }
 }
@@ -398,12 +398,12 @@ fn consume_quest_drop(
 ) -> Result {
     for QuestCompleted(quest_id) in ev_completed.read() {
         let quest = quests.0.get(quest_id).ok_or("Unknown quest")?;
-        if let QuestType::Fetch { .. } = &quest.quest_type {
-            if quest.quest_type.is_completed() {
-                let mut inventory = inventories.single_mut()?;
-                let item = inventory.items.pop().ok_or("No item to consume")?;
-                commands.entity(item).despawn();
-            }
+        if let QuestType::Fetch { .. } = &quest.quest_type
+            && quest.quest_type.is_completed()
+        {
+            let mut inventory = inventories.single_mut()?;
+            let item = inventory.items.pop().ok_or("No item to consume")?;
+            commands.entity(item).despawn();
         }
     }
     Ok(())

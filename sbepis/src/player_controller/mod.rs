@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use movement::MovementControlSet;
@@ -15,7 +16,6 @@ use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
-use crate::worldgen::InChunk;
 
 use self::camera_controls::*;
 use self::weapons::hammer::*;
@@ -136,7 +136,7 @@ fn setup(
                 collider,
                 mesh,
             },
-            InChunk::default(),
+            ChunkLoader::new(3),
         ))
         .add_children(&[camera, collider, mesh])
         .id();

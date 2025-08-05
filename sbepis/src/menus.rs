@@ -127,11 +127,11 @@ fn activate_stack_current(
     mut ev_activated: EventWriter<MenuActivated>,
     mut ev_deactivated: EventWriter<MenuDeactivated>,
 ) -> Result {
-    if let Some(current) = menu_stack.current {
-        if menu_stack.stack.last() != Some(&current) {
-            ev_deactivated.write(MenuDeactivated(current));
-            menu_stack.current = None;
-        }
+    if let Some(current) = menu_stack.current
+        && menu_stack.stack.last() != Some(&current)
+    {
+        ev_deactivated.write(MenuDeactivated(current));
+        menu_stack.current = None;
     }
 
     if menu_stack.current.is_none() && !menu_stack.stack.is_empty() {

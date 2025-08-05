@@ -609,8 +609,9 @@ name = "bevy-marching-cubes"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_app_compute",
  "bevy_panorbit_camera",
- "fastnoise-lite",
+ "bytemuck",
 ]
 
 [[package]]
@@ -682,6 +683,23 @@ dependencies = [
  "variadics_please",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "bevy_app_compute"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a41aa46b6ccb4e2fd9db1cbc02d994dd2c5f4365723f622dbb16a393e84af419"
+dependencies = [
+ "bevy",
+ "bytemuck",
+ "futures-lite",
+ "naga",
+ "naga_oil",
+ "parking_lot",
+ "thiserror 2.0.12",
+ "tracing",
+ "wgpu",
 ]
 
 [[package]]
@@ -2538,9 +2556,9 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "dyn-clone"
-version = "1.0.19"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "dyn-eq"
@@ -2789,15 +2807,6 @@ dependencies = [
  "deunicode",
  "lazy_static",
  "rand 0.8.5",
-]
-
-[[package]]
-name = "fastnoise-lite"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e5f3c3cc9081e5d0e18bcd50e80cd33cba47fc22f88a9da9c33ecd1c87ea5c0"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
@@ -5270,9 +5279,9 @@ dependencies = [
 
 [[package]]
 name = "rustc-demangle"
-version = "0.1.25"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989e6739f80c4ad5b13e0fd7fe89531180375b18520cc8c82080e4dc4035b84f"
+checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
 
 [[package]]
 name = "rustc-hash"
@@ -5388,7 +5397,6 @@ dependencies = [
  "bevy_rapier3d",
  "bevy_skein",
  "faker_rand",
- "fastnoise-lite",
  "image",
  "itertools 0.14.0",
  "leafwing-input-manager",
@@ -7237,9 +7245,9 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winit"
-version = "0.30.11"
+version = "0.30.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4409c10174df8779dc29a4788cac85ed84024ccbc1743b776b21a520ee1aaf4"
+checksum = "c66d4b9ed69c4009f6321f762d6e61ad8a2389cd431b97cb1e146812e9e6c732"
 dependencies = [
  "ahash",
  "android-activity",
