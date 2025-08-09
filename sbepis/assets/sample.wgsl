@@ -1,4 +1,4 @@
-#import "noise.wgsl"::{worley, distanceToEdge};
+#import "noise.wgsl"::{worley, distanceToEdge, fbm, perlinNoise3};
 
 @group(0) @binding(0)
 var<uniform> chunk_position: vec3i;
@@ -31,9 +31,27 @@ fn main(
 		return;
 	}
 
-	densities[density_index(coord)] = sample_noise(coord_to_world(coord) * 0.05);
+	densities[density_index(coord)] = sample_noise(coord_to_world(coord));
 }
 
 fn sample_noise(coord: vec3f) -> f32 {
-	return distanceToEdge(worley(vec3f(coord.x, 0, coord.z))) - coord.y;
+	let surface_coord = vec3f(coord.x, 0.0, coord.z);
+	let height = coord.y;
+	let height_density = sample_height(vec3f(surface_coord) * 0.1, height) * 10 - height;
+	let cheese_caves = fbm(coord * 0.05) + 0.3;
+	let spaghetti_caves_a = pow(fbm(coord * 0.02), 2.0);
+	let spaghetti_caves_b = pow(fbm(coord * 0.01 + 1), 2.0);
+	let spaghetti_caves = pow(spaghetti_caves_a + spaghetti_caves_b, 0.5) - 0.05;
+	return min(height_density, min(cheese_caves * 300 + height + 50, spaghetti_caves * 2000 + height + 50));
+}
+
+fn sample_height(coord: vec3f, height: f32) -> f32 {
+	let fbm_noise = fbm(coord) * 0.5 + 0.5;
+	let worley_noise = worley(coord);
+	let edge_dist = distanceToEdge(worley_noise);
+	let sea_level = 0.39;
+	let cool_edge_dist = pow(edge_dist, 3.45) * 100 + sea_level;
+	let rivers = min(fbm_noise, cool_edge_dist);
+	let seas = select(rivers, sea_level, worley_noise.cell < 0.29);
+	return seas;
 }

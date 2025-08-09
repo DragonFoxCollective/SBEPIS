@@ -11,6 +11,10 @@ fn pcg3d(p: vec3u) -> vec3u {
 
 fn rand33f(f: vec3f) -> vec3f { return vec3f(pcg3d(bitcast<vec3u>(f))) / f32(0xffffffff); }
 fn rand33i(f: vec3i) -> vec3f { return vec3f(pcg3d(bitcast<vec3u>(f))) / f32(0xffffffff); }
+fn rand31i(f: vec3i) -> f32 {
+	let v = pcg3d(bitcast<vec3u>(f));
+	return f32(v.x ^ (v.y << 16u) ^ (v.z << 8u)) / f32(0xffffffff);
+}
 
 // Operator % has changed, probably current code with it need a fix
 // MIT License. © Stefan Gustavson, Munrocket
@@ -48,8 +52,8 @@ fn perlinNoise3(P: vec3f) -> f32 {
     gx1 = fract(gx1);
     var gz1: vec4f = vec4f(0.5) - abs(gx1) - abs(gy1);
     var sz1: vec4f = step(gz1, vec4f(0.));
-    gx1 = gx1 - sz1 * (step(vec4f(0.), gx1) - 0.5);
-    gy1 = gy1 - sz1 * (step(vec4f(0.), gy1) - 0.5);
+    gx1 = gx1 + sz1 * (step(vec4f(0.), gx1) - 0.5);
+    gy1 = gy1 + sz1 * (step(vec4f(0.), gy1) - 0.5);
 
     var g000: vec3f = vec3f(gx0.x, gy0.x, gz0.x);
     var g100: vec3f = vec3f(gx0.y, gy0.y, gz0.y);
@@ -93,7 +97,8 @@ fn perlinNoise3(P: vec3f) -> f32 {
 //  MIT License. © Inigo Quilez, Munrocket
 //  noise3() is any noise here: Value, Perlin, Simplex, Worley
 //
-const m3: mat3x3f = mat3x3f(vec3f(0.8, 0.6, 0.5), vec3f(-0.6, 0.8, 0.4), vec3f(0.5, 0.4, 0.3)); // copilot generated these values
+// these values from https://www.shadertoy.com/view/Wl2XzW
+const m3: mat3x3f = mat3x3f(vec3f(0.00,  0.80,  0.60), vec3f(-0.80,  0.36, -0.48), vec3f(-0.60, -0.48,  0.64));
 fn fbm(pp: vec3f) -> f32 {
     var f: f32 = 0.;
 	var p: vec3f = pp;
@@ -111,7 +116,7 @@ struct WorleyResult {
 	point: vec3f, // position of the source point
 	dist: f32, // distance to the closest point
 	distTwo: f32, // distance to the second closest point // also naga can't handle struct members ending with numbers
-	cellID: vec3i,
+	cell: f32,
 }
 
 fn worley(p: vec3f) -> WorleyResult {
@@ -127,16 +132,16 @@ fn worley(p: vec3f) -> WorleyResult {
                 let offset: vec3f = vec3f(neighbor) + rand33i(neighbor);
                 let dist: f32 = length(offset - p);
 
-				minDist2 = max(min(minDist2, dist), minDist);
-				minDist = min(minDist, dist);
+				minDist2 = clamp(dist, minDist, minDist2);
 
                 if (dist < minDist) {
+					minDist = dist;
                     cellID = neighbor;
                 }
             }
         }
     }
-    return WorleyResult(p, minDist, minDist2, cellID);
+    return WorleyResult(p, minDist, minDist2, rand31i(cellID));
 }
 
 fn distanceToEdge(res: WorleyResult) -> f32 {
