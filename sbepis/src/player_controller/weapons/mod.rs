@@ -166,7 +166,7 @@ fn sweep_dealers(
         let up = (end_tip - pivot_position).cross(start_tip - pivot_position);
         let rotation = Quat::from_look_to(delta, up);
 
-        let collider = shape::Cuboid::new(Vector3::new(
+        let sweep_shape = shape::Cuboid::new(Vector3::new(
             pivot.sweep_depth * 0.5,
             pivot.sweep_height * 0.5,
             delta.length() * 0.5,
@@ -175,7 +175,7 @@ fn sweep_dealers(
         rapier_context.intersect_shape(
             position,
             rotation,
-            &collider,
+            &sweep_shape,
             QueryFilter::new(),
             |hit_entity| {
                 dealer.hit_entities.insert(hit_entity);
@@ -184,7 +184,7 @@ fn sweep_dealers(
         );
         commands
             .entity(debug_collider_visualizer)
-            .insert(Collider::from(SharedShape::new(collider)))
+            .insert(Collider::from(SharedShape::new(sweep_shape)))
             .insert(Transform::from_translation(position).with_rotation(rotation));
 
         dealer.last_transform = *transform;
