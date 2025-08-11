@@ -16,6 +16,7 @@ use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
+use crate::worldgen::{LowLODWorldGen, WorldGen};
 
 use self::camera_controls::*;
 use self::weapons::hammer::*;
@@ -136,7 +137,8 @@ fn setup(
                 collider,
                 mesh,
             },
-            ChunkLoader::new(3),
+            ChunkLoader::<WorldGen>::new(3),
+            ChunkLoader::<LowLODWorldGen>::new(1),
         ))
         .add_children(&[camera, collider, mesh])
         .id();

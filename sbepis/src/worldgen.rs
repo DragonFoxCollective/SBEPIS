@@ -1,19 +1,30 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_marching_cubes::chunk_generator::ChunkMaterial;
-use bevy_marching_cubes::{ComputeShader, ShaderRef};
+use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
+use bevy_marching_cubes::{Chunk, ComputeShader, ShaderRef};
+use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, TriMeshFlags};
 
 use crate::{gridbox_material, prelude::*};
 
-#[add_plugin(to_plugin = SbepisPlugin, generics = <MyComputeSampler, StandardMaterial>)]
+#[add_plugin(to_plugin = SbepisPlugin, generics = <WorldGen, StandardMaterial>)]
+#[add_plugin(to_plugin = SbepisPlugin, generics = <LowLODWorldGen, StandardMaterial>)]
 use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
-#[insert_resource(plugin = SbepisPlugin, init = ChunkGenerator::<MyComputeSampler>::new(0.0, 50, 10.0))]
+#[insert_resource(plugin = SbepisPlugin, generics = <WorldGen>, init = ChunkGenerator::<WorldGen>::new(0.0, 50, 10.0))]
+#[insert_resource(plugin = SbepisPlugin, generics = <LowLODWorldGen>, init = ChunkGenerator::<LowLODWorldGen>::new(0.0, 50, 100.0))]
 use bevy_marching_cubes::chunk_generator::ChunkGenerator;
 
 #[derive(TypePath)]
-struct MyComputeSampler;
-impl ComputeShader for MyComputeSampler {
+pub struct WorldGen;
+impl ComputeShader for WorldGen {
+    fn shader() -> ShaderRef {
+        "sample.wgsl".into()
+    }
+}
+
+#[derive(TypePath)]
+pub struct LowLODWorldGen;
+impl ComputeShader for LowLODWorldGen {
     fn shader() -> ShaderRef {
         "sample.wgsl".into()
     }
@@ -25,7 +36,32 @@ fn setup_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.insert_resource(ChunkMaterial::<MyComputeSampler, StandardMaterial>::new(
+    commands.insert_resource(ChunkMaterial::<WorldGen, StandardMaterial>::new(
+        gridbox_material("white", &mut materials, &asset_server),
+    ));
+    commands.insert_resource(ChunkMaterial::<LowLODWorldGen, StandardMaterial>::new(
         gridbox_material("white", &mut materials, &asset_server),
     ));
 }
+
+#[add_system(plugin = SbepisPlugin, schedule = Update, after = ChunkGenSystems)]
+fn add_components(
+    mut commands: Commands,
+    chunks: Query<(Entity, &Mesh3d), (With<Chunk<WorldGen>>, Without<FinalizedChunk>)>,
+    meshes: Res<Assets<Mesh>>,
+) {
+    for (chunk, mesh) in chunks.iter() {
+        commands.entity(chunk).insert(FinalizedChunk);
+
+        let mesh = meshes.get(mesh).expect("Failed to get mesh");
+        if mesh.count_vertices() != 0 {
+            commands.entity(chunk).insert(
+                Collider::from_bevy_mesh(mesh, &ComputedColliderShape::ConvexHull)
+                    .expect("Failed to create chunk collider"),
+            );
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+struct FinalizedChunk;
