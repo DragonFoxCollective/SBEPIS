@@ -133,12 +133,14 @@ fn calculate_gravity(
 )]
 fn apply_gravity(
     mut rigidbodies: Query<
-        (&mut Velocity, &GravityFactor, &ComputedGravity),
+        (&mut Velocity, &GravityFactor, &ComputedGravity, &RigidBody),
         With<AffectedByGravity>,
     >,
     time: Res<Time>,
 ) {
-    for (mut velocity, gravity_factor, computed_gravity) in rigidbodies.iter_mut() {
-        velocity.linvel += computed_gravity.acceleration * gravity_factor.0 * time.delta_secs();
+    for (mut velocity, gravity_factor, computed_gravity, rigidbody) in rigidbodies.iter_mut() {
+        if *rigidbody == RigidBody::Dynamic {
+            velocity.linvel += computed_gravity.acceleration * gravity_factor.0 * time.delta_secs();
+        }
     }
 }

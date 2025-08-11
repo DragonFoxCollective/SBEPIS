@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
 use bevy_marching_cubes::{Chunk, ComputeShader, ShaderRef};
-use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, TriMeshFlags};
+use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
 
 use crate::{gridbox_material, prelude::*};
 
@@ -65,3 +65,40 @@ fn add_components(
 
 #[derive(Component, Debug)]
 struct FinalizedChunk;
+
+#[derive(Component, Debug)]
+struct SleepingFromUnloaded;
+
+#[add_system(plugin = SbepisPlugin, schedule = Update, after = ChunkGenSystems)]
+fn sleep_unloaded_entities(
+    mut commands: Commands,
+    sleeping_entities: Query<(Entity, &GlobalTransform, &RigidBody), Without<SleepingFromUnloaded>>,
+    chunks: Res<ChunkGenerator<WorldGen>>,
+) {
+    for (entity, transform, rigidbody) in sleeping_entities.iter() {
+        if !chunks.is_chunk_with_position_generated(transform.translation())
+            && *rigidbody == RigidBody::Dynamic
+        {
+            commands
+                .entity(entity)
+                .insert(RigidBody::Fixed)
+                .insert(SleepingFromUnloaded);
+        }
+    }
+}
+
+#[add_system(plugin = SbepisPlugin, schedule = Update, after = ChunkGenSystems)]
+fn wake_loaded_entities(
+    mut commands: Commands,
+    sleeping_entities: Query<(Entity, &GlobalTransform), With<SleepingFromUnloaded>>,
+    chunks: Res<ChunkGenerator<WorldGen>>,
+) {
+    for (entity, transform) in sleeping_entities.iter() {
+        if chunks.is_chunk_with_position_generated(transform.translation()) {
+            commands
+                .entity(entity)
+                .insert(RigidBody::Dynamic)
+                .remove::<SleepingFromUnloaded>();
+        }
+    }
+}
