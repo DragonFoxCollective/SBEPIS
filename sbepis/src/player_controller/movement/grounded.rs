@@ -31,7 +31,7 @@ fn update_is_grounded(
     for (player, transform, body) in bodies.iter_mut() {
         let collider_entity = body.collider;
         let mut contact = None;
-        rapier_context.intersections_with_ray(
+        rapier_context.intersect_ray(
             transform.translation() + transform.up() * 0.05,
             transform.down().into(),
             0.25,

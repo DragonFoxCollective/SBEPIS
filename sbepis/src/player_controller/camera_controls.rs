@@ -80,7 +80,7 @@ pub fn interact_with<T: Component>(
 
     let player_camera = player_camera.single()?;
     let mut hit_entity: Option<(Option<Entity>, f32)> = None;
-    rapier_context.single()?.intersections_with_ray(
+    rapier_context.single()?.intersect_ray(
         player_camera.translation(),
         player_camera.forward().into(),
         3.0,

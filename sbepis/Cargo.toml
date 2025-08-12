@@ -22,7 +22,7 @@ movement_indicators = []
 bevy = { version = "0.16.0", features = ["wav", "mp3", "wayland"] }
 bevy-inspector-egui = { version = "0.32.0", optional = true }
 bevy_panorbit_camera = { version = "0.27.0", optional = true }
-bevy_rapier3d = "0.30.0"
+bevy_rapier3d = "0.31.0"
 image = "0.25.2"
 itertools = "0.14.0"
 leafwing-input-manager = "0.17.0"
