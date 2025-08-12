@@ -4,7 +4,7 @@ use bevy::render::render_resource::AsBindGroup;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
 use bevy_marching_cubes::{Chunk, ComputeShader, ShaderRef};
-use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
+use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMeshFlags};
 
 use crate::{gridbox_material, gridbox_material_direct, prelude::*};
 
@@ -64,7 +64,7 @@ fn add_components(
 
         let mesh = meshes.get(mesh).expect("Failed to get mesh");
         commands.entity(chunk).insert(
-            Collider::from_bevy_mesh(mesh, &ComputedColliderShape::ConvexHull)
+            Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
                 .expect("Failed to create chunk collider"),
         );
     }
