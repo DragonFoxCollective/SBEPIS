@@ -140,14 +140,16 @@ fn gridbox_material_direct_extra(
 #[add_system(
 	plugin = SbepisPlugin, schedule = Startup,
 )]
-fn setup(
-    mut commands: Commands,
-    mut rapier_config: Query<&mut RapierConfiguration>,
-    asset_server: Res<AssetServer>,
-) -> Result {
-    commands.spawn((SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("sandbox level.glb")),
-    ),));
+fn setup(mut commands: Commands, mut rapier_config: Query<&mut RapierConfiguration>) -> Result {
+    commands.spawn((
+        Name::new("Gravity"),
+        Transform::from_translation(Vec3::NEG_Y * 1000.0),
+        GravityPoint {
+            standard_radius: 1000.0,
+            acceleration_at_radius: 15.0,
+        },
+        GravityPriority(0),
+    ));
 
     commands.spawn((
         Name::new("Sun"),
@@ -175,6 +177,7 @@ fn quit(mut ev_quit: EventWriter<AppExit>) {
     ev_quit.write(AppExit::Success);
 }
 
+use crate::gravity::{GravityPoint, GravityPriority};
 #[add_system(
 	plugin = SbepisPlugin, schedule = Update,
 )]

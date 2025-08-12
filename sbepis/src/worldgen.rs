@@ -63,12 +63,10 @@ fn add_components(
         commands.entity(chunk).insert(FinalizedChunk);
 
         let mesh = meshes.get(mesh).expect("Failed to get mesh");
-        if mesh.count_vertices() != 0 {
-            commands.entity(chunk).insert(
-                Collider::from_bevy_mesh(mesh, &ComputedColliderShape::ConvexHull)
-                    .expect("Failed to create chunk collider"),
-            );
-        }
+        commands.entity(chunk).insert(
+            Collider::from_bevy_mesh(mesh, &ComputedColliderShape::ConvexHull)
+                .expect("Failed to create chunk collider"),
+        );
     }
 }
 
