@@ -110,7 +110,7 @@ fn gridbox_material(
     materials: &mut Assets<StandardMaterial>,
     asset_server: &AssetServer,
 ) -> Handle<StandardMaterial> {
-    gridbox_material_extra(color, materials, asset_server, StandardMaterial::default())
+    materials.add(gridbox_material_direct(color, asset_server))
 }
 
 fn gridbox_material_extra(
@@ -119,10 +119,22 @@ fn gridbox_material_extra(
     asset_server: &AssetServer,
     material: StandardMaterial,
 ) -> Handle<StandardMaterial> {
-    materials.add(StandardMaterial {
+    materials.add(gridbox_material_direct_extra(color, asset_server, material))
+}
+
+fn gridbox_material_direct(color: &str, asset_server: &AssetServer) -> StandardMaterial {
+    gridbox_material_direct_extra(color, asset_server, StandardMaterial::default())
+}
+
+fn gridbox_material_direct_extra(
+    color: &str,
+    asset_server: &AssetServer,
+    material: StandardMaterial,
+) -> StandardMaterial {
+    StandardMaterial {
         base_color_texture: Some(asset_server.load(gridbox_texture(color))),
         ..material
-    })
+    }
 }
 
 #[add_system(

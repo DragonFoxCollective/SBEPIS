@@ -1,13 +1,15 @@
+use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::*;
+use bevy::render::render_resource::AsBindGroup;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
 use bevy_marching_cubes::{Chunk, ComputeShader, ShaderRef};
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody};
 
-use crate::{gridbox_material, prelude::*};
+use crate::{gridbox_material, gridbox_material_direct, prelude::*};
 
 #[add_plugin(to_plugin = SbepisPlugin, generics = <WorldGen, StandardMaterial>)]
-#[add_plugin(to_plugin = SbepisPlugin, generics = <LowLODWorldGen, StandardMaterial>)]
+#[add_plugin(to_plugin = SbepisPlugin, generics = <LowLODWorldGen, LODMaterial>)]
 use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
 #[insert_resource(plugin = SbepisPlugin, generics = <WorldGen>, init = ChunkGenerator::<WorldGen>::new(0.0, 50, 10.0))]
@@ -34,13 +36,20 @@ impl ComputeShader for LowLODWorldGen {
 fn setup_materials(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut lod_materials: ResMut<Assets<LODMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     commands.insert_resource(ChunkMaterial::<WorldGen, StandardMaterial>::new(
         gridbox_material("white", &mut materials, &asset_server),
     ));
-    commands.insert_resource(ChunkMaterial::<LowLODWorldGen, StandardMaterial>::new(
-        gridbox_material("white", &mut materials, &asset_server),
+    commands.insert_resource(ChunkMaterial::<LowLODWorldGen, LODMaterial>::new(
+        lod_materials.add(ExtendedMaterial {
+            base: gridbox_material_direct("white", &asset_server),
+            extension: LODMaterialExtension {
+                cull_distance: 100.0,
+                depth_bias_distance: 100.0,
+            },
+        }),
     ));
 }
 
@@ -60,6 +69,16 @@ fn add_components(
                     .expect("Failed to create chunk collider"),
             );
         }
+    }
+}
+
+#[add_system(plugin = SbepisPlugin, schedule = Update, after = ChunkGenSystems)]
+fn add_not_shadow_caster(
+    mut commands: Commands,
+    chunks: Query<Entity, (With<Chunk<LowLODWorldGen>>, Without<NotShadowCaster>)>,
+) {
+    for chunk in chunks.iter() {
+        commands.entity(chunk).insert(NotShadowCaster);
     }
 }
 
@@ -102,3 +121,28 @@ fn wake_loaded_entities(
         }
     }
 }
+
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+struct LODMaterialExtension {
+    // We need to ensure that the bindings of the base material and the extension do not conflict,
+    // so we start from binding slot 100, leaving slots 0-99 for the base material.
+    #[uniform(100)]
+    cull_distance: f32,
+    #[uniform(100)]
+    depth_bias_distance: f32,
+}
+
+impl MaterialExtension for LODMaterialExtension {
+    fn vertex_shader() -> ShaderRef {
+        "lod_chunks.vert.wgsl".into()
+    }
+
+    fn fragment_shader() -> ShaderRef {
+        "lod_chunks.frag.wgsl".into()
+    }
+}
+
+type LODMaterial = ExtendedMaterial<StandardMaterial, LODMaterialExtension>;
+
+#[add_plugin(to_plugin = SbepisPlugin, generics = <LODMaterial>)]
+use bevy::prelude::MaterialPlugin;
