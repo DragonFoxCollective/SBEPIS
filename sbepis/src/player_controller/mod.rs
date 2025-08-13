@@ -16,7 +16,8 @@ use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
-use crate::worldgen::{LowLODWorldGen, WorldGen};
+use crate::worldgen::low_lod::LowLODWorldGen;
+use crate::worldgen::terrain::WorldGen;
 
 use self::camera_controls::*;
 use self::weapons::hammer::*;

@@ -31,6 +31,7 @@ pub mod util;
 mod worldgen;
 
 mod prelude {
+    #![allow(unused_imports)]
     pub use crate::SbepisPlugin;
     pub use crate::camera::PlayerCameraNode;
     pub use crate::player_controller::PlayerBody;
