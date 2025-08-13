@@ -42,14 +42,17 @@ fn sample_noise(coord: vec3f) -> f32 {
 
 	let height_density = sample_height(vec3f(surface_coord) * 0.003, height) * 250 - 150 - height;
 
-	let cheese_caves = fbm(coord * 0.005) + 0.3;
+	let cheese_caves = fbm(coord * 0.01) + 0.5;
 
-	let spaghetti_caves_a = pow(fbm(coord * 0.002), 2.0);
-	let spaghetti_caves_b = pow(fbm(coord * 0.001 + 1), 2.0);
-	let spaghetti_caves = pow(spaghetti_caves_a + spaghetti_caves_b, 0.5) - 0.05;
+	let spaghetti_caves_a = pow(fbm(coord * 0.004), 2.0);
+	let spaghetti_caves_b = pow(fbm(coord * 0.004 + 1), 2.0);
+	let spaghetti_caves = pow(spaghetti_caves_a + spaghetti_caves_b, 0.5) - 0.03;
 
-	return min(height_density, min(cheese_caves * 300 + height + 50, spaghetti_caves * 2000 + height + 50));
+	// return min(height_density, min(cheese_caves * 3000 + height, spaghetti_caves * 2000 + height));
 	// return height_density;
+	// return min(cheese_caves, spaghetti_caves);
+	// return cheese_caves;
+	return min(height_density, min(cheese_caves, spaghetti_caves) * 100);
 }
 
 fn sample_height(coord: vec3f, height: f32) -> f32 {

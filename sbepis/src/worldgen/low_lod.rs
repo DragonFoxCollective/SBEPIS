@@ -5,7 +5,7 @@ use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
+// #[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
 pub struct LowLODWorldGenPlugin;
 
 #[add_plugin(to_plugin = LowLODWorldGenPlugin, generics = <LowLODWorldGen, LODMaterial>)]

@@ -13,7 +13,7 @@ pub struct TerrainWorldGenPlugin;
 #[add_plugin(to_plugin = TerrainWorldGenPlugin, generics = <WorldGen, StandardMaterial>)]
 use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
-#[insert_resource(plugin = TerrainWorldGenPlugin, generics = <WorldGen>, init = ChunkGenerator::<WorldGen>::new(0.0, 50, 10.0))]
+#[insert_resource(plugin = TerrainWorldGenPlugin, generics = <WorldGen>, init = ChunkGenerator::<WorldGen>::new(0.0, 50, 50.0))]
 use bevy_marching_cubes::chunk_generator::ChunkGenerator;
 
 #[derive(TypePath)]
