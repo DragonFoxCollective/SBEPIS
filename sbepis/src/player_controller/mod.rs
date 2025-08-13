@@ -140,6 +140,7 @@ fn setup(
             },
             ChunkLoader::<WorldGen>::new(3),
             ChunkLoader::<LowLODWorldGen>::new(5),
+            Ccd::enabled(),
         ))
         .add_children(&[camera, collider, mesh])
         .id();
