@@ -2,7 +2,7 @@ use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::*;
 use bevy::render::render_resource::AsBindGroup;
 use bevy_butler::*;
-use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
+use bevy_marching_cubes::chunk_generator::{ChunkComputeShader, ChunkGenSystems, ChunkMaterial};
 
 #[butler_plugin]
 // #[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
@@ -21,6 +21,7 @@ impl ComputeShader for LowLODWorldGen {
         "sample.wgsl".into()
     }
 }
+impl ChunkComputeShader for LowLODWorldGen {}
 
 #[add_system(plugin = LowLODWorldGenPlugin, schedule = Startup)]
 fn setup_materials(

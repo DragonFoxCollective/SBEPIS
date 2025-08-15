@@ -1,8 +1,13 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_marching_cubes::chunk_generator::{ChunkGenSystems, ChunkMaterial};
-use bevy_marching_cubes::{Chunk, ComputeShader, ShaderRef};
+use bevy_marching_cubes::chunk_generator::{
+    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkMaterial,
+};
+use bevy_marching_cubes::{
+    AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
+};
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMeshFlags};
+use rand::{Rng, SeedableRng as _};
 
 use crate::gridbox_material;
 
@@ -21,6 +26,26 @@ pub struct WorldGen;
 impl ComputeShader for WorldGen {
     fn shader() -> ShaderRef {
         "sample.wgsl".into()
+    }
+}
+impl ChunkComputeShader for WorldGen {
+    fn build_worker_extra<W: ComputeWorker>(compute_worker: &mut AppComputeWorkerBuilder<W>) {
+        let radius = 200.0;
+        let mut rand = rand::prelude::StdRng::seed_from_u64(159);
+        let poi_positions = [Vec3::ZERO; 6].map(|_| {
+            Vec3::new(
+                rand.gen_range(-radius..radius),
+                0.0,
+                rand.gen_range(-radius..radius),
+            )
+        });
+        debug!("Generated POI positions: {:?}", poi_positions);
+        compute_worker.add_uniform("poi_positions", &poi_positions);
+        compute_worker.add_staging("poi_positions_final", &[Vec3::ZERO; 6]);
+    }
+
+    fn extra_sample_bindings() -> Vec<&'static str> {
+        vec!["poi_positions", "poi_positions_final"]
     }
 }
 
@@ -89,5 +114,65 @@ fn wake_loaded_entities(
                 .insert(RigidBody::Dynamic)
                 .remove::<SleepingFromUnloaded>();
         }
+    }
+}
+
+#[derive(Resource, Debug)]
+struct POIStructures {
+    consort_village: Handle<Scene>,
+    imp_arena: Handle<Scene>,
+}
+
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
+fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.insert_resource(POIStructures {
+        consort_village: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("consort village.glb")),
+        imp_arena: asset_server.load(GltfAssetLabel::Scene(0).from_asset("imp arena.glb")),
+    });
+}
+
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+fn place_poi_structures(
+    compute_worker: Res<ChunkComputeWorker<WorldGen>>,
+    mut done: Local<bool>,
+    poi_structures: Res<POIStructures>,
+    mut commands: Commands,
+) {
+    if *done {
+        return;
+    }
+
+    if !compute_worker.ready() {
+        return;
+    }
+
+    *done = true;
+
+    let poi_positions = compute_worker
+        .read_vec::<Vec4>("poi_positions_final")
+        .iter()
+        .cloned()
+        .map(Vec4::xyz)
+        .collect::<Vec<_>>();
+    debug!(
+        "Reading POI positions from compute worker: {:?}",
+        poi_positions
+    );
+
+    for (i, position) in poi_positions.iter().enumerate() {
+        let poi_structure = match i % 2 {
+            0 => &poi_structures.consort_village,
+            1 => &poi_structures.imp_arena,
+            _ => continue,
+        };
+
+        commands.spawn((
+            SceneRoot(poi_structure.clone()),
+            Transform::from_translation(*position).with_rotation(Quat::from_rotation_arc(
+                Vec3::Y,
+                (*position - Vec3::NEG_Y * 1000.0).normalize(),
+            )),
+        ));
     }
 }

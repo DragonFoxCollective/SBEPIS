@@ -15,6 +15,12 @@ var<uniform> chunk_size: f32;
 @group(0) @binding(4)
 var<storage, read_write> densities: array<f32>;
 
+@group(0) @binding(5)
+var<uniform> poi_positions: array<vec3f, 6>;
+
+@group(0) @binding(6)
+var<storage, read_write> poi_positions_final: array<vec3f, 6>;
+
 fn coord_to_world(coord: vec3u) -> vec3f {
 	return (vec3f(chunk_position) + (vec3f(coord) - vec3f(1.0)) / f32(num_voxels_per_axis)) * chunk_size;
 }
@@ -40,7 +46,7 @@ fn sample_noise(coord: vec3f) -> f32 {
 	let height = length(actual_coord) - radius;
 	let surface_coord = normalize(actual_coord) * radius;
 
-	let height_density = sample_height(vec3f(surface_coord) * 0.003, height) * 250 - 150 - height;
+	let height_density = sample_height(surface_coord * 0.003) * 250 - 150 - height;
 
 	let cheese_caves = fbm(coord * 0.01) + 0.5;
 
@@ -48,14 +54,36 @@ fn sample_noise(coord: vec3f) -> f32 {
 	let spaghetti_caves_b = pow(fbm(coord * 0.004 + 1), 2.0);
 	let spaghetti_caves = pow(spaghetti_caves_a + spaghetti_caves_b, 0.5) - 0.03;
 
-	// return min(height_density, min(cheese_caves * 3000 + height, spaghetti_caves * 2000 + height));
-	// return height_density;
-	// return min(cheese_caves, spaghetti_caves);
-	// return cheese_caves;
-	return min(height_density, min(cheese_caves, spaghetti_caves) * 100);
+	var poi_platforms = -1.0e38;
+	for (var i = 0u; i < 6; i++) {
+		if poi_positions_final[i].x == 0.0 && poi_positions_final[i].y == 0.0 && poi_positions_final[i].z == 0.0 {
+			let poi_surface_position = normalize(poi_positions[i] + vec3f(0.0, radius, 0.0)) * radius;
+			let poi_height = sample_height(poi_surface_position * 0.003) * 250 - 150 + radius;
+			poi_positions_final[i] = poi_surface_position / radius * poi_height - vec3f(0.0, radius, 0.0);
+		}
+		
+		let relative_y = height - poi_positions_final[i].y;
+		if length(coord.xz - poi_positions_final[i].xz) < 10.0 && relative_y < 5.0 {
+			if relative_y > 0.0 {
+				poi_platforms = -1.0 + fbm(coord * 0.001) * 0.01;
+			} else if relative_y > -2.0 {
+				poi_platforms = 1.0 + fbm(coord * 0.001) * 0.01;
+			}
+		}
+	}
+
+	var final_density = 1.0e38;
+	final_density = min(final_density, height_density);
+	final_density = min(final_density, cheese_caves * 100);
+	final_density = min(final_density, spaghetti_caves * 100);
+	final_density = max(final_density, poi_platforms);
+	if poi_platforms > -1.0e38 {
+		final_density = poi_platforms; 
+	}
+	return final_density;
 }
 
-fn sample_height(coord: vec3f, height: f32) -> f32 {
+fn sample_height(coord: vec3f) -> f32 {
 	let fbm_noise = fbm(coord) * 0.5 + 0.5;
 	let worley_noise = worley(coord);
 	let edge_dist = distanceToEdge(worley_noise);
