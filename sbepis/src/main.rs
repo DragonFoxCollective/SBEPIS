@@ -28,8 +28,11 @@ mod player_controller;
 mod questing;
 mod skybox;
 pub mod util;
+mod worldgen;
 
 mod prelude {
+    #![allow(unused_imports)]
+    pub use crate::SbepisPlugin;
     pub use crate::camera::PlayerCameraNode;
     pub use crate::player_controller::PlayerBody;
     pub use crate::player_controller::camera_controls::{
@@ -71,8 +74,7 @@ use bevy_rapier3d::prelude::RapierPhysicsPlugin;
 use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 
 #[cfg(feature = "inspector")]
-#[add_plugin(to_plugin = crate::SbepisPlugin,
-	init = bevy_inspector_egui::bevy_egui::EguiPlugin { enable_multipass_for_primary_context: true })]
+#[add_plugin(to_plugin = crate::SbepisPlugin)]
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 
 #[cfg(feature = "inspector")]
@@ -109,7 +111,7 @@ fn gridbox_material(
     materials: &mut Assets<StandardMaterial>,
     asset_server: &AssetServer,
 ) -> Handle<StandardMaterial> {
-    gridbox_material_extra(color, materials, asset_server, StandardMaterial::default())
+    materials.add(gridbox_material_direct(color, asset_server))
 }
 
 fn gridbox_material_extra(
@@ -118,23 +120,37 @@ fn gridbox_material_extra(
     asset_server: &AssetServer,
     material: StandardMaterial,
 ) -> Handle<StandardMaterial> {
-    materials.add(StandardMaterial {
+    materials.add(gridbox_material_direct_extra(color, asset_server, material))
+}
+
+fn gridbox_material_direct(color: &str, asset_server: &AssetServer) -> StandardMaterial {
+    gridbox_material_direct_extra(color, asset_server, StandardMaterial::default())
+}
+
+fn gridbox_material_direct_extra(
+    color: &str,
+    asset_server: &AssetServer,
+    material: StandardMaterial,
+) -> StandardMaterial {
+    StandardMaterial {
         base_color_texture: Some(asset_server.load(gridbox_texture(color))),
         ..material
-    })
+    }
 }
 
 #[add_system(
 	plugin = SbepisPlugin, schedule = Startup,
 )]
-fn setup(
-    mut commands: Commands,
-    mut rapier_config: Query<&mut RapierConfiguration>,
-    asset_server: Res<AssetServer>,
-) -> Result {
-    commands.spawn((SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("sandbox level.glb")),
-    ),));
+fn setup(mut commands: Commands, mut rapier_config: Query<&mut RapierConfiguration>) -> Result {
+    commands.spawn((
+        Name::new("Gravity"),
+        Transform::from_translation(Vec3::NEG_Y * 1000.0),
+        GravityPoint {
+            standard_radius: 1000.0,
+            acceleration_at_radius: 15.0,
+        },
+        GravityPriority(0),
+    ));
 
     commands.spawn((
         Name::new("Sun"),
@@ -162,6 +178,7 @@ fn quit(mut ev_quit: EventWriter<AppExit>) {
     ev_quit.write(AppExit::Success);
 }
 
+use crate::gravity::{GravityPoint, GravityPriority};
 #[add_system(
 	plugin = SbepisPlugin, schedule = Update,
 )]

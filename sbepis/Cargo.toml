@@ -20,11 +20,11 @@ movement_indicators = []
 
 [dependencies]
 bevy = { version = "0.16.0", features = ["wav", "mp3", "wayland"] }
-bevy-inspector-egui = { version = "0.31.0", optional = true }
-bevy_panorbit_camera = { version = "0.26.0", optional = true }
-bevy_rapier3d = "0.30.0"
+bevy-inspector-egui = { version = "0.32.0", optional = true }
+bevy_panorbit_camera = { version = "0.27.0", optional = true }
+bevy_rapier3d = "0.31.0"
 image = "0.25.2"
-itertools = "0.13.0"
+itertools = "0.14.0"
 leafwing-input-manager = "0.17.0"
 num-traits = "0.2.19"
 winit = "0.30.4"
@@ -40,6 +40,7 @@ bevy-butler = { git = "https://github.com/TGRCdev/bevy-butler.git" }
 typetag = "0.2.19"
 return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
 bevy_skein = "0.2.1"
+bevy-marching-cubes = { path = "../bevy-marching-cubes" }
 
 [build-dependencies]
 winres = "0.1"

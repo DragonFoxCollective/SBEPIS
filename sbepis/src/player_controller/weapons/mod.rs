@@ -2,6 +2,8 @@ use bevy::color::palettes::css;
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_rapier3d::na::Vector3;
+use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::{EntityKilled, EntityKilledSet, GelViscosity};
@@ -164,15 +166,16 @@ fn sweep_dealers(
         let up = (end_tip - pivot_position).cross(start_tip - pivot_position);
         let rotation = Quat::from_look_to(delta, up);
 
-        let collider = Collider::cuboid(
+        let sweep_shape = shape::Cuboid::new(Vector3::new(
             pivot.sweep_depth * 0.5,
             pivot.sweep_height * 0.5,
             delta.length() * 0.5,
-        );
-        rapier_context.intersections_with_shape(
+        ));
+
+        rapier_context.intersect_shape(
             position,
             rotation,
-            &collider,
+            &sweep_shape,
             QueryFilter::new(),
             |hit_entity| {
                 dealer.hit_entities.insert(hit_entity);
@@ -181,7 +184,7 @@ fn sweep_dealers(
         );
         commands
             .entity(debug_collider_visualizer)
-            .insert(collider)
+            .insert(Collider::from(SharedShape::new(sweep_shape)))
             .insert(Transform::from_translation(position).with_rotation(rotation));
 
         dealer.last_transform = *transform;

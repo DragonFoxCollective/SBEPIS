@@ -317,10 +317,10 @@ pub fn charge_crouching_to_tripping(
                 gravity.up * trip_settings.upward_speed,
             ));
 
-        if let Some(charging_sound) = charging_sound {
-            if let Ok(mut sound) = commands.get_entity(charging_sound.0) {
-                sound.despawn();
-            }
+        if let Some(charging_sound) = charging_sound
+            && let Ok(mut sound) = commands.get_entity(charging_sound.0)
+        {
+            sound.despawn();
         }
     }
 }

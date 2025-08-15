@@ -460,10 +460,10 @@ fn add_killed_name_back(
 ) -> Result {
     let names = some_or_return_ok!(names.get_mut(&assets.names));
     for ev in ev_killed.read() {
-        if let Ok(name_tagged) = name_tagged.get(ev.0) {
-            if name_tagged.0.tier.is_some() {
-                names.names.push(name_tagged.0.clone());
-            }
+        if let Ok(name_tagged) = name_tagged.get(ev.0)
+            && name_tagged.0.tier.is_some()
+        {
+            names.names.push(name_tagged.0.clone());
         }
     }
     Ok(())
