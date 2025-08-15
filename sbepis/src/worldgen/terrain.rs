@@ -56,7 +56,7 @@ fn setup_materials(
     asset_server: Res<AssetServer>,
 ) {
     commands.insert_resource(ChunkMaterial::<WorldGen, StandardMaterial>::new(
-        gridbox_material("white", &mut materials, &asset_server),
+        gridbox_material("grey2", &mut materials, &asset_server),
     ));
 }
 

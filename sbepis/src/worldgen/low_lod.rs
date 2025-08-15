@@ -31,7 +31,7 @@ fn setup_materials(
 ) {
     commands.insert_resource(ChunkMaterial::<LowLODWorldGen, LODMaterial>::new(
         materials.add(ExtendedMaterial {
-            base: gridbox_material_direct("white", &asset_server),
+            base: gridbox_material_direct("grey2", &asset_server),
             extension: LODMaterialExtension {
                 cull_distance: 100.0,
                 depth_bias_distance: 100.0,
