@@ -19,6 +19,7 @@ mod gravity;
 mod input;
 mod inventory;
 mod main_bundles;
+mod main_menu;
 pub mod menus;
 mod npcs;
 #[cfg(feature = "overview_camera")]
