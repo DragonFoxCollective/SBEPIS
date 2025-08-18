@@ -14,6 +14,8 @@ mod blenvy;
 mod camera;
 mod dialogue;
 mod entity;
+#[cfg(feature = "framerate_indicator")]
+mod framerate;
 mod fray;
 mod gravity;
 mod input;

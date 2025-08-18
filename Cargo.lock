@@ -5400,6 +5400,7 @@ dependencies = [
  "bevy_panorbit_camera",
  "bevy_rapier3d",
  "bevy_skein",
+ "crossbeam-channel",
  "faker_rand",
  "image",
  "itertools 0.14.0",

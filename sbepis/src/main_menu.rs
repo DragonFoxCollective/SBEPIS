@@ -1,11 +1,14 @@
+use std::time::Duration;
+
 use crate::prelude::*;
-use bevy::app::{AppLabel, MainSchedulePlugin};
 use bevy::asset::RenderAssetUsages;
-use bevy::ecs::schedule::ScheduleLabel;
+use bevy::core_pipeline::CorePipelinePlugin;
+use bevy::pbr::PbrPlugin;
 use bevy::prelude::*;
+use bevy::render::RenderPlugin;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
-use bevy::winit::WinitPlugin;
 use bevy_butler::*;
+use crossbeam_channel::{SendError, SendTimeoutError, TryRecvError, TrySendError, bounded};
 
 #[add_plugin(to_plugin = SbepisPlugin)]
 struct MainMenuPlugin;
@@ -13,45 +16,93 @@ struct MainMenuPlugin;
 #[butler_plugin]
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PortalImage>();
+        let (tx, rx) = bounded(1);
 
-        let mut sub_app = SubApp::new();
-        sub_app.update_schedule = Some(Main.intern());
+        std::thread::spawn(move || {
+            let mut sub_app = App::new();
 
-        sub_app.init_resource::<AppTypeRegistry>();
-        sub_app.register_type::<Name>();
-        sub_app.register_type::<ChildOf>();
-        sub_app.register_type::<Children>();
+            // sub_app.add_plugins(
+            //     DefaultPlugins
+            //         .build()
+            //         .disable::<LogPlugin>()
+            //         .disable::<TerminalCtrlCHandlerPlugin>()
+            //         .disable::<WinitPlugin>(),
+            // );
+            sub_app.add_plugins((
+                MinimalPlugins,
+                WindowPlugin::default(),
+                AssetPlugin::default(),
+                RenderPlugin::default(),
+                ImagePlugin::default(),
+                CorePipelinePlugin,
+                PbrPlugin::default(),
+            ));
+            sub_app.add_systems(Startup, setup_sub);
 
-        sub_app.add_plugins(MainSchedulePlugin);
-        sub_app.add_systems(
-            First,
-            bevy::ecs::event::event_update_system
-                .in_set(bevy::ecs::event::EventUpdates)
-                .run_if(bevy::ecs::event::event_update_condition),
-        );
-        sub_app.add_event::<AppExit>();
+            sub_app.add_systems(
+                Update,
+                move |portal_image: Res<PortalImage>,
+                      images: Res<Assets<Image>>,
+                      mut app_exit: EventWriter<AppExit>| {
+                    if let Some(image) = images.get(&portal_image.0) {
+                        // match tx.try_send(image.clone()) {
+                        //     Ok(_) => {}
+                        //     Err(TrySendError::Full(_)) => {}
+                        //     Err(TrySendError::Disconnected(_)) => {
+                        //         warn!("Main menu portal image channel disconnected - sub app");
+                        //         app_exit.write(AppExit::Success);
+                        //     }
+                        // }
+                        // match tx.send(image.clone()) {
+                        //     Ok(_) => {}
+                        //     Err(SendError(_)) => {
+                        //         warn!("Main menu portal image channel disconnected - sub app");
+                        //         app_exit.write(AppExit::Success);
+                        //     }
+                        // }
+                        match tx.send_timeout(image.clone(), Duration::from_secs(1)) {
+                            Ok(_) => {}
+                            Err(SendTimeoutError::Timeout(_)) => {}
+                            Err(SendTimeoutError::Disconnected(_)) => {
+                                warn!("Main menu portal image channel disconnected - sub app");
+                                app_exit.write(AppExit::Success);
+                            }
+                        }
+                    }
+                },
+            );
 
-        sub_app.add_plugins(DefaultPlugins.build().disable::<WinitPlugin>());
-        sub_app.add_systems(Startup, setup);
-
-        sub_app.set_extract(|main_world, sub_world| {
-            if let Some(portal_image) = sub_world.get_resource::<PortalImage>() {
-                main_world.resource_mut::<PortalImage>().0 = portal_image.0.clone();
-            }
+            sub_app.run();
         });
 
-        app.insert_sub_app(MainMenuApp, sub_app);
+        app.add_systems(
+            Update,
+            move |portal_image: Option<Res<PortalImage>>,
+                  mut images: ResMut<Assets<Image>>,
+                  mut commands: Commands| {
+                match rx.try_recv() {
+                    Ok(image_data) => {
+                        match portal_image {
+                            Some(portal_image) => images.insert(&portal_image.0, image_data),
+                            None => {
+                                commands.insert_resource(PortalImage(images.add(image_data)));
+                            }
+                        };
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => {
+                        // panic!("Main menu portal image channel disconnected - main app");
+                    }
+                }
+            },
+        );
     }
 }
 
 #[derive(Resource, Default, Debug)]
-struct PortalImage(Option<Handle<Image>>);
+struct PortalImage(Handle<Image>);
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
-struct MainMenuApp;
-
-fn setup(
+fn setup_sub(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -72,7 +123,7 @@ fn setup(
     image.texture_descriptor.usage =
         TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
     let image_handle = images.add(image);
-    commands.insert_resource(PortalImage(Some(image_handle.clone())));
+    commands.insert_resource(PortalImage(image_handle.clone()));
 
     let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
     let cube_material_handle = materials.add(StandardMaterial {
