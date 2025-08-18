@@ -17,7 +17,11 @@ debug = [
 	"framerate_indicator",
 ]
 default = []
-inspector = ["dep:bevy-inspector-egui", "bevy_panorbit_camera?/bevy_egui"]
+inspector = [
+	"dep:bevy-inspector-egui",
+	"bevy_panorbit_camera?/bevy_egui",
+	"overview_camera",                 # otherwise you can't interact with the inspector...
+]
 metronome = []
 overview_camera = ["dep:bevy_panorbit_camera"]
 terminal = []

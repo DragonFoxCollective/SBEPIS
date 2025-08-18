@@ -78,6 +78,13 @@ use bevy_rapier3d::prelude::RapierPhysicsPlugin;
 use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 
 #[cfg(feature = "inspector")]
+#[insert_resource(plugin = SbepisPlugin, init = EguiGlobalSettings {
+	auto_create_primary_context: false,
+	..default()
+})]
+use bevy_inspector_egui::bevy_egui::EguiGlobalSettings;
+
+#[cfg(feature = "inspector")]
 #[add_plugin(to_plugin = SbepisPlugin)]
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 

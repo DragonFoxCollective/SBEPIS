@@ -40,6 +40,8 @@ fn setup(mut commands: Commands) {
         OverviewCamera,
         Menu,
         MenuWithMouse,
+        #[cfg(feature = "inspector")]
+        bevy_inspector_egui::bevy_egui::PrimaryEguiContext,
     ));
 }
 
