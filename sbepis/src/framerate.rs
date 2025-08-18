@@ -15,7 +15,7 @@ struct FpsText;
 
 #[add_system(plugin = FrameratePlugin, schedule = Startup)]
 fn setup_fps_counter(mut commands: Commands) {
-    commands.spawn((FpsText, Text::new("FPS: N/A")));
+    commands.spawn((FpsText, Text::new("FPS: N/A"), PlayerCameraNode));
 }
 
 #[add_system(plugin = FrameratePlugin, schedule = Update)]

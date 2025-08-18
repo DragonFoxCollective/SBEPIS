@@ -68,6 +68,7 @@ pub struct MenuHidesWhenClosed;
 pub struct MenuDespawnsWhenClosed;
 
 #[derive(Resource, Default, Debug, Reflect)]
+#[insert_resource(plugin = MenusPlugin)]
 #[register_type(plugin = MenusPlugin)]
 pub struct MenuStack {
     stack: Vec<Entity>,
@@ -93,16 +94,6 @@ impl MenuStack {
             self.push(menu);
         }
     }
-}
-
-#[add_system(plugin = MenusPlugin, schedule = OnEnter(GameState::InGame))]
-fn add_menu_stack(mut commands: Commands) {
-    commands.init_resource::<MenuStack>();
-}
-
-#[add_system(plugin = MenusPlugin, schedule = OnExit(GameState::InGame))]
-fn remove_menu_stack(mut commands: Commands) {
-    commands.remove_resource::<MenuStack>();
 }
 
 #[derive(Event)]
@@ -137,8 +128,8 @@ impl CloseMenuBinding for CloseMenuAction {
 #[add_system(
 	plugin = MenusPlugin, schedule = Update,
 	after = MenuManipulationSet,
-	in_set = MenuActivatedSet,
-	in_set = MenuDeactivatedSet,
+	before = MenuActivatedSet,
+	before = MenuDeactivatedSet,
 	run_if = resource_exists::<MenuStack>.and(resource_changed::<MenuStack>),
 )]
 fn activate_stack_current(
@@ -320,6 +311,27 @@ fn despawn_menus(
     for MenuDeactivated(menu) in ev_deactivated.read() {
         if let Ok(menu) = menus.get_mut(*menu) {
             commands.entity(menu).despawn();
+        }
+    }
+}
+
+#[add_system(
+	plugin = MenusPlugin, schedule = Update,
+	in_set = MenuManipulationSet,
+)]
+fn remove_despawned_menus(
+    mut menu_stack: ResMut<MenuStack>,
+    mut ev_deactivated: EventWriter<MenuDeactivated>,
+    entities: Query<()>,
+) {
+    for menu in menu_stack.stack.clone() {
+        if entities.get(menu).is_err() {
+            menu_stack.remove(menu);
+            ev_deactivated.write(MenuDeactivated(menu));
+
+            if menu_stack.current == Some(menu) {
+                menu_stack.current = None;
+            }
         }
     }
 }

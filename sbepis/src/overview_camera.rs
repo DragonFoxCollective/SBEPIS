@@ -68,8 +68,12 @@ fn enable_overview_camera(
 ) -> Result {
     for MenuActivated(menu) in ev_activated.read() {
         if overview_camera.get(*menu).is_ok() {
-            overview_camera.single_mut()?.is_active = true;
-            player_camera.single_mut()?.is_active = false;
+            for mut overview_camera in overview_camera.iter_mut() {
+                overview_camera.is_active = true;
+            }
+            for mut player_camera in player_camera.iter_mut() {
+                player_camera.is_active = false;
+            }
         }
     }
     Ok(())
@@ -86,8 +90,12 @@ fn disable_overview_camera(
 ) -> Result {
     for MenuDeactivated(menu) in ev_deactivated.read() {
         if overview_camera.get(*menu).is_ok() {
-            overview_camera.single_mut()?.is_active = false;
-            player_camera.single_mut()?.is_active = true;
+            for mut overview_camera in overview_camera.iter_mut() {
+                overview_camera.is_active = false;
+            }
+            for mut player_camera in player_camera.iter_mut() {
+                player_camera.is_active = true;
+            }
         }
     }
     Ok(())

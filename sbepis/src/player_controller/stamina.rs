@@ -4,7 +4,7 @@ use return_ok::ok_or_return;
 
 use crate::camera::PlayerCameraNode;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::prelude::PlayerBody;
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct Stamina {
@@ -27,7 +27,7 @@ fn update_stamina(mut players: Query<&mut Stamina>, time: Res<Time>) {
 pub struct StaminaBar;
 
 #[add_system(
-	plugin = PlayerControllerPlugin, schedule = Startup,
+	plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_stamina_bar(mut commands: Commands) {
     commands
@@ -77,6 +77,7 @@ fn update_stamina_bar(
     mut stamina_bars: Query<&mut Node, With<StaminaBar>>,
 ) {
     let stamina = ok_or_return!(staminas.single());
-    let mut stamina_bar = ok_or_return!(stamina_bars.single_mut());
-    stamina_bar.width = Val::Percent(stamina.current / stamina.max * 100.0);
+    for mut stamina_bar in stamina_bars.iter_mut() {
+        stamina_bar.width = Val::Percent(stamina.current / stamina.max * 100.0);
+    }
 }

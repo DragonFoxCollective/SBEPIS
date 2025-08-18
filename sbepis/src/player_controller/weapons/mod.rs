@@ -5,6 +5,7 @@ use bevy_butler::*;
 use bevy_rapier3d::na::Vector3;
 use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
+use return_ok::ok_or_return;
 
 use crate::entity::{EntityKilled, EntityKilledSet, GelViscosity};
 use crate::fray::FrayMusic;
@@ -123,14 +124,13 @@ fn attack(mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer), With<Acti
 fn correct_animation_speed(
     fray_music: Query<&FrayMusic>,
     mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer)>,
-) -> Result {
-    let fray_music = fray_music.single()?;
+) {
+    let fray_music = ok_or_return!(fray_music.single());
     for (animation, mut animation_player) in weapons.iter_mut() {
         if let Some(animation) = animation_player.animation_mut(animation.0) {
             animation.set_speed(fray_music.speed());
         }
     }
-    Ok(())
 }
 
 #[add_system(

@@ -233,14 +233,16 @@ fn charge_rifle(
     mut commands: Commands,
     mut rifle_barrels: Query<&mut Rifle>,
     fray: Query<&FrayMusic>,
-) -> Result {
-    let fray = fray.single()?;
+) {
     for mut rifle_barrel in rifle_barrels.iter_mut() {
         if !rifle_barrel.is_charging {
             continue;
         }
 
-        let beat = rifle_barrel.get_beat(fray);
+        let beat = fray
+            .single()
+            .map(|fray| rifle_barrel.get_beat(fray))
+            .unwrap_or_default();
         if rifle_barrel.charge < rifle_barrel.max_charge && rifle_barrel.last_beat != beat {
             rifle_barrel.charge += 1;
 
@@ -250,8 +252,8 @@ fn charge_rifle(
                 PlaybackSettings::DESPAWN.with_speed(2.0),
             ));
         }
-        rifle_barrel.update_last_beat(fray);
+        if let Ok(fray) = fray.single() {
+            rifle_barrel.update_last_beat(fray);
+        }
     }
-
-    Ok(())
 }

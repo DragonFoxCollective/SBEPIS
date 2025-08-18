@@ -34,7 +34,7 @@ pub struct MovementIndicatorsPlugin;
 pub struct SpeedIndicator;
 
 #[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
+	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_speed_indicator(mut commands: Commands) {
     commands
@@ -47,6 +47,7 @@ fn setup_speed_indicator(mut commands: Commands) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            StateScoped(GameState::InGame),
         ))
         .with_child((SpeedIndicator, Text::new("Speed: None")));
 }
@@ -71,7 +72,7 @@ fn update_speed_indicator(
 pub struct DebugState;
 
 #[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
+	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_debug_state(mut commands: Commands) {
     commands.spawn((
@@ -86,6 +87,7 @@ fn setup_debug_state(mut commands: Commands) {
         },
         DebugState,
         PlayerCameraNode,
+        StateScoped(GameState::InGame),
     ));
 }
 
@@ -127,8 +129,8 @@ fn check_states(
         With<PlayerBody>,
     >,
     mut debug_states: Query<&mut Text, With<DebugState>>,
-) -> Result {
-    let mut debug_state = debug_states.single_mut()?;
+) {
+    let mut debug_state = ok_or_return!(debug_states.single_mut());
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
@@ -163,7 +165,6 @@ fn check_states(
             .join("\n");
         debug_state.0 = has;
     }
-    Ok(())
 }
 
 #[add_system(

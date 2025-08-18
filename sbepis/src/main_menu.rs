@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 
+use crate::camera::PlayerCamera;
 use crate::prelude::*;
 
 #[butler_plugin]
@@ -20,6 +21,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(4.0, 4.0, 4.0))),
@@ -43,5 +45,10 @@ fn setup(
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
         StateScoped(GameState::MainMenu),
+        PlayerCamera,
+    ));
+
+    commands.spawn(AudioPlayer::new(
+        asset_server.load("crystalanthemums remix remix remix remix.mp3"),
     ));
 }
