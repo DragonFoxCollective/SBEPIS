@@ -1,14 +1,11 @@
-use std::time::Duration;
-
 use crate::prelude::*;
+use bevy::app::{AppLabel, MainSchedulePlugin};
 use bevy::asset::RenderAssetUsages;
-use bevy::core_pipeline::CorePipelinePlugin;
-use bevy::pbr::PbrPlugin;
+use bevy::color::palettes::css;
+use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
-use bevy::render::RenderPlugin;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy_butler::*;
-use crossbeam_channel::{SendError, SendTimeoutError, TryRecvError, TrySendError, bounded};
 
 #[add_plugin(to_plugin = SbepisPlugin)]
 struct MainMenuPlugin;
@@ -16,126 +13,102 @@ struct MainMenuPlugin;
 #[butler_plugin]
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        let (tx, rx) = bounded(1);
+        let size = Extent3d {
+            width: 512,
+            height: 512,
+            ..default()
+        };
+        let mut image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0, 0, 0, 0],
+            TextureFormat::Bgra8UnormSrgb,
+            RenderAssetUsages::default(),
+        );
+        image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT;
+        let image_handle = app.world_mut().resource_mut::<Assets<Image>>().add(image);
+        app.insert_resource::<PortalImage>(PortalImage(image_handle.clone()));
 
-        std::thread::spawn(move || {
-            let mut sub_app = App::new();
+        let mut sub_app = SubApp::new();
+        sub_app.update_schedule = Some(Main.intern());
 
-            // sub_app.add_plugins(
-            //     DefaultPlugins
-            //         .build()
-            //         .disable::<LogPlugin>()
-            //         .disable::<TerminalCtrlCHandlerPlugin>()
-            //         .disable::<WinitPlugin>(),
-            // );
-            sub_app.add_plugins((
-                MinimalPlugins,
-                WindowPlugin::default(),
-                AssetPlugin::default(),
-                RenderPlugin::default(),
-                ImagePlugin::default(),
-                CorePipelinePlugin,
-                PbrPlugin::default(),
-            ));
-            sub_app.add_systems(Startup, setup_sub);
+        sub_app.init_resource::<AppTypeRegistry>();
+        sub_app.register_type::<Name>();
+        sub_app.register_type::<ChildOf>();
+        sub_app.register_type::<Children>();
 
-            sub_app.add_systems(
-                Update,
-                move |portal_image: Res<PortalImage>,
-                      images: Res<Assets<Image>>,
-                      mut app_exit: EventWriter<AppExit>| {
-                    if let Some(image) = images.get(&portal_image.0) {
-                        // match tx.try_send(image.clone()) {
-                        //     Ok(_) => {}
-                        //     Err(TrySendError::Full(_)) => {}
-                        //     Err(TrySendError::Disconnected(_)) => {
-                        //         warn!("Main menu portal image channel disconnected - sub app");
-                        //         app_exit.write(AppExit::Success);
-                        //     }
-                        // }
-                        // match tx.send(image.clone()) {
-                        //     Ok(_) => {}
-                        //     Err(SendError(_)) => {
-                        //         warn!("Main menu portal image channel disconnected - sub app");
-                        //         app_exit.write(AppExit::Success);
-                        //     }
-                        // }
-                        match tx.send_timeout(image.clone(), Duration::from_secs(1)) {
-                            Ok(_) => {}
-                            Err(SendTimeoutError::Timeout(_)) => {}
-                            Err(SendTimeoutError::Disconnected(_)) => {
-                                warn!("Main menu portal image channel disconnected - sub app");
-                                app_exit.write(AppExit::Success);
-                            }
-                        }
-                    }
-                },
-            );
+        sub_app.add_plugins(MainSchedulePlugin);
+        sub_app.add_systems(
+            First,
+            bevy::ecs::event::event_update_system
+                .in_set(bevy::ecs::event::EventUpdates)
+                .run_if(bevy::ecs::event::event_update_condition),
+        );
+        sub_app.add_event::<AppExit>();
 
-            sub_app.run();
+        sub_app.insert_resource::<PortalImage>(PortalImage(image_handle.clone()));
+        sub_app.insert_resource::<MainMenuAssets>(MainMenuAssets {
+            cube_handle: app
+                .world_mut()
+                .resource_mut::<Assets<Mesh>>()
+                .add(Cuboid::new(4.0, 4.0, 4.0)),
+            cube_material_handle: app
+                .world_mut()
+                .resource_mut::<Assets<StandardMaterial>>()
+                .add(StandardMaterial {
+                    base_color: Color::srgb(0.8, 0.7, 0.6),
+                    reflectance: 0.02,
+                    unlit: false,
+                    ..default()
+                }),
         });
 
-        app.add_systems(
-            Update,
-            move |portal_image: Option<Res<PortalImage>>,
-                  mut images: ResMut<Assets<Image>>,
-                  mut commands: Commands| {
-                match rx.try_recv() {
-                    Ok(image_data) => {
-                        match portal_image {
-                            Some(portal_image) => images.insert(&portal_image.0, image_data),
-                            None => {
-                                commands.insert_resource(PortalImage(images.add(image_data)));
-                            }
-                        };
-                    }
-                    Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => {
-                        // panic!("Main menu portal image channel disconnected - main app");
-                    }
-                }
-            },
-        );
+        app.add_systems(Startup, setup_main);
+        sub_app.add_systems(Startup, setup_sub);
+
+        sub_app.set_extract(|main_world, sub_world| {
+            // can't get render app :(
+        });
+
+        app.insert_sub_app(MainMenuApp, sub_app);
     }
 }
 
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Debug)]
 struct PortalImage(Handle<Image>);
+
+#[derive(Resource, Debug)]
+struct MainMenuAssets {
+    cube_handle: Handle<Mesh>,
+    cube_material_handle: Handle<StandardMaterial>,
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+struct MainMenuApp;
+
+fn setup_main(mut commands: Commands, portal_image: Res<PortalImage>) {
+    commands.spawn((
+        Name::new("Main Menu"),
+        ImageNode::new(portal_image.0.clone()),
+        Node {
+            width: Val::Px(100.0),
+            height: Val::Px(100.0),
+            ..default()
+        },
+        BackgroundColor(css::GREY.into()),
+    ));
+}
 
 fn setup_sub(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    portal_image: Res<PortalImage>,
+    main_menu_assets: Res<MainMenuAssets>,
 ) {
-    let size = Extent3d {
-        width: 512,
-        height: 512,
-        ..default()
-    };
-    let mut image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0, 0, 0, 0],
-        TextureFormat::Bgra8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    image.texture_descriptor.usage =
-        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
-    let image_handle = images.add(image);
-    commands.insert_resource(PortalImage(image_handle.clone()));
-
-    let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
-    let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.8, 0.7, 0.6),
-        reflectance: 0.02,
-        unlit: false,
-        ..default()
-    });
-
     commands.spawn((
-        Mesh3d(cube_handle),
-        MeshMaterial3d(cube_material_handle),
+        Mesh3d(main_menu_assets.cube_handle.clone()),
+        MeshMaterial3d(main_menu_assets.cube_material_handle.clone()),
         Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
     ));
 
@@ -147,10 +120,12 @@ fn setup_sub(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            target: image_handle.clone().into(),
+            target: portal_image.0.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()
         },
         Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    debug!("Main Menu Setup Complete");
 }
