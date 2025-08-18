@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use return_ok::ok_or_return;
 
 use crate::camera::PlayerCameraNode;
 use crate::player_controller::PlayerControllerPlugin;
@@ -74,9 +75,8 @@ fn setup_stamina_bar(mut commands: Commands) {
 fn update_stamina_bar(
     staminas: Query<&Stamina, With<PlayerBody>>,
     mut stamina_bars: Query<&mut Node, With<StaminaBar>>,
-) -> Result {
-    let stamina = staminas.single()?;
-    let mut stamina_bar = stamina_bars.single_mut()?;
+) {
+    let stamina = ok_or_return!(staminas.single());
+    let mut stamina_bar = ok_or_return!(stamina_bars.single_mut());
     stamina_bar.width = Val::Percent(stamina.current / stamina.max * 100.0);
-    Ok(())
 }

@@ -9,10 +9,20 @@ use leafwing_input_manager::{Actionlike, InputControlKind};
 use return_ok::ok_or_return;
 
 use crate::input::InputManagerReference;
+use crate::prelude::*;
+
+#[add_plugin(to_plugin = SbepisPlugin)]
+pub struct MenusPlugin;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
-pub struct MenusPlugin;
+impl Plugin for MenusPlugin {
+    fn build(&self, app: &mut App) {
+        app.configure_sets(
+            Update,
+            MenuManipulationSet.run_if(resource_exists::<MenuStack>),
+        );
+    }
+}
 
 #[add_plugin(to_plugin = MenusPlugin, generics = <CloseMenuAction>)]
 pub struct InputManagerMenuPlugin<Action: Actionlike>(std::marker::PhantomData<Action>);
@@ -58,7 +68,6 @@ pub struct MenuHidesWhenClosed;
 pub struct MenuDespawnsWhenClosed;
 
 #[derive(Resource, Default, Debug, Reflect)]
-#[insert_resource(plugin = MenusPlugin)]
 #[register_type(plugin = MenusPlugin)]
 pub struct MenuStack {
     stack: Vec<Entity>,
@@ -84,6 +93,16 @@ impl MenuStack {
             self.push(menu);
         }
     }
+}
+
+#[add_system(plugin = MenusPlugin, schedule = OnEnter(GameState::InGame))]
+fn add_menu_stack(mut commands: Commands) {
+    commands.init_resource::<MenuStack>();
+}
+
+#[add_system(plugin = MenusPlugin, schedule = OnExit(GameState::InGame))]
+fn remove_menu_stack(mut commands: Commands) {
+    commands.remove_resource::<MenuStack>();
 }
 
 #[derive(Event)]
@@ -120,7 +139,7 @@ impl CloseMenuBinding for CloseMenuAction {
 	after = MenuManipulationSet,
 	in_set = MenuActivatedSet,
 	in_set = MenuDeactivatedSet,
-	run_if = resource_changed::<MenuStack>,
+	run_if = resource_exists::<MenuStack>.and(resource_changed::<MenuStack>),
 )]
 fn activate_stack_current(
     mut menu_stack: ResMut<MenuStack>,

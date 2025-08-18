@@ -14,6 +14,7 @@ use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::weapons::{EntityHit, WeaponAnimation};
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct RiflePivot {
@@ -116,6 +117,7 @@ pub fn spawn_rifle(
                 fire_sound: asset_server.load("flute.wav"),
                 charge_sound: asset_server.load("flute.wav"),
             },
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -131,6 +133,7 @@ pub fn spawn_rifle(
             AnimationPlayer::default(),
             WeaponAnimation(animation_index),
             ChildOf(body),
+            StateScoped(GameState::InGame),
         ))
         .add_child(rifle_barrel)
         .observe(on_rifle_fire)

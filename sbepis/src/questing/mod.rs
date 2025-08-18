@@ -17,7 +17,7 @@ use crate::input::{InputManagerReference, MapsToEvent};
 use crate::inventory::{Inventory, InventoryChanged, InventoryChangedSet, Item};
 use crate::main_bundles::Box;
 use crate::npcs::imp::Imp;
-use crate::prelude::InteractedWithSet;
+use crate::prelude::*;
 
 mod proposal;
 mod quest_markers;
@@ -25,7 +25,7 @@ mod screen;
 
 pub use quest_markers::SpawnQuestMarker;
 
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct QuestingPlugin;
 #[butler_plugin]
 impl Plugin for QuestingPlugin {

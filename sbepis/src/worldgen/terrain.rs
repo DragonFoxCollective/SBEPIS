@@ -10,6 +10,7 @@ use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMesh
 use rand::{Rng, SeedableRng as _};
 
 use crate::gridbox_material;
+use crate::prelude::*;
 
 #[butler_plugin]
 #[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
@@ -70,10 +71,11 @@ fn add_components(
         commands.entity(chunk).insert(FinalizedChunk);
 
         let mesh = meshes.get(mesh).expect("Failed to get mesh");
-        commands.entity(chunk).insert(
+        commands.entity(chunk).insert((
             Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
                 .expect("Failed to create chunk collider"),
-        );
+            StateScoped(GameState::InGame),
+        ));
     }
 }
 

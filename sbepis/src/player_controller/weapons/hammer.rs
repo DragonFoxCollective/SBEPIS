@@ -8,6 +8,7 @@ use bevy::render::mesh::CapsuleUvProfile;
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::weapons::{DamageSweep, EndDamageSweep, SweepPivot, WeaponAnimation};
+use crate::prelude::*;
 
 #[derive(Component)]
 struct HammerPivot {
@@ -90,6 +91,7 @@ pub fn spawn_hammer(
                 woosh_sound: asset_server.load("whoosh.mp3"),
                 smash_sound: asset_server.load("concrete_break3.wav"),
             },
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -107,6 +109,7 @@ pub fn spawn_hammer(
             AnimationPlayer::default(),
             WeaponAnimation(animation_index),
             ChildOf(body),
+            StateScoped(GameState::InGame),
         ))
         .add_child(hammer_head)
         .observe(on_hammer_start)

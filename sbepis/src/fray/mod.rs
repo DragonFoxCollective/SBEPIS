@@ -7,16 +7,15 @@ use bevy_butler::*;
 use soundyrust::*;
 use tracks::{FrayTracks, Track};
 
-use crate::camera::PlayerCameraNode;
 use crate::npcs::imp::Imp;
 use crate::player_controller::weapons::{EntityHit, EntityHitSet};
-use crate::prelude::PlayerBody;
+use crate::prelude::*;
 use crate::util::MapRangeBetween;
 
 mod tracks;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct FrayPlugin;
 
 #[add_plugin(to_plugin = FrayPlugin)]

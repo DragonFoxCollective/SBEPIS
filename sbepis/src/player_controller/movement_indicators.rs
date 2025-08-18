@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
+use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
@@ -56,15 +57,14 @@ fn setup_speed_indicator(mut commands: Commands) {
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
     player: Query<(&Transform, &Velocity), With<PlayerBody>>,
-) -> Result {
-    let (transform, velocity) = player.single()?;
+) {
+    let (transform, velocity) = ok_or_return!(player.single());
+    let mut indicator = ok_or_return!(indicator.single_mut());
     let speed = velocity.linvel.length();
     let local_speed = (transform.rotation.inverse() * velocity.linvel)
         .xz()
         .length();
-    let mut indicator = indicator.single_mut()?;
     indicator.0 = format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}");
-    Ok(())
 }
 
 #[derive(Component)]

@@ -7,9 +7,10 @@ use crate::menus::{
     Menu, MenuActivated, MenuActivatedSet, MenuDeactivated, MenuDeactivatedSet,
     MenuManipulationSet, MenuStack, MenuWithMouse,
 };
+use crate::prelude::*;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct OverviewCameraPlugin;
 
 #[add_plugin(to_plugin = OverviewCameraPlugin, init = PanOrbitCameraPlugin)]

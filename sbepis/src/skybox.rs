@@ -10,8 +10,10 @@ use bevy::render::render_resource::TextureViewDescriptor;
 use bevy::render::render_resource::TextureViewDimension;
 use bevy_butler::*;
 
+use crate::prelude::*;
+
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct SkyboxPlugin;
 
 #[derive(Resource, Default)]
@@ -126,7 +128,7 @@ fn stitch_skybox(
 
 #[add_system(
 	plugin = SkyboxPlugin, schedule = Update,
-	run_if = is_skybox_loaded,
+	run_if = is_skybox_loaded.and(in_state(GameState::InGame)),
 )]
 fn add_skybox(
     mut commands: Commands,

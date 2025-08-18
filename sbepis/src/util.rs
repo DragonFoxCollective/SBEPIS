@@ -1,6 +1,7 @@
 use bevy::ecs::query::{QueryData, QueryFilter, ROQueryItem};
 use bevy::prelude::*;
 use bevy_rapier3d::math::Real;
+use return_ok::ok_or_return;
 use std::array::IntoIter;
 use std::ops::{Add, Mul, Range, Sub};
 
@@ -98,13 +99,15 @@ pub fn billboard(
     mut transforms: Query<&mut Transform, With<Billboard>>,
     player_camera: Query<&GlobalTransform, With<PlayerCamera>>,
     player_body: Query<&GlobalTransform, With<PlayerBody>>,
-) -> Result {
-    let player_camera = player_camera.single()?;
-    let player_body = player_body.single()?;
+) {
+    let player_camera_position = ok_or_return!(player_camera.single()).translation();
+    let player_body = player_body
+        .single()
+        .map(GlobalTransform::up)
+        .unwrap_or(Dir3::Y);
     for mut transform in transforms.iter_mut() {
-        transform.look_at(player_camera.translation(), player_body.up());
+        transform.look_at(player_camera_position, player_body);
     }
-    Ok(())
 }
 
 pub trait QuaternionEx {

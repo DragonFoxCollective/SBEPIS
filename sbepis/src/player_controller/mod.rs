@@ -16,6 +16,7 @@ use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
+use crate::prelude::*;
 use crate::worldgen::low_lod::LowLODWorldGen;
 use crate::worldgen::terrain::WorldGen;
 
@@ -32,7 +33,7 @@ mod movement_indicators;
 pub mod stamina;
 pub mod weapons;
 
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct PlayerControllerPlugin;
 #[butler_plugin]
 impl Plugin for PlayerControllerPlugin {
@@ -52,9 +53,7 @@ impl Plugin for PlayerControllerPlugin {
 #[add_plugin(to_plugin = PlayerControllerPlugin, generics = <PlayerAction>)]
 use crate::menus::InputManagerMenuPlugin;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Startup,
-)]
+#[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -85,6 +84,7 @@ fn setup(
             Menu,
             MenuWithInputManager,
             MenuWithoutMouse,
+            StateScoped(GameState::InGame),
         ))
         .id();
     menu_stack.push(input);
@@ -96,6 +96,7 @@ fn setup(
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -103,6 +104,7 @@ fn setup(
         .spawn((
             Name::new("Player Mesh"),
             MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -117,6 +119,7 @@ fn setup(
             PlayerCamera,
             Pitch(0.0),
             SpatialListener::new(-0.25),
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -141,6 +144,7 @@ fn setup(
             ChunkLoader::<WorldGen>::new(3),
             ChunkLoader::<LowLODWorldGen>::new(5),
             Ccd::enabled(),
+            StateScoped(GameState::InGame),
         ))
         .add_children(&[camera, collider, mesh])
         .id();

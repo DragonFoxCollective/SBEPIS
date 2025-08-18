@@ -150,7 +150,6 @@ fn sweep_dealers(
     debug_collider_visualizers: Query<Entity, With<DebugColliderVisualizer>>,
     mut ev_hit: EventWriter<EntityHit>,
 ) -> Result {
-    let debug_collider_visualizer = debug_collider_visualizers.single()?;
     let rapier_context = rapier_context.single()?;
     for (dealer_entity, mut dealer, end, transform) in dealers.iter_mut() {
         let (pivot, pivot_transform) = pivots.get(dealer.pivot)?;
@@ -182,10 +181,12 @@ fn sweep_dealers(
                 true
             },
         );
-        commands
-            .entity(debug_collider_visualizer)
-            .insert(Collider::from(SharedShape::new(sweep_shape)))
-            .insert(Transform::from_translation(position).with_rotation(rotation));
+        if let Ok(debug_collider_visualizer) = debug_collider_visualizers.single() {
+            commands
+                .entity(debug_collider_visualizer)
+                .insert(Collider::from(SharedShape::new(sweep_shape)))
+                .insert(Transform::from_translation(position).with_rotation(rotation));
+        }
 
         dealer.last_transform = *transform;
 

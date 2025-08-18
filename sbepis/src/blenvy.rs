@@ -11,9 +11,10 @@ use crate::entity::spawner::Spawner;
 use crate::gravity::{AffectedByGravity, GravityPoint, GravityPriority};
 use crate::npcs::consort::ConsortSpawner;
 use crate::npcs::imp::ImpSpawner;
+use crate::prelude::*;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct BlenvyPlugin;
 
 #[add_plugin(to_plugin = BlenvyPlugin)]

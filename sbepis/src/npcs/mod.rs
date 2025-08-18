@@ -1,12 +1,14 @@
 use bevy_butler::*;
 use name_tags::{AvailableNames, CandyMaterial};
 
+use crate::prelude::*;
+
 pub mod consort;
 pub mod imp;
 pub mod name_tags;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct NpcPlugin;
 
 #[add_plugin(to_plugin = NpcPlugin, generics = <AvailableNames>, init = RonAssetPlugin::<AvailableNames>::new(&["names.ron"]))]

@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Velocity;
 use leafwing_input_manager::prelude::ActionState;
+use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::gravity::{AffectedByGravity, ComputedGravity};
@@ -136,8 +137,8 @@ fn update_trip_recover_ground(
     coyote_time_settings: Res<CoyoteTimeSettings>,
     mut commands: Commands,
     input: Query<&ActionState<PlayerAction>>,
-) -> Result {
-    let input = input.single()?;
+) {
+    let input = ok_or_return!(input.single());
     for (player, mut trip_recover_ground) in players.iter_mut() {
         trip_recover_ground.duration += time.delta();
         if trip_recover_ground.duration >= coyote_time_settings.coyote_time {
@@ -150,7 +151,6 @@ fn update_trip_recover_ground(
             }
         }
     }
-    Ok(())
 }
 
 #[add_system(
