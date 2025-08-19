@@ -746,7 +746,7 @@ fn setup_credits(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
+                row_gap: Val::Px(10.0),
                 ..default()
             },
             ChildOf(content_3),
@@ -766,7 +766,7 @@ fn setup_credits(
                 children![(
                     Text::new("Master Tier Supporters"),
                     TextFont {
-                        font_size: header_font_size,
+                        font_size: 32.0,
                         ..default()
                     },
                     TextLayout {
@@ -780,7 +780,7 @@ fn setup_credits(
             commands.spawn((
                 Text::new(name),
                 TextFont {
-                    font_size,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextLayout {
@@ -805,7 +805,7 @@ fn setup_credits(
                 children![(
                     Text::new("Denizen Tier Supporters"),
                     TextFont {
-                        font_size: header_font_size,
+                        font_size: 32.0,
                         ..default()
                     },
                     TextLayout {
@@ -819,7 +819,7 @@ fn setup_credits(
             commands.spawn((
                 Text::new(name),
                 TextFont {
-                    font_size,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextLayout {
@@ -844,7 +844,7 @@ fn setup_credits(
                 children![(
                     Text::new("Alchemiter Tier Supporters"),
                     TextFont {
-                        font_size: header_font_size,
+                        font_size: 24.0,
                         ..default()
                     },
                     TextLayout {
@@ -858,7 +858,7 @@ fn setup_credits(
             commands.spawn((
                 Text::new(name),
                 TextFont {
-                    font_size,
+                    font_size: 16.0,
                     ..default()
                 },
                 TextLayout {
@@ -883,7 +883,7 @@ fn setup_credits(
                 children![(
                     Text::new("Captcha Tier Supporters"),
                     TextFont {
-                        font_size: header_font_size,
+                        font_size: 24.0,
                         ..default()
                     },
                     TextLayout {
@@ -897,7 +897,7 @@ fn setup_credits(
             commands.spawn((
                 Text::new(name),
                 TextFont {
-                    font_size,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextLayout {
@@ -922,7 +922,7 @@ fn setup_credits(
                 children![(
                     Text::new("PGO Tier Supporters"),
                     TextFont {
-                        font_size: header_font_size,
+                        font_size: 24.0,
                         ..default()
                     },
                     TextLayout {
@@ -936,7 +936,7 @@ fn setup_credits(
             commands.spawn((
                 Text::new(name),
                 TextFont {
-                    font_size,
+                    font_size: 18.0,
                     ..default()
                 },
                 TextLayout {
@@ -961,7 +961,7 @@ fn setup_credits(
                 children![(
                     Text::new("Past Supporters"),
                     TextFont {
-                        font_size: header_font_size,
+                        font_size: 18.0,
                         ..default()
                     },
                     TextLayout {
@@ -975,7 +975,7 @@ fn setup_credits(
             commands.spawn((
                 Text::new(name),
                 TextFont {
-                    font_size,
+                    font_size: 12.0,
                     ..default()
                 },
                 TextLayout {
