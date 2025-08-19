@@ -62,7 +62,7 @@ fn setup(
         },
     ));
 
-    commands.insert_resource(DenySound(asset_server.load("deny.wav")));
+    commands.insert_resource(DenySound(asset_server.load("deny.mp3")));
 
     let font_size = 32.0;
 
