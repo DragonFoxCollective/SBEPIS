@@ -81,8 +81,21 @@ fn setup(
 }
 
 #[add_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Home))]
-fn setup_home(mut commands: Commands) {
+fn setup_home(
+    mut commands: Commands,
+    title_font: Option<Res<TitleFont>>,
+    asset_server: Res<AssetServer>,
+) -> Result {
     let font_size = 32.0;
+
+    let title_font = match title_font {
+        Some(font) => font.0.clone(),
+        None => {
+            let font = asset_server.load("Motenacity.ttf");
+            commands.insert_resource(TitleFont(font.clone()));
+            font
+        }
+    };
 
     let menu_root = commands
         .spawn((
@@ -117,15 +130,25 @@ fn setup_home(mut commands: Commands) {
         Node {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            flex_grow: 4.0,
+            flex_grow: 3.0,
             ..default()
         },
         ChildOf(content),
         children![(
             Text::new("SBEPIS"),
             TextFont {
-                font_size: 64.0,
+                font: title_font.clone(),
+                font_size: 160.0,
                 ..default()
+            },
+            TextLayout {
+                justify: JustifyText::Center,
+                ..default()
+            },
+            TextColor(Color::from(Srgba::hex("03a9f4")?)),
+            TextShadow {
+                offset: Vec2::new(2.0, 2.0),
+                color: Color::from(Srgba::hex("000000")?),
             },
         )],
     ));
@@ -303,6 +326,8 @@ fn setup_home(mut commands: Commands) {
                 ev_exit.write(AppExit::Success);
             },
         );
+
+    Ok(())
 }
 
 #[add_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Credits))]
@@ -1195,3 +1220,6 @@ pub enum DeveloperArea {
     Documentation,
     Contributor,
 }
+
+#[derive(Resource)]
+pub struct TitleFont(pub Handle<Font>);
