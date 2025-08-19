@@ -311,7 +311,7 @@ fn setup_credits(
     main_menu_names: Res<MainMenuNames>,
     supporters: Res<Assets<Supporters>>,
     developers: Res<Assets<Developers>>,
-) {
+) -> Result {
     let (supporters, developers) = match (
         supporters.get(&main_menu_names.supporters),
         developers.get(&main_menu_names.developers),
@@ -319,7 +319,7 @@ fn setup_credits(
         (Some(supporters), Some(developers)) => (supporters, developers),
         _ => {
             commands.spawn(Text::new("Couldn't load credits :("));
-            return;
+            return Ok(());
         }
     };
 
@@ -535,6 +535,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("ff2106")?)),
             )],
         ))
         .id();
@@ -572,6 +573,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("20401f")?)),
             )],
         ))
         .id();
@@ -609,6 +611,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("2df901")?)),
             )],
         ))
         .id();
@@ -646,6 +649,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("bd1864")?)),
             )],
         ))
         .id();
@@ -683,6 +687,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("fff547")?)),
             )],
         ))
         .id();
@@ -720,6 +725,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("033476")?)),
             )],
         ))
         .id();
@@ -773,10 +779,11 @@ fn setup_credits(
                         justify: JustifyText::Center,
                         ..default()
                     },
+                    TextColor(Color::from(Srgba::hex("ff0000")?)),
                 )],
             ))
             .id();
-        for name in master_names {
+        for (i, name) in master_names.into_iter().enumerate() {
             commands.spawn((
                 Text::new(name),
                 TextFont {
@@ -788,6 +795,11 @@ fn setup_credits(
                     ..default()
                 },
                 ChildOf(master_root),
+                TextColor(Color::from(Srgba::hex(if i % 2 == 0 {
+                    "00ff00"
+                } else {
+                    "ff0000"
+                })?)),
             ));
         }
     }
@@ -812,6 +824,7 @@ fn setup_credits(
                         justify: JustifyText::Center,
                         ..default()
                     },
+                    TextColor(Color::from(Srgba::hex("efbf04")?)),
                 )],
             ))
             .id();
@@ -851,6 +864,7 @@ fn setup_credits(
                         justify: JustifyText::Center,
                         ..default()
                     },
+                    TextColor(Color::from(Srgba::hex("03a9f4")?)),
                 )],
             ))
             .id();
@@ -890,6 +904,7 @@ fn setup_credits(
                         justify: JustifyText::Center,
                         ..default()
                     },
+                    TextColor(Color::from(Srgba::hex("ff067c")?)),
                 )],
             ))
             .id();
@@ -929,6 +944,7 @@ fn setup_credits(
                         justify: JustifyText::Center,
                         ..default()
                     },
+                    TextColor(Color::from(Srgba::hex("4bec13")?)),
                 )],
             ))
             .id();
@@ -968,6 +984,7 @@ fn setup_credits(
                         justify: JustifyText::Center,
                         ..default()
                     },
+                    TextColor(Color::from(Srgba::hex("aaaaaa")?)),
                 )],
             ))
             .id();
@@ -1006,6 +1023,7 @@ fn setup_credits(
                     justify: JustifyText::Center,
                     ..default()
                 },
+                TextColor(Color::from(Srgba::hex("46fbc4")?)),
             ),
             (
                 Text::new("Kagrul"),
@@ -1082,6 +1100,8 @@ fn setup_credits(
                 state.set(MenuState::Home);
             },
         );
+
+    Ok(())
 }
 
 #[add_system(plugin = MainMenuPlugin, schedule = Update)]
