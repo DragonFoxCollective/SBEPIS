@@ -1,10 +1,12 @@
 use bevy::audio::PlaybackMode;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use serde::Deserialize;
 
 use crate::camera::PlayerCamera;
 use crate::prelude::*;
+use crate::worldgen::desert::DesertWorldGen;
 
 #[butler_plugin]
 #[add_plugin(to_plugin = SbepisPlugin)]
@@ -35,38 +37,28 @@ fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[add_system(plugin = MainMenuPlugin, schedule = OnEnter(GameState::MainMenu))]
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     commands.spawn((
-        Name::new("cuuuuuube"),
-        Mesh3d(meshes.add(Cuboid::new(4.0, 4.0, 4.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.8, 0.7, 0.6),
-            reflectance: 0.02,
-            unlit: false,
+        Name::new("Sun"),
+        DirectionalLight {
+            illuminance: 10000.0,
+            shadows_enabled: true,
             ..default()
-        })),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-        StateScoped(GameState::MainMenu),
-    ));
-
-    commands.spawn((
-        Name::new("Light"),
-        PointLight::default(),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+        },
+        Transform {
+            rotation: Quat::from_euler(EulerRot::XYZ, -1.9, 0.8, 0.0),
+            ..default()
+        },
         StateScoped(GameState::MainMenu),
     ));
 
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(Vec3::new(-10.0, 4.0, -10.0)).looking_at(Vec3::ZERO, Vec3::Y),
         StateScoped(GameState::MainMenu),
         PlayerCamera,
+        ChunkLoader::<DesertWorldGen>::new(10),
     ));
 
     commands.spawn((
@@ -78,6 +70,10 @@ fn setup(
             ..default()
         },
     ));
+
+    commands.insert_resource(ClearColor(Color::from(Srgba::hex("10e0ff")?)));
+
+    Ok(())
 }
 
 #[add_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Home))]

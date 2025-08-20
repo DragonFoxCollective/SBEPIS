@@ -11,7 +11,7 @@ pub struct LowLODWorldGenPlugin;
 #[add_plugin(to_plugin = LowLODWorldGenPlugin, generics = <LowLODWorldGen, LODMaterial>)]
 use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
-#[insert_resource(plugin = LowLODWorldGenPlugin, generics = <LowLODWorldGen>, init = ChunkGenerator::<LowLODWorldGen>::new(0.0, 50, 100.0))]
+#[insert_resource(plugin = LowLODWorldGenPlugin, generics = <LowLODWorldGen>, init = ChunkGenerator::<LowLODWorldGen>::new(50, 100.0))]
 use bevy_marching_cubes::chunk_generator::ChunkGenerator;
 
 #[derive(TypePath)]

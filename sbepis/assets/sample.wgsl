@@ -76,7 +76,6 @@ fn sample_noise(coord: vec3f) -> f32 {
 	final_density = min(final_density, height_density);
 	final_density = min(final_density, cheese_caves * 100);
 	final_density = min(final_density, spaghetti_caves * 100);
-	final_density = max(final_density, poi_platforms);
 	if poi_platforms > -1.0e38 {
 		final_density = poi_platforms; 
 	}
