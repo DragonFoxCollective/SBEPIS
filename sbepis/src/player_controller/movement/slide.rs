@@ -60,22 +60,26 @@ pub struct Sliding {
     sound: Option<Entity>,
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn add_sliding_sound(
-    trigger: Trigger<OnAdd, Sliding>,
-    mut slidings: Query<&mut Sliding>,
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+fn update_sliding_sound(
+    mut slidings: Query<(&mut Sliding, Has<Grounded>)>,
     mut commands: Commands,
     slide_assets: Res<SlideAssets>,
-) -> Result {
-    let mut sliding = slidings.get_mut(trigger.target())?;
-    let sound = commands
-        .spawn((
-            AudioPlayer::new(slide_assets.sound.clone()),
-            PlaybackSettings::LOOP,
-        ))
-        .id();
-    sliding.sound = Some(sound);
-    Ok(())
+) {
+    for (mut sliding, grounded) in slidings.iter_mut() {
+        if grounded && sliding.sound.is_none() {
+            let sound = commands
+                .spawn((
+                    AudioPlayer::new(slide_assets.sound.clone()),
+                    PlaybackSettings::LOOP,
+                ))
+                .id();
+            sliding.sound = Some(sound);
+        } else if !grounded && let Some(sound) = sliding.sound {
+            commands.entity(sound).despawn();
+            sliding.sound = None;
+        }
+    }
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
