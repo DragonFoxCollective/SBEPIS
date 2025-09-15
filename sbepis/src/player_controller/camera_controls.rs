@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
+use return_ok::ok_or_return_ok;
 
 use crate::camera::PlayerCamera;
 use crate::player_controller::movement::MovementControlSet;
@@ -37,7 +38,7 @@ fn rotate_camera_and_body(
         (Without<PlayerCamera>, With<PlayerBody>),
     >,
 ) -> Result {
-    let delta = input.single()?.axis_pair(&PlayerAction::Look);
+    let delta = ok_or_return_ok!(input.single()).axis_pair(&PlayerAction::Look);
 
     {
         let (mut camera_transform, mut camera_pitch, camera) = player_camera.single_mut()?;

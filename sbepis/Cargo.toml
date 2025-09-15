@@ -9,14 +9,25 @@ too_many_arguments = "allow"
 eq_op = "allow"
 
 [features]
-debug = ["inspector", "overview_camera", "terminal", "movement_indicators"]
+debug = [
+	"inspector",
+	"overview_camera",
+	"terminal",
+	"movement_indicators",
+	"framerate_indicator",
+]
 default = []
-inspector = ["dep:bevy-inspector-egui", "bevy_panorbit_camera?/bevy_egui"]
+inspector = [
+	"dep:bevy-inspector-egui",
+	"bevy_panorbit_camera?/bevy_egui",
+	"overview_camera",                 # otherwise you can't interact with the inspector...
+]
 metronome = []
 overview_camera = ["dep:bevy_panorbit_camera"]
 terminal = []
 rapier_debug = []
 movement_indicators = []
+framerate_indicator = []
 
 [dependencies]
 bevy = { version = "0.16.0", features = ["wav", "mp3", "wayland"] }
@@ -36,11 +47,12 @@ faker_rand = "0.1.1"
 meshtext = "0.3.1"
 soundyrust = { path = "../soundyrust" }
 bevy_hanabi = { git = "https://github.com/djeedai/bevy_hanabi.git" }
-bevy-butler = { git = "https://github.com/TGRCdev/bevy-butler.git" }
+bevy-butler = { git = "https://github.com/jwright159/bevy-butler.git", branch = "add_sub_state" }
 typetag = "0.2.19"
 return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
 bevy_skein = "0.2.1"
 bevy-marching-cubes = { path = "../bevy-marching-cubes" }
+crossbeam-channel = "0.5.15"
 
 [build-dependencies]
 winres = "0.1"

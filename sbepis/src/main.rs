@@ -14,11 +14,14 @@ mod blenvy;
 mod camera;
 mod dialogue;
 mod entity;
+#[cfg(feature = "framerate_indicator")]
+mod framerate;
 mod fray;
 mod gravity;
 mod input;
 mod inventory;
 mod main_bundles;
+mod main_menu;
 pub mod menus;
 mod npcs;
 #[cfg(feature = "overview_camera")]
@@ -34,6 +37,7 @@ mod prelude {
     #![allow(unused_imports)]
     pub use crate::SbepisPlugin;
     pub use crate::camera::PlayerCameraNode;
+    pub use crate::main_menu::GameState;
     pub use crate::player_controller::PlayerBody;
     pub use crate::player_controller::camera_controls::{
         InteractedWith, InteractedWithSet, interact_with,
@@ -66,22 +70,29 @@ fn main() {
 #[butler_plugin]
 pub struct SbepisPlugin;
 
-#[add_plugin(to_plugin = crate::SbepisPlugin, generics = <NoUserData>)]
+#[add_plugin(to_plugin = SbepisPlugin, generics = <NoUserData>)]
 use bevy_rapier3d::prelude::RapierPhysicsPlugin;
 
 #[cfg(feature = "rapier_debug")]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 
 #[cfg(feature = "inspector")]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[insert_resource(plugin = SbepisPlugin, init = EguiGlobalSettings {
+	auto_create_primary_context: false,
+	..default()
+})]
+use bevy_inspector_egui::bevy_egui::EguiGlobalSettings;
+
+#[cfg(feature = "inspector")]
+#[add_plugin(to_plugin = SbepisPlugin)]
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 
 #[cfg(feature = "inspector")]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-#[add_plugin(to_plugin = crate::SbepisPlugin, init = HanabiPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin, init = HanabiPlugin)]
 use bevy_hanabi::HanabiPlugin;
 
 #[add_system(
@@ -138,10 +149,14 @@ fn gridbox_material_direct_extra(
     }
 }
 
-#[add_system(
-	plugin = SbepisPlugin, schedule = Startup,
-)]
-fn setup(mut commands: Commands, mut rapier_config: Query<&mut RapierConfiguration>) -> Result {
+#[add_system(plugin = SbepisPlugin, schedule = Startup)]
+fn setup_global(mut rapier_config: Query<&mut RapierConfiguration>) -> Result {
+    rapier_config.single_mut()?.gravity = Vec3::ZERO;
+    Ok(())
+}
+
+#[add_system(plugin = SbepisPlugin, schedule = OnEnter(GameState::InGame))]
+fn setup_in_game(mut commands: Commands) {
     commands.spawn((
         Name::new("Gravity"),
         Transform::from_translation(Vec3::NEG_Y * 1000.0),
@@ -150,6 +165,7 @@ fn setup(mut commands: Commands, mut rapier_config: Query<&mut RapierConfigurati
             acceleration_at_radius: 15.0,
         },
         GravityPriority(0),
+        StateScoped(GameState::InGame),
     ));
 
     commands.spawn((
@@ -163,11 +179,8 @@ fn setup(mut commands: Commands, mut rapier_config: Query<&mut RapierConfigurati
             rotation: Quat::from_euler(EulerRot::XYZ, -1.9, 0.8, 0.0),
             ..default()
         },
+        StateScoped(GameState::InGame),
     ));
-
-    rapier_config.single_mut()?.gravity = Vec3::ZERO;
-
-    Ok(())
 }
 
 #[add_system(
@@ -179,6 +192,7 @@ fn quit(mut ev_quit: EventWriter<AppExit>) {
 }
 
 use crate::gravity::{GravityPoint, GravityPriority};
+use crate::prelude::GameState;
 #[add_system(
 	plugin = SbepisPlugin, schedule = Update,
 )]

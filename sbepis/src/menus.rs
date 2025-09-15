@@ -9,10 +9,20 @@ use leafwing_input_manager::{Actionlike, InputControlKind};
 use return_ok::ok_or_return;
 
 use crate::input::InputManagerReference;
+use crate::prelude::*;
+
+#[add_plugin(to_plugin = SbepisPlugin)]
+pub struct MenusPlugin;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
-pub struct MenusPlugin;
+impl Plugin for MenusPlugin {
+    fn build(&self, app: &mut App) {
+        app.configure_sets(
+            Update,
+            MenuManipulationSet.run_if(resource_exists::<MenuStack>),
+        );
+    }
+}
 
 #[add_plugin(to_plugin = MenusPlugin, generics = <CloseMenuAction>)]
 pub struct InputManagerMenuPlugin<Action: Actionlike>(std::marker::PhantomData<Action>);
@@ -118,9 +128,9 @@ impl CloseMenuBinding for CloseMenuAction {
 #[add_system(
 	plugin = MenusPlugin, schedule = Update,
 	after = MenuManipulationSet,
-	in_set = MenuActivatedSet,
-	in_set = MenuDeactivatedSet,
-	run_if = resource_changed::<MenuStack>,
+	before = MenuActivatedSet,
+	before = MenuDeactivatedSet,
+	run_if = resource_exists::<MenuStack>.and(resource_changed::<MenuStack>),
 )]
 fn activate_stack_current(
     mut menu_stack: ResMut<MenuStack>,
@@ -301,6 +311,27 @@ fn despawn_menus(
     for MenuDeactivated(menu) in ev_deactivated.read() {
         if let Ok(menu) = menus.get_mut(*menu) {
             commands.entity(menu).despawn();
+        }
+    }
+}
+
+#[add_system(
+	plugin = MenusPlugin, schedule = Update,
+	in_set = MenuManipulationSet,
+)]
+fn remove_despawned_menus(
+    mut menu_stack: ResMut<MenuStack>,
+    mut ev_deactivated: EventWriter<MenuDeactivated>,
+    entities: Query<()>,
+) {
+    for menu in menu_stack.stack.clone() {
+        if entities.get(menu).is_err() {
+            menu_stack.remove(menu);
+            ev_deactivated.write(MenuDeactivated(menu));
+
+            if menu_stack.current == Some(menu) {
+                menu_stack.current = None;
+            }
         }
     }
 }

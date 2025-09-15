@@ -113,6 +113,7 @@ use crate::prelude::interact_with;
 #[add_system(
 	plugin = QuestingPlugin, schedule = Update,
 	after = InteractedWithQuestGiverSet::default(),
+	in_set = MenuManipulationSet,
 )]
 fn propose_quest_if_none(
     mut ev_interact: EventReader<InteractedWith<QuestGiver>>,

@@ -3,10 +3,11 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools;
 
+use crate::prelude::*;
 use crate::util::{IterElements, TransformEx};
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct GravityPlugin;
 
 #[derive(Component, Reflect)]

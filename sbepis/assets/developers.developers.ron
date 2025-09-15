@@ -1,0 +1,85 @@
+(
+	names: [
+		Developer (
+			name: "Jady Draconevix",
+			area: Mechanics,
+		),
+		Developer (
+			name: "Jackalope",
+			area: Mechanics,
+		),
+		Developer (
+			name: "Christofferoff",
+			area: Mechanics,
+		),
+		Developer (
+			name: "Kagrul",
+			area: Mechanics,
+		),
+		Developer (
+			name: "[Zxya]",
+			area: Mechanics,
+		),
+
+		Developer (
+			name: "Jady Draconevix",
+			area: Programming,
+		),
+		Developer (
+			name: "Bitblocks",
+			area: Programming,
+		),
+
+		Developer (
+			name: "Jackalope",
+			area: Art,
+		),
+		Developer (
+			name: "pavizi",
+			area: Art,
+		),
+
+		Developer (
+			name: "Remedy Hearts",
+			area: Music,
+		),
+
+		Developer (
+			name: "Jackalope",
+			area: Documentation,
+		),
+		Developer (
+			name: "[Hatsun Emikoo]",
+			area: Documentation,
+		),
+		Developer (
+			name: "[Zxya]",
+			area: Documentation,
+		),
+
+		Developer (
+			name: "absoluteCatastrophe",
+			area: Contributor,
+		),
+		Developer (
+			name: "[Cibernet]",
+			area: Contributor,
+		),
+		Developer (
+			name: "conchors",
+			area: Contributor,
+		),
+		Developer (
+			name: "[mangounit]",
+			area: Contributor,
+		),
+		Developer (
+			name: "[renener]",
+			area: Contributor,
+		),
+		Developer (
+			name: "zealousZombie",
+			area: Contributor,
+		),
+	]
+)

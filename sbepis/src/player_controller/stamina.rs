@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use return_ok::ok_or_return;
 
 use crate::camera::PlayerCameraNode;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::prelude::PlayerBody;
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct Stamina {
@@ -26,7 +27,7 @@ fn update_stamina(mut players: Query<&mut Stamina>, time: Res<Time>) {
 pub struct StaminaBar;
 
 #[add_system(
-	plugin = PlayerControllerPlugin, schedule = Startup,
+	plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_stamina_bar(mut commands: Commands) {
     commands
@@ -74,9 +75,9 @@ fn setup_stamina_bar(mut commands: Commands) {
 fn update_stamina_bar(
     staminas: Query<&Stamina, With<PlayerBody>>,
     mut stamina_bars: Query<&mut Node, With<StaminaBar>>,
-) -> Result {
-    let stamina = staminas.single()?;
-    let mut stamina_bar = stamina_bars.single_mut()?;
-    stamina_bar.width = Val::Percent(stamina.current / stamina.max * 100.0);
-    Ok(())
+) {
+    let stamina = ok_or_return!(staminas.single());
+    for mut stamina_bar in stamina_bars.iter_mut() {
+        stamina_bar.width = Val::Percent(stamina.current / stamina.max * 100.0);
+    }
 }

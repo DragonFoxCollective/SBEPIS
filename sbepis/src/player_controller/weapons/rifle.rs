@@ -14,6 +14,7 @@ use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::weapons::{EntityHit, WeaponAnimation};
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct RiflePivot {
@@ -116,6 +117,7 @@ pub fn spawn_rifle(
                 fire_sound: asset_server.load("flute.wav"),
                 charge_sound: asset_server.load("flute.wav"),
             },
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -131,6 +133,7 @@ pub fn spawn_rifle(
             AnimationPlayer::default(),
             WeaponAnimation(animation_index),
             ChildOf(body),
+            StateScoped(GameState::InGame),
         ))
         .add_child(rifle_barrel)
         .observe(on_rifle_fire)
@@ -230,14 +233,16 @@ fn charge_rifle(
     mut commands: Commands,
     mut rifle_barrels: Query<&mut Rifle>,
     fray: Query<&FrayMusic>,
-) -> Result {
-    let fray = fray.single()?;
+) {
     for mut rifle_barrel in rifle_barrels.iter_mut() {
         if !rifle_barrel.is_charging {
             continue;
         }
 
-        let beat = rifle_barrel.get_beat(fray);
+        let beat = fray
+            .single()
+            .map(|fray| rifle_barrel.get_beat(fray))
+            .unwrap_or_default();
         if rifle_barrel.charge < rifle_barrel.max_charge && rifle_barrel.last_beat != beat {
             rifle_barrel.charge += 1;
 
@@ -247,8 +252,8 @@ fn charge_rifle(
                 PlaybackSettings::DESPAWN.with_speed(2.0),
             ));
         }
-        rifle_barrel.update_last_beat(fray);
+        if let Ok(fray) = fray.single() {
+            rifle_barrel.update_last_beat(fray);
+        }
     }
-
-    Ok(())
 }

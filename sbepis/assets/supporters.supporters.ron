@@ -1,0 +1,60 @@
+(
+	names: [
+		Supporter (
+			name: "CampfireCollective",
+			tier: Captcha,
+		),
+		Supporter (
+			name: "Viri",
+			tier: Captcha,
+		),
+		Supporter (
+			name: "Conchors",
+			tier: Alchemiter,
+		),
+		Supporter (
+			name: "Marinik",
+			tier: Master,
+		),
+		Supporter (
+			name: "Thought Blob",
+			tier: Captcha,
+		),
+		Supporter (
+			name: "Colby Lawson",
+			tier: Alchemiter,
+		),
+		Supporter (
+			name: "Vee",
+			tier: Past,
+		),
+		Supporter (
+			name: "heartsRemedy",
+			tier: Past,
+		),
+		Supporter (
+			name: "Kirby",
+			tier: Past,
+		),
+		Supporter (
+			name: "ivysprout",
+			tier: Past,
+		),
+		Supporter (
+			name: "willofthestars",
+			tier: Past,
+		),
+		Supporter (
+			name: "Viridian",
+			tier: Past,
+		),
+		Supporter (
+			name: "FourPointedStar",
+			tier: Past,
+		),
+		Supporter (
+			name: "White Crow",
+			tier: Past,
+		),
+	]
+)

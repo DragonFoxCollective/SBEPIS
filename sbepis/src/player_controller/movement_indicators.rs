@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
+use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
@@ -33,7 +34,7 @@ pub struct MovementIndicatorsPlugin;
 pub struct SpeedIndicator;
 
 #[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
+	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_speed_indicator(mut commands: Commands) {
     commands
@@ -46,6 +47,7 @@ fn setup_speed_indicator(mut commands: Commands) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            StateScoped(GameState::InGame),
         ))
         .with_child((SpeedIndicator, Text::new("Speed: None")));
 }
@@ -56,22 +58,21 @@ fn setup_speed_indicator(mut commands: Commands) {
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
     player: Query<(&Transform, &Velocity), With<PlayerBody>>,
-) -> Result {
-    let (transform, velocity) = player.single()?;
+) {
+    let (transform, velocity) = ok_or_return!(player.single());
+    let mut indicator = ok_or_return!(indicator.single_mut());
     let speed = velocity.linvel.length();
     let local_speed = (transform.rotation.inverse() * velocity.linvel)
         .xz()
         .length();
-    let mut indicator = indicator.single_mut()?;
     indicator.0 = format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}");
-    Ok(())
 }
 
 #[derive(Component)]
 pub struct DebugState;
 
 #[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
+	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_debug_state(mut commands: Commands) {
     commands.spawn((
@@ -86,6 +87,7 @@ fn setup_debug_state(mut commands: Commands) {
         },
         DebugState,
         PlayerCameraNode,
+        StateScoped(GameState::InGame),
     ));
 }
 
@@ -127,8 +129,8 @@ fn check_states(
         With<PlayerBody>,
     >,
     mut debug_states: Query<&mut Text, With<DebugState>>,
-) -> Result {
-    let mut debug_state = debug_states.single_mut()?;
+) {
+    let mut debug_state = ok_or_return!(debug_states.single_mut());
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
@@ -163,7 +165,6 @@ fn check_states(
             .join("\n");
         debug_state.0 = has;
     }
-    Ok(())
 }
 
 #[add_system(

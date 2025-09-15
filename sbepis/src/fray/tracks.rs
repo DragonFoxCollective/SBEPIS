@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 use leafwing_input_manager::prelude::*;
-use soundyrust::MidiAudioTrackHandle;
+use soundyrust::{MidiAudio, MidiAudioTrackHandle};
 
 use crate::dialogue::spawn_dialogue;
 use crate::fray::FrayPlugin;
@@ -19,8 +19,10 @@ use crate::prelude::InteractedWith;
 
 #[derive(Resource)]
 pub struct FrayTracks {
+    pub midi: Handle<MidiAudio>,
     pub player: Track,
     pub imp: Track,
+    pub backing_track: MidiAudioTrackHandle,
     pub four_four: MidiAudioTrackHandle,
     pub six_eight: MidiAudioTrackHandle,
 }

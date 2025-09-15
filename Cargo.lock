@@ -535,7 +535,7 @@ dependencies = [
 [[package]]
 name = "bevy-butler"
 version = "0.6.2"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
+source = "git+https://github.com/jwright159/bevy-butler.git?branch=add_sub_state#8f237646ea73f01fe428466ee375cbd52be98151"
 dependencies = [
  "bevy-butler-proc-macro",
  "bevy_app",
@@ -549,7 +549,7 @@ dependencies = [
 [[package]]
 name = "bevy-butler-proc-macro"
 version = "0.6.2-alpha.2"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
+source = "git+https://github.com/jwright159/bevy-butler.git?branch=add_sub_state#8f237646ea73f01fe428466ee375cbd52be98151"
 dependencies = [
  "deluxe",
  "deluxe-core",
@@ -2411,7 +2411,7 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 [[package]]
 name = "deluxe"
 version = "0.5.0"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
+source = "git+https://github.com/jwright159/bevy-butler.git?branch=add_sub_state#8f237646ea73f01fe428466ee375cbd52be98151"
 dependencies = [
  "deluxe-core",
  "deluxe-macros",
@@ -2423,7 +2423,7 @@ dependencies = [
 [[package]]
 name = "deluxe-core"
 version = "0.5.0"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
+source = "git+https://github.com/jwright159/bevy-butler.git?branch=add_sub_state#8f237646ea73f01fe428466ee375cbd52be98151"
 dependencies = [
  "arrayvec",
  "proc-macro2",
@@ -2435,7 +2435,7 @@ dependencies = [
 [[package]]
 name = "deluxe-macros"
 version = "0.5.0"
-source = "git+https://github.com/TGRCdev/bevy-butler.git#4eca26421d275134e0adc907e8c851bdcf10823a"
+source = "git+https://github.com/jwright159/bevy-butler.git?branch=add_sub_state#8f237646ea73f01fe428466ee375cbd52be98151"
 dependencies = [
  "deluxe-core",
  "heck 0.4.1",
@@ -5400,6 +5400,7 @@ dependencies = [
  "bevy_panorbit_camera",
  "bevy_rapier3d",
  "bevy_skein",
+ "crossbeam-channel",
  "faker_rand",
  "image",
  "itertools 0.14.0",

@@ -17,15 +17,15 @@ pub struct Sprinting;
 	run_if = button_just_pressed(PlayerAction::Sprint),
 )]
 fn walking_to_sprinting(
-	players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
-	mut commands: Commands,
+    players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
+    mut commands: Commands,
 ) {
-	for player in players.iter() {
-		commands
-			.entity(player)
-			.remove::<Walking>()
-			.insert(Sprinting);
-	}
+    for player in players.iter() {
+        commands
+            .entity(player)
+            .remove::<Walking>()
+            .insert(Sprinting);
+    }
 }
 
 #[add_system(
@@ -34,13 +34,13 @@ fn walking_to_sprinting(
 	run_if = button_just_released(PlayerAction::Sprint),
 )]
 fn sprinting_to_walking(
-	players: Query<Entity, (With<PlayerBody>, With<Sprinting>)>,
-	mut commands: Commands,
+    players: Query<Entity, (With<PlayerBody>, With<Sprinting>)>,
+    mut commands: Commands,
 ) {
-	for player in players.iter() {
-		commands
-			.entity(player)
-			.remove::<Sprinting>()
-			.insert(Walking);
-	}
+    for player in players.iter() {
+        commands
+            .entity(player)
+            .remove::<Sprinting>()
+            .insert(Walking);
+    }
 }

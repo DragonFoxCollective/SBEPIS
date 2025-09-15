@@ -8,6 +8,7 @@ use bevy::render::mesh::CapsuleUvProfile;
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::weapons::{DamageSweep, EndDamageSweep, SweepPivot, WeaponAnimation};
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct SwordPivot {
@@ -147,6 +148,7 @@ pub fn spawn_sword(
                 right_attack_index,
                 asset_server.load("whoosh.mp3"),
             ),
+            StateScoped(GameState::InGame),
         ))
         .id();
 
@@ -165,6 +167,7 @@ pub fn spawn_sword(
             AnimationPlayer::default(),
             WeaponAnimation(left_attack_index),
             ChildOf(body),
+            StateScoped(GameState::InGame),
         ))
         .add_child(sword_blade)
         .observe(on_sword_start)

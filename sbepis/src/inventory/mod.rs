@@ -6,11 +6,12 @@ use screen::*;
 use crate::menus::{MenuManipulationSet, OpenMenuBinding};
 use crate::player_controller::PlayerAction;
 use crate::player_controller::camera_controls::InteractedWithSet;
+use crate::prelude::*;
 
 mod screen;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct InventoryPlugin;
 
 #[derive(Component, Default)]

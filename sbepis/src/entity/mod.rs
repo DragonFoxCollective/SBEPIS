@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 
+use crate::prelude::*;
+
 pub use self::health::{GelViscosity, Healing, SpawnHealthBar};
 pub use self::movement::{Movement, RandomInput, RotateTowardMovement, TargetPlayer};
 pub use self::orientation::GravityOrientation;
@@ -11,7 +13,7 @@ pub mod orientation;
 pub mod spawner;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct EntityPlugin;
 
 #[derive(Event)]
