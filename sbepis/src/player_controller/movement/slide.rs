@@ -129,25 +129,6 @@ fn sliding_to_standing_or_walking(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::DoHorizontalMovement,
-)]
-fn no_air_sliding(
-    mut players: Query<(Entity, Has<Grounded>, &Velocity), With<Sliding>>,
-    mut commands: Commands,
-) {
-    for (player, grounded, velocity) in players.iter_mut() {
-        if grounded {
-            commands
-                .entity(player)
-                .insert_if_new(Movement(velocity.linvel));
-        } else {
-            commands.entity(player).remove::<Movement>();
-        }
-    }
-}
-
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn readd_movement(
     trigger: Trigger<OnRemove, Sliding>,
@@ -166,7 +147,6 @@ fn readd_movement(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::DoHorizontalMovement,
 	before = ExecuteMovementSet,
-	after = no_air_sliding,
 )]
 fn update_slide_velocity(
     mut players: Query<
