@@ -15,6 +15,7 @@ debug = [
 	"terminal",
 	"movement_indicators",
 	"framerate_indicator",
+	"skip_main_menu",
 ]
 default = []
 inspector = [
@@ -28,6 +29,7 @@ terminal = []
 rapier_debug = []
 movement_indicators = []
 framerate_indicator = []
+skip_main_menu = []
 
 [dependencies]
 bevy = { version = "0.16.0", features = ["wav", "mp3", "wayland"] }

@@ -21,6 +21,12 @@ pub enum GameState {
     InGame,
 }
 
+#[cfg(feature = "skip_main_menu")]
+#[add_system(plugin = MainMenuPlugin, schedule = Startup)]
+fn insert_game_state(mut next_state: ResMut<NextState<GameState>>) {
+    next_state.set(GameState::InGame);
+}
+
 #[add_sub_state(plugin = MainMenuPlugin)]
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
 #[source(GameState = GameState::MainMenu)]
