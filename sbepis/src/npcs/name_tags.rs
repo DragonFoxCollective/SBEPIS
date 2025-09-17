@@ -282,7 +282,7 @@ fn load_names(
     mut candy_materials: ResMut<Assets<CandyMaterial>>,
 ) -> Result {
     commands.insert_resource(NameTagAssets {
-        names: asset_server.load("supporters.names.ron"),
+        names: asset_server.load("supporters.supporters.ron"),
         generated_material: materials.add(Color::srgb(0.4, 0.4, 0.4)),
 
         past_material: materials.add(Color::WHITE),
