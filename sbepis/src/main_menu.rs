@@ -65,6 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
         StateScoped(GameState::MainMenu),
         PlayerCamera,
         ChunkLoader::<DesertWorldGen>::new(10),
+        PostProcessSettings { intensity: 0.02 },
     ));
 
     commands.spawn((

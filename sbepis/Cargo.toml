@@ -15,7 +15,7 @@ debug = [
 	"terminal",
 	"movement_indicators",
 	"framerate_indicator",
-	"skip_main_menu",
+	# "skip_main_menu",
 ]
 default = []
 inspector = [

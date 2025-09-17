@@ -28,6 +28,7 @@ mod npcs;
 mod overview_camera;
 mod player_commands;
 mod player_controller;
+mod post_processing;
 mod questing;
 mod skybox;
 pub mod util;
@@ -42,6 +43,7 @@ mod prelude {
     pub use crate::player_controller::camera_controls::{
         InteractedWith, InteractedWithSet, interact_with,
     };
+    pub use crate::post_processing::PostProcessSettings;
 }
 
 fn main() {

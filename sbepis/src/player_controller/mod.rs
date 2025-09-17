@@ -120,6 +120,7 @@ fn setup(
             Pitch(0.0),
             SpatialListener::new(-0.25),
             StateScoped(GameState::InGame),
+            // PostProcessSettings { intensity: 0.02 },
         ))
         .id();
 
