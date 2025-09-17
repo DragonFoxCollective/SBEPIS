@@ -2,7 +2,6 @@ use crate::prelude::*;
 use bevy_butler::*;
 
 pub mod desert;
-pub mod low_lod;
 pub mod terrain;
 
 #[butler_plugin]

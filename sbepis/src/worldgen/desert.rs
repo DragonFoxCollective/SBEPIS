@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkMaterial,
+    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache, ChunkMaterial,
 };
 use bevy_marching_cubes::{
     AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
@@ -21,10 +21,10 @@ use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
 #[insert_resource(
 	plugin = DesertWorldGenPlugin, generics = <DesertWorldGen>,
-	init = ChunkGenerator::<DesertWorldGen>::new(50, 50.0)
+	init = ChunkGeneratorSettings::<DesertWorldGen>::new(50, 50.0)
 		.with_bounds(vec3(-50.0, -50.0, -50.0), vec3(1100.0, 50.0, 1100.0))
 )]
-use bevy_marching_cubes::chunk_generator::ChunkGenerator;
+use bevy_marching_cubes::chunk_generator::ChunkGeneratorSettings;
 
 #[derive(TypePath)]
 pub struct DesertWorldGen;
@@ -117,6 +117,17 @@ fn place_poi_structures(
         commands.spawn((
             SceneRoot(poi_structure.clone()),
             Transform::from_translation(*position).with_rotation(Quat::from_rotation_y(PI)),
+            StateScoped(GameState::MainMenu),
         ));
     }
+}
+
+#[add_system(plugin = DesertWorldGenPlugin, schedule = OnEnter(GameState::MainMenu))]
+fn add_cache(mut commands: Commands) {
+    commands.init_resource::<ChunkGeneratorCache<DesertWorldGen>>();
+}
+
+#[add_system(plugin = DesertWorldGenPlugin, schedule = OnExit(GameState::MainMenu))]
+fn remove_cache(mut commands: Commands) {
+    commands.remove_resource::<ChunkGeneratorCache<DesertWorldGen>>();
 }

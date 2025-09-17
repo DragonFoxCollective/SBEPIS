@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkMaterial,
+    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache, ChunkMaterial,
 };
 use bevy_marching_cubes::{
     AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
@@ -21,10 +21,10 @@ use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
 #[insert_resource(
 	plugin = TerrainWorldGenPlugin, generics = <WorldGen>,
-	init = ChunkGenerator::<WorldGen>::new(50, 50.0)
+	init = ChunkGeneratorSettings::<WorldGen>::new(50, 50.0)
 		.with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0))
 )]
-use bevy_marching_cubes::chunk_generator::ChunkGenerator;
+use bevy_marching_cubes::chunk_generator::ChunkGeneratorSettings;
 
 #[derive(TypePath)]
 pub struct WorldGen;
@@ -89,14 +89,15 @@ struct FinalizedChunk;
 #[derive(Component, Debug)]
 struct SleepingFromUnloaded;
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems, run_if = in_state(GameState::InGame))]
 fn sleep_unloaded_entities(
     mut commands: Commands,
     sleeping_entities: Query<(Entity, &GlobalTransform, &RigidBody), Without<SleepingFromUnloaded>>,
-    chunks: Res<ChunkGenerator<WorldGen>>,
+    settings: Res<ChunkGeneratorSettings<WorldGen>>,
+    cache: Res<ChunkGeneratorCache<WorldGen>>,
 ) {
     for (entity, transform, rigidbody) in sleeping_entities.iter() {
-        if !chunks.is_chunk_with_position_generated(transform.translation())
+        if !cache.is_chunk_with_position_generated(&settings, transform.translation())
             && *rigidbody == RigidBody::Dynamic
         {
             commands
@@ -107,14 +108,15 @@ fn sleep_unloaded_entities(
     }
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems, run_if = in_state(GameState::InGame))]
 fn wake_loaded_entities(
     mut commands: Commands,
     sleeping_entities: Query<(Entity, &GlobalTransform), With<SleepingFromUnloaded>>,
-    chunks: Res<ChunkGenerator<WorldGen>>,
+    settings: Res<ChunkGeneratorSettings<WorldGen>>,
+    cache: Res<ChunkGeneratorCache<WorldGen>>,
 ) {
     for (entity, transform) in sleeping_entities.iter() {
-        if chunks.is_chunk_with_position_generated(transform.translation()) {
+        if cache.is_chunk_with_position_generated(&settings, transform.translation()) {
             commands
                 .entity(entity)
                 .insert(RigidBody::Dynamic)
@@ -179,6 +181,17 @@ fn place_poi_structures(
                 Vec3::Y,
                 (*position - Vec3::NEG_Y * 1000.0).normalize(),
             )),
+            StateScoped(GameState::InGame),
         ));
     }
+}
+
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
+fn add_cache(mut commands: Commands) {
+    commands.init_resource::<ChunkGeneratorCache<WorldGen>>();
+}
+
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = OnExit(GameState::InGame))]
+fn remove_cache(mut commands: Commands) {
+    commands.remove_resource::<ChunkGeneratorCache<WorldGen>>();
 }

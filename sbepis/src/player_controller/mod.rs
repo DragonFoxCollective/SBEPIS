@@ -17,7 +17,6 @@ use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
 use crate::prelude::*;
-use crate::worldgen::low_lod::LowLODWorldGen;
 use crate::worldgen::terrain::WorldGen;
 
 use self::camera_controls::*;
@@ -143,7 +142,6 @@ fn setup(
                 mesh,
             },
             ChunkLoader::<WorldGen>::new(3),
-            ChunkLoader::<LowLODWorldGen>::new(5),
             Ccd::enabled(),
             StateScoped(GameState::InGame),
         ))
