@@ -43,10 +43,10 @@ fn main(
 fn sample_noise(coord: vec3f) -> f32 {
 	let radius = 1000.0;
 	let actual_coord = coord + vec3f(0.0, radius, 0.0);
-	let height = length(actual_coord) - radius;
+	let height_coord = length(actual_coord) - radius; // 0 at sea level
 	let surface_coord = normalize(actual_coord) * radius;
-
-	let height_density = sample_height(surface_coord * 0.003) * 250 - 150 - height;
+	let sampled_height = sample_height(surface_coord); // 0 at sea level
+	let height_density = sampled_height - height_coord;
 
 	let cheese_caves = fbm(coord * 0.01) + 0.5;
 
@@ -57,17 +57,22 @@ fn sample_noise(coord: vec3f) -> f32 {
 	var poi_platforms = -1.0e38;
 	for (var i = 0u; i < 6; i++) {
 		if poi_positions_final[i].x == 0.0 && poi_positions_final[i].y == 0.0 && poi_positions_final[i].z == 0.0 {
-			let poi_surface_position = normalize(poi_positions[i] + vec3f(0.0, radius, 0.0)) * radius;
-			let poi_height = sample_height(poi_surface_position * 0.003) * 250 - 150 + radius;
-			poi_positions_final[i] = poi_surface_position / radius * poi_height - vec3f(0.0, radius, 0.0);
+			let poi_actual_coord = poi_positions[i] + vec3f(0.0, radius, 0.0);
+			let poi_height_coord = length(poi_actual_coord) - radius; // 0 at sea level
+			let poi_surface_coord = normalize(poi_actual_coord) * radius;
+			let poi_sampled_height = sample_height(poi_surface_coord);  // 0 at sea level
+			poi_positions_final[i] = normalize(poi_actual_coord) * (poi_sampled_height + radius) - vec3f(0.0, radius, 0.0);
 		}
 		
-		let relative_y = height - poi_positions_final[i].y;
-		if length(coord.xz - poi_positions_final[i].xz) < 10.0 && relative_y < 5.0 {
-			if relative_y > 0.0 {
-				poi_platforms = -1.0 + fbm(coord * 0.001) * 0.01;
-			} else if relative_y > -2.0 {
-				poi_platforms = 1.0 + fbm(coord * 0.001) * 0.01;
+		{
+			let poi_actual_coord = poi_positions_final[i] + vec3f(0.0, radius, 0.0);
+			let poi_surface_coord = normalize(poi_actual_coord) * radius;
+			let poi_height_coord = length(poi_actual_coord) - radius; // 0 at sea level
+
+			let relative_surface_coord = surface_coord - poi_surface_coord;
+			let relative_height = height_coord - poi_height_coord;
+			if length(relative_surface_coord) < 10.0 && relative_height < 5.0 && relative_height > -2.0 {
+				poi_platforms = -relative_height + fbm(coord * 0.001) * 0.01;
 			}
 		}
 	}
@@ -83,12 +88,14 @@ fn sample_noise(coord: vec3f) -> f32 {
 }
 
 fn sample_height(coord: vec3f) -> f32 {
-	let fbm_noise = fbm(coord) * 0.5 + 0.5;
-	let worley_noise = worley(coord);
+	let scaled_coord = coord * 0.003;
+	let fbm_noise = fbm(scaled_coord) * 0.5 + 0.5;
+	let worley_noise = worley(scaled_coord);
 	let edge_dist = distanceToEdge(worley_noise);
 	let sea_level = 0.39;
 	let cool_edge_dist = pow(edge_dist, 3.45) * 100 + sea_level;
 	let rivers = min(fbm_noise, cool_edge_dist);
 	let seas = select(rivers, sea_level, worley_noise.cell < 0.29);
-	return seas;
+	let final_height = seas * 250 - 150;
+	return final_height;
 }
