@@ -190,8 +190,9 @@ fn update_trying_to_ground_parry(
     for (player, mut trying_to_ground_parry) in players.iter_mut() {
         trying_to_ground_parry.duration += time.delta();
         debug!(
-            "Trying to ground parry: {:.2?}",
-            trying_to_ground_parry.duration.as_secs_f32()
+            "Trying to ground parry: {:.2?} / {:.2?}",
+            trying_to_ground_parry.duration.as_secs_f32(),
+            coyote_time_settings.input_buffer_time.as_secs_f32()
         );
         if trying_to_ground_parry.duration >= coyote_time_settings.input_buffer_time {
             commands.entity(player).remove::<TryingToGroundParry>();
