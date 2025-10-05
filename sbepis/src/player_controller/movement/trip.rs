@@ -207,13 +207,19 @@ fn update_trying_to_ground_parry(
 )]
 fn ground_parry(
     mut players: Query<
-        (Entity, &mut Movement, &Transform, &mut Stamina),
+        (
+            Entity,
+            &mut Movement,
+            &Transform,
+            &mut Stamina,
+            &mut Velocity,
+        ),
         (With<TryingToGroundParry>, With<TripRecoverOnGround>),
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
 ) {
-    for (player, mut movement, transform, mut stamina) in players.iter_mut() {
+    for (player, mut movement, transform, mut stamina, mut velocity) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
 
         stamina.current += trip_settings.ground_parry_stamina_gain;
@@ -224,7 +230,10 @@ fn ground_parry(
             .remove::<TripRecoverOnGround>()
             .insert(Sliding::default());
 
-        movement.0 += transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+        let ground_parry_velocity =
+            transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+        movement.0 += ground_parry_velocity;
+        velocity.linvel += ground_parry_velocity;
     }
 }
 
