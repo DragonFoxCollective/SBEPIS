@@ -69,6 +69,21 @@ pub struct TryingToGroundParry {
     pub duration: Duration,
 }
 
+#[derive(Component)]
+pub struct HitStop {
+    pub duration: Duration,
+    pub velocity: Vec3,
+    pub movement: Vec3,
+}
+
+#[insert_resource(plugin = PlayerControllerPlugin, init = HitStopSettings {
+	ground_parry_duration: Duration::from_secs_f32(0.1),
+})]
+#[derive(Resource)]
+pub struct HitStopSettings {
+    pub ground_parry_duration: Duration,
+}
+
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::UpdateState,
@@ -220,6 +235,7 @@ fn ground_parry(
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
     parry_sound: Res<ParrySound>,
+    hit_stop_settings: Res<HitStopSettings>,
 ) {
     for (player, mut movement, transform, mut stamina, mut velocity) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
@@ -241,6 +257,12 @@ fn ground_parry(
             Name::new("Parry Sound"),
             AudioPlayer::new(parry_sound.0.clone()),
         ));
+
+        commands.entity(player).insert(HitStop {
+            duration: hit_stop_settings.ground_parry_duration,
+            velocity: velocity.linvel,
+            movement: movement.0,
+        });
     }
 }
 
@@ -290,4 +312,40 @@ pub struct ParrySound(pub Handle<AudioSource>);
 #[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(ParrySound(asset_server.load("parry-ultrakill.mp3")));
+}
+
+#[add_system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	before = MovementControlSet::DoHorizontalMovement,
+	before = MovementControlSet::DoVerticalMovement,
+	after = MovementControlSet::UpdateState,
+)]
+fn hit_stop_reset(mut players: Query<(&mut Movement, &mut Velocity), With<HitStop>>) {
+    for (mut movement, mut velocity) in players.iter_mut() {
+        movement.0 = Vec3::ZERO;
+        velocity.linvel = Vec3::ZERO;
+    }
+}
+
+#[add_system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	after = MovementControlSet::DoHorizontalMovement,
+	after = MovementControlSet::DoVerticalMovement,
+)]
+fn hit_stop_update(
+    mut players: Query<(Entity, &mut HitStop, &mut Movement, &mut Velocity)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (entity, mut hit_stop, mut movement, mut velocity) in players.iter_mut() {
+        if let Some(new_duration) = hit_stop.duration.checked_sub(time.delta()) {
+            movement.0 = Vec3::ZERO;
+            velocity.linvel = Vec3::ZERO;
+            hit_stop.duration = new_duration;
+        } else {
+            movement.0 = hit_stop.movement;
+            velocity.linvel = hit_stop.velocity;
+            commands.entity(entity).remove::<HitStop>();
+        }
+    }
 }
