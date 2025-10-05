@@ -218,6 +218,7 @@ fn ground_parry(
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
+    parry_sound: Res<ParrySound>,
 ) {
     for (player, mut movement, transform, mut stamina, mut velocity) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
@@ -234,6 +235,11 @@ fn ground_parry(
             transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
         movement.0 += ground_parry_velocity;
         velocity.linvel += ground_parry_velocity;
+
+        commands.spawn((
+            Name::new("Parry Sound"),
+            AudioPlayer::new(parry_sound.0.clone()),
+        ));
     }
 }
 
@@ -275,4 +281,12 @@ fn walking_too_fast_to_tripping(
                 gravity.up * trip_settings.upward_speed,
             ));
     }
+}
+
+#[derive(Resource)]
+pub struct ParrySound(pub Handle<AudioSource>);
+
+#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(ParrySound(asset_server.load("parry-ultrakill.mp3")));
 }
