@@ -77,10 +77,12 @@ pub struct MenuStack {
 impl MenuStack {
     pub fn push(&mut self, menu: Entity) {
         self.stack.push(menu);
+        debug!("Pushed menu {menu:?}, stack is now {self:?}");
     }
 
     pub fn remove(&mut self, menu: Entity) {
         self.stack.retain(|&entity| entity != menu);
+        debug!("Removed menu {menu:?}, stack is now {self:?}");
     }
 
     pub fn contains(&self, menu: Entity) -> bool {
