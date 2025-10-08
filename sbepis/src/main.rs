@@ -5,10 +5,11 @@ use std::io::Cursor;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
-use bevy::winit::WinitWindows;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use winit::window::Icon;
+
+use crate::gravity::{GravityPoint, GravityPriority};
 
 mod blenvy;
 mod camera;
@@ -100,7 +101,7 @@ use bevy_hanabi::HanabiPlugin;
 #[add_system(
 	plugin = SbepisPlugin, schedule = Startup,
 )]
-fn set_window_icon(windows: NonSend<WinitWindows>) -> Result {
+fn set_window_icon() -> Result {
     let icon_buf = Cursor::new(include_bytes!("../assets/house.png"));
     let image = image::load(icon_buf, image::ImageFormat::Png)?;
     let image = image.into_rgba8();
@@ -108,9 +109,11 @@ fn set_window_icon(windows: NonSend<WinitWindows>) -> Result {
     let rgba = image.into_raw();
     let icon = Icon::from_rgba(rgba, width, height)?;
 
-    for window in windows.windows.values() {
-        window.set_window_icon(Some(icon.clone()));
-    }
+    bevy::winit::WINIT_WINDOWS.with_borrow_mut(|windows| {
+        for window in windows.windows.values() {
+            window.set_window_icon(Some(icon.clone()));
+        }
+    });
 
     Ok(())
 }
@@ -193,7 +196,6 @@ fn exit(mut exit: MessageWriter<AppExit>) {
     exit.write(AppExit::Success);
 }
 
-use crate::gravity::{GravityPoint, GravityPriority};
 use crate::prelude::GameState;
 #[add_system(
 	plugin = SbepisPlugin, schedule = Update,
