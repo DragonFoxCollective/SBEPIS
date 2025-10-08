@@ -1,12 +1,14 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationTarget, AnimationTargetId, animated_field};
+use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
+use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
+use bevy_butler::*;
 
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
+use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::weapons::{DamageSweep, EndDamageSweep, SweepPivot, WeaponAnimation};
 use crate::prelude::*;
 
@@ -91,7 +93,7 @@ pub fn spawn_hammer(
                 woosh_sound: asset_server.load("whoosh.mp3"),
                 smash_sound: asset_server.load("concrete_break3.wav"),
             },
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -109,11 +111,9 @@ pub fn spawn_hammer(
             AnimationPlayer::default(),
             WeaponAnimation(animation_index),
             ChildOf(body),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .add_child(hammer_head)
-        .observe(on_hammer_start)
-        .observe(on_hammer_smash)
         .id();
     commands.entity(hammer_pivot).insert(AnimationTarget {
         id: hammer_pivot_id,
@@ -123,19 +123,20 @@ pub fn spawn_hammer(
     (hammer_pivot, hammer_head)
 }
 
-#[derive(Event, Clone, Copy)]
+#[derive(AnimationEvent, Clone)]
 struct HammerStart;
 
-#[derive(Event, Clone, Copy)]
+#[derive(AnimationEvent, Clone)]
 struct HammerSmash;
 
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn on_hammer_start(
-    trigger: Trigger<HammerStart>,
+    start: On<HammerStart>,
     hammer_pivots: Query<&HammerPivot>,
     hammers: Query<(&Hammer, &GlobalTransform)>,
     mut commands: Commands,
 ) -> Result {
-    let hammer_pivot_entity = trigger.target();
+    let hammer_pivot_entity = start.trigger().animation_player;
     let hammer_pivot = hammer_pivots.get(hammer_pivot_entity)?;
     let hammer_head_entity = hammer_pivot.head;
     let (hammer, transform) = hammers.get(hammer_head_entity)?;
@@ -156,14 +157,15 @@ fn on_hammer_start(
     Ok(())
 }
 
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn on_hammer_smash(
-    trigger: Trigger<HammerSmash>,
+    smash: On<HammerSmash>,
     hammer_pivots: Query<&HammerPivot>,
     hammers: Query<&Hammer>,
     fray: Query<&FrayMusic>,
     mut commands: Commands,
 ) -> Result {
-    let hammer_pivot_entity = trigger.target();
+    let hammer_pivot_entity = smash.trigger().animation_player;
     let hammer_pivot = hammer_pivots.get(hammer_pivot_entity)?;
     let hammer_head_entity = hammer_pivot.head;
     let hammer = hammers.get(hammer_head_entity)?;

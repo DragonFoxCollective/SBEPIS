@@ -4,7 +4,7 @@ use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy_butler::*;
 
-use crate::entity::{EntityKilled, EntityKilledSet, EntityPlugin};
+use crate::entity::{EntityKilledSet, EntityPlugin, Kill};
 
 #[derive(Component)]
 pub struct Spawner {
@@ -14,9 +14,9 @@ pub struct Spawner {
     pub entities: HashSet<Entity>,
 }
 
-#[derive(Event)]
-#[add_event(plugin = EntityPlugin)]
-pub struct SpawnerActivated {
+#[derive(Message)]
+#[add_message(plugin = EntityPlugin)]
+pub struct ActivateSpawner {
     pub entity: Entity,
     pub spawner: Entity,
     pub position: Vec3,
@@ -24,13 +24,13 @@ pub struct SpawnerActivated {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SpawnerActivatedSet;
 
-#[derive(Event)]
-#[add_event(plugin = EntityPlugin)]
-pub struct EntitySpawned {
+#[derive(Message)]
+#[add_message(plugin = EntityPlugin)]
+pub struct Spawn {
     pub _entity: Entity,
 }
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntitySpawnedSet;
+pub struct SpawnSystems;
 
 #[add_system(
 	plugin = EntityPlugin, schedule = Update,
@@ -39,7 +39,7 @@ pub struct EntitySpawnedSet;
 fn spawn_entities(
     mut spawners: Query<(Entity, &mut Spawner, &GlobalTransform)>,
     time: Res<Time>,
-    mut ev_spawned: EventWriter<SpawnerActivated>,
+    mut activate_spawner: MessageWriter<ActivateSpawner>,
     mut commands: Commands,
 ) {
     for (spawner_entity, mut spawner, transform) in spawners.iter_mut() {
@@ -50,7 +50,7 @@ fn spawn_entities(
             let entity = commands.spawn_empty().id();
             spawner.entities.insert(entity);
             spawner.spawn_timer = Duration::ZERO;
-            ev_spawned.write(SpawnerActivated {
+            activate_spawner.write(ActivateSpawner {
                 entity,
                 spawner: spawner_entity,
                 position: transform.translation(),
@@ -63,8 +63,8 @@ fn spawn_entities(
 	plugin = EntityPlugin, schedule = Update,
 	in_set = EntityKilledSet,
 )]
-fn remove_entity(mut spawners: Query<&mut Spawner>, mut ev_killed: EventReader<EntityKilled>) {
-    for killed in ev_killed.read() {
+fn remove_entity(mut spawners: Query<&mut Spawner>, mut kill: MessageReader<Kill>) {
+    for killed in kill.read() {
         for mut spawner in spawners.iter_mut() {
             spawner.entities.remove(&killed.0);
         }

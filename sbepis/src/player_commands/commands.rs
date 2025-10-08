@@ -3,31 +3,31 @@ use bevy_butler::*;
 use return_ok::some_or_return;
 use soundyrust::Note;
 
-use crate::player_commands::{NotePlayedSet, NotesCleared, NotesClearedSet, PlayerCommandsPlugin};
+use crate::player_commands::{ClearNotes, NotePlayedSet, NotesClearedSet, PlayerCommandsPlugin};
 
-use crate::player_commands::notes::NotePlayed;
+use crate::player_commands::notes::PlayNote;
 
 #[add_system(
 	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <PingCommandEvent>,
+	generics = <PingCommandMessage>,
 	in_set = CommandSentSet,
-	run_if = on_event::<NotePlayed>,
+	run_if = on_message::<PlayNote>,
 )]
 #[add_system(
 	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <KillCommandEvent>,
+	generics = <KillCommandMessage>,
 	in_set = CommandSentSet,
-	run_if = on_event::<NotePlayed>,
+	run_if = on_message::<PlayNote>,
 )]
-fn check_note_patterns<T: Event + NotePatternEvent>(
+fn check_note_patterns<T: Message + NotePatternMessage>(
     note_holder: Res<NotePatternPlayer>,
-    mut ev_command: EventWriter<T>,
-    mut ev_command_sent: EventWriter<CommandSent>,
+    mut command: MessageWriter<T>,
+    mut send_command: MessageWriter<SendCommand>,
 ) {
     let event = T::compare_notes(note_holder.current_pattern.as_slice());
     let event = some_or_return!(event);
-    ev_command.write(event);
-    ev_command_sent.write(CommandSent);
+    command.write(event);
+    send_command.write(SendCommand);
 }
 
 #[derive(Resource, Default)]
@@ -36,9 +36,9 @@ pub struct NotePatternPlayer {
     pub current_pattern: Vec<Note>,
 }
 
-#[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct CommandSent;
+#[derive(Message)]
+#[add_message(plugin = PlayerCommandsPlugin)]
+pub struct SendCommand;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CommandSentSet;
 
@@ -49,9 +49,9 @@ pub struct CommandSentSet;
 )]
 fn add_note_to_player(
     mut player: ResMut<NotePatternPlayer>,
-    mut ev_note_played: EventReader<NotePlayed>,
+    mut play_note: MessageReader<PlayNote>,
 ) {
-    for ev in ev_note_played.read() {
+    for ev in play_note.read() {
         player.current_pattern.push(ev.note);
     }
 }
@@ -59,13 +59,13 @@ fn add_note_to_player(
 #[add_system(
 	plugin = PlayerCommandsPlugin, schedule = Update,
 	after = NotesClearedSet,
-	run_if = on_event::<NotesCleared>,
+	run_if = on_message::<ClearNotes>,
 )]
 fn clear_player_notes(mut player: ResMut<NotePatternPlayer>) {
     player.current_pattern.clear();
 }
 
-pub trait NotePatternEvent {
+pub trait NotePatternMessage {
     fn compare_notes(notes: &[Note]) -> Option<Self>
     where
         Self: Sized;
@@ -108,21 +108,21 @@ impl NoteSequenceTyped<bool> for &[Note] {
     }
 }
 
-#[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct PingCommandEvent;
+#[derive(Message)]
+#[add_message(plugin = PlayerCommandsPlugin)]
+pub struct PingCommandMessage;
 
-impl PingCommandEvent {
+impl PingCommandMessage {
     const PATTERN: &'static [Note] = &[Note::C4, Note::D4, Note::E4];
 }
 
-impl NotePatternEvent for PingCommandEvent {
+impl NotePatternMessage for PingCommandMessage {
     fn compare_notes(notes: &[Note]) -> Option<Self>
     where
         Self: Sized,
     {
-        let _notes = notes.eat(PingCommandEvent::PATTERN)?;
-        Some(PingCommandEvent)
+        let _notes = notes.eat(PingCommandMessage::PATTERN)?;
+        Some(PingCommandMessage)
     }
 }
 
@@ -131,11 +131,11 @@ impl NotePatternEvent for PingCommandEvent {
 	after = CommandSentSet,
 )]
 fn ping(
-    mut ev_ping: EventReader<PingCommandEvent>,
+    mut ping: MessageReader<PingCommandMessage>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    for _ in ev_ping.read() {
+    for _ in ping.read() {
         commands.spawn((
             AudioPlayer::new(asset_server.load("pester_notif.mp3")),
             PlaybackSettings::DESPAWN,
@@ -143,22 +143,22 @@ fn ping(
     }
 }
 
-#[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct KillCommandEvent(pub bool);
+#[derive(Message)]
+#[add_message(plugin = PlayerCommandsPlugin)]
+pub struct KillCommandMessage(pub bool);
 
-impl KillCommandEvent {
+impl KillCommandMessage {
     const PATTERN: &'static [Note] = &[Note::D4, Note::D4, Note::D5];
 }
 
-impl NotePatternEvent for KillCommandEvent {
+impl NotePatternMessage for KillCommandMessage {
     fn compare_notes(notes: &[Note]) -> Option<Self>
     where
         Self: Sized,
     {
-        let notes = notes.eat(KillCommandEvent::PATTERN)?;
+        let notes = notes.eat(KillCommandMessage::PATTERN)?;
         let (actually_kill, _notes) = notes.eat_type()?;
-        Some(KillCommandEvent(actually_kill))
+        Some(KillCommandMessage(actually_kill))
     }
 }
 
@@ -166,11 +166,11 @@ impl NotePatternEvent for KillCommandEvent {
 	plugin = PlayerCommandsPlugin, schedule = Update,
 	after = CommandSentSet,
 )]
-fn kill(mut ev_kill: EventReader<KillCommandEvent>, mut ev_quit: EventWriter<AppExit>) {
-    for ev in ev_kill.read() {
+fn kill(mut kill: MessageReader<KillCommandMessage>, mut exit: MessageWriter<AppExit>) {
+    for ev in kill.read() {
         debug!("Tried to kill {}", ev.0);
         if ev.0 {
-            ev_quit.write(AppExit::Success);
+            exit.write(AppExit::Success);
         }
     }
 }

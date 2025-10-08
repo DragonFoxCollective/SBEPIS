@@ -22,7 +22,6 @@ use bevy_skein::SkeinPlugin;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub struct MeshColliderBlundle;
 
 #[add_system(
@@ -58,7 +57,6 @@ fn create_mesh_collider(
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub struct PlanetBlundle {
     pub radius: f32,
     pub gravity: f32,
@@ -82,7 +80,6 @@ fn create_planet(scenes: Query<(Entity, &PlanetBlundle)>, mut commands: Commands
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub struct BoxBlundle;
 
 #[add_system(
@@ -106,7 +103,6 @@ fn create_box(scenes: Query<Entity, With<BoxBlundle>>, mut commands: Commands) {
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub enum SpawnerBlundle {
     Imp,
     Consort,

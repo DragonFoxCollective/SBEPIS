@@ -7,7 +7,7 @@ use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
 use return_ok::ok_or_return;
 
-use crate::entity::{EntityKilled, EntityKilledSet, GelViscosity};
+use crate::entity::{EntityKilledSet, GelViscosity, Kill};
 use crate::fray::FrayMusic;
 use crate::input::button_just_pressed;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
@@ -17,9 +17,9 @@ pub mod hammer;
 pub mod rifle;
 pub mod sword;
 
-#[derive(Event)]
-#[add_event(plugin = PlayerControllerPlugin)]
-pub struct EntityHit {
+#[derive(Message)]
+#[add_message(plugin = PlayerControllerPlugin)]
+pub struct Hit {
     pub victim: Entity,
     pub perpetrator: Entity,
     pub allies: EntityHashSet,
@@ -27,11 +27,11 @@ pub struct EntityHit {
     pub fray_modifier: f32,
 }
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntityHitSet;
+pub struct HitSystems;
 
-#[derive(Event)]
-#[add_event(plugin = PlayerControllerPlugin)]
-pub struct EntityDamaged {
+#[derive(Message)]
+#[add_message(plugin = PlayerControllerPlugin)]
+pub struct Damage {
     pub victim: Entity,
     pub damage: f32,
     pub fray_modifier: f32,
@@ -135,7 +135,7 @@ fn correct_animation_speed(
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = EntityHitSet,
+	in_set = HitSystems,
 )]
 fn sweep_dealers(
     mut commands: Commands,
@@ -148,7 +148,7 @@ fn sweep_dealers(
     pivots: Query<(&SweepPivot, &GlobalTransform), Without<DamageSweep>>,
     rapier_context: ReadRapierContext,
     debug_collider_visualizers: Query<Entity, With<DebugColliderVisualizer>>,
-    mut ev_hit: EventWriter<EntityHit>,
+    mut hit: MessageWriter<Hit>,
 ) -> Result {
     let rapier_context = rapier_context.single()?;
     for (dealer_entity, mut dealer, end, transform) in dealers.iter_mut() {
@@ -192,7 +192,7 @@ fn sweep_dealers(
 
         if let Some(end) = end {
             for entity in dealer.hit_entities.iter() {
-                ev_hit.write(EntityHit {
+                hit.write(Hit {
                     victim: *entity,
                     perpetrator: dealer.owner,
                     allies: dealer.allies.clone(),
@@ -213,19 +213,19 @@ fn sweep_dealers(
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	after = EntityHitSet,
+	after = HitSystems,
 	in_set = EntityDamagedSet,
 )]
 fn hit_to_damage(
     parents: Query<&ChildOf>,
     healths: Query<Entity, With<GelViscosity>>,
-    mut ev_hit: EventReader<EntityHit>,
-    mut ev_damage: EventWriter<EntityDamaged>,
+    mut hit: MessageReader<Hit>,
+    mut damage: MessageWriter<Damage>,
 ) {
-    for event in ev_hit.read() {
+    for event in hit.read() {
         let victim = find_in_ancestors(event.victim, &healths, &parents).unwrap_or(event.victim);
         if !event.allies.contains(&victim) {
-            ev_damage.write(EntityDamaged {
+            damage.write(Damage {
                 victim,
                 damage: event.damage,
                 fray_modifier: event.fray_modifier,
@@ -240,16 +240,16 @@ fn hit_to_damage(
 	in_set = EntityKilledSet,
 )]
 fn deal_all_damage(
-    mut ev_hit: EventReader<EntityDamaged>,
-    mut ev_kill: EventWriter<EntityKilled>,
+    mut hit: MessageReader<Damage>,
+    mut kill: MessageWriter<Kill>,
     mut healths: Query<&mut GelViscosity>,
 ) {
-    for event in ev_hit.read() {
+    for event in hit.read() {
         if let Ok(mut health) = healths.get_mut(event.victim) {
             let damage = event.damage;
 
             if damage > 0.0 && health.value <= 0.0 {
-                ev_kill.write(EntityKilled(event.victim));
+                kill.write(Kill(event.victim));
             }
 
             health.value -= damage;
@@ -262,12 +262,12 @@ fn deal_all_damage(
 	after = EntityDamagedSet,
 )]
 fn update_damage_numbers(
-    mut ev_hit: EventReader<EntityDamaged>,
+    mut hit: MessageReader<Damage>,
     mut damage_numbers: Query<Entity, With<DamageNumbers>>,
     hit_object: Query<Option<&Name>, With<GelViscosity>>,
     mut commands: Commands,
 ) {
-    for event in ev_hit.read() {
+    for event in hit.read() {
         let Ok(hit_object_name) = hit_object.get(event.victim) else {
             continue;
         };

@@ -47,7 +47,7 @@ fn setup_speed_indicator(mut commands: Commands) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .with_child((SpeedIndicator, Text::new("Speed: None")));
 }
@@ -78,7 +78,7 @@ fn setup_debug_state(mut commands: Commands) {
     commands.spawn((
         Name::new("Debug State"),
         Text("State".to_owned()),
-        TextLayout::new_with_justify(JustifyText::Right),
+        TextLayout::new_with_justify(Justify::Right),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
@@ -87,7 +87,7 @@ fn setup_debug_state(mut commands: Commands) {
         },
         DebugState,
         PlayerCameraNode,
-        StateScoped(GameState::InGame),
+        DespawnOnExit(GameState::InGame),
     ));
 }
 

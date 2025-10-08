@@ -84,11 +84,11 @@ fn update_sliding_sound(
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn remove_sliding_sound(
-    trigger: Trigger<OnRemove, Sliding>,
+    remove: On<Remove, Sliding>,
     slidings: Query<&Sliding>,
     mut commands: Commands,
 ) -> Result {
-    let sliding = slidings.get(trigger.target())?;
+    let sliding = slidings.get(remove.entity)?;
     commands.entity(some_or_return_ok!(sliding.sound)).despawn();
     Ok(())
 }
@@ -130,14 +130,10 @@ fn sliding_to_standing_or_walking(
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn readd_movement(
-    trigger: Trigger<OnRemove, Sliding>,
-    mut commands: Commands,
-    players: Query<&Velocity>,
-) {
-    commands.entity(trigger.target()).insert_if_new(
+fn readd_movement(remove: On<Remove, Sliding>, mut commands: Commands, players: Query<&Velocity>) {
+    commands.entity(remove.entity).insert_if_new(
         players
-            .get(trigger.target())
+            .get(remove.entity)
             .map(|velocity| Movement(velocity.linvel))
             .unwrap_or_default(),
     );

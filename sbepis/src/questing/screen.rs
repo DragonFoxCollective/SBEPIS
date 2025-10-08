@@ -9,7 +9,7 @@ use crate::input::input_manager_bundle;
 use crate::menus::*;
 use crate::player_controller::PlayerAction;
 use crate::questing::{
-    QuestAccepted, QuestAcceptedSet, QuestEnded, QuestEndedSet, QuestId, QuestingPlugin, Quests,
+    AcceptQuest, AcceptQuestSystems, EndQuest, EndQuestSystems, QuestId, QuestingPlugin, Quests,
 };
 use crate::util::MapRangeBetween;
 
@@ -42,7 +42,7 @@ impl OpenMenuBinding for OpenQuestScreenBinding {
 #[add_system(
 	plugin = QuestingPlugin, schedule = Update,
 	generics = <OpenQuestScreenBinding>,
-	in_set = MenuManipulationSet,
+	in_set = MenuManipulationSystems,
 )]
 use crate::menus::show_menu_on_action;
 
@@ -99,16 +99,16 @@ fn spawn_quest_screen(mut commands: Commands) {
 
 #[add_system(
 	plugin = QuestingPlugin, schedule = Update,
-	after = QuestAcceptedSet,
+	after = AcceptQuestSystems,
 )]
 fn add_quest_nodes(
-    mut ev_quest_accepted: EventReader<QuestAccepted>,
+    mut accept_quest: MessageReader<AcceptQuest>,
     mut commands: Commands,
     quests: Res<Quests>,
     quest_screen_node_list: Query<Entity, With<QuestScreenNodeList>>,
     quest_screen_node_display: Query<Entity, With<QuestScreenNodeDisplay>>,
 ) -> Result {
-    for ev in ev_quest_accepted.read() {
+    for ev in accept_quest.read() {
         let quest_screen_node_list = quest_screen_node_list.single()?;
         let quest_screen_node_display = quest_screen_node_display.single()?;
 
@@ -212,18 +212,18 @@ fn add_quest_nodes(
 
 #[add_system(
 	plugin = QuestingPlugin, schedule = Update,
-	after = QuestEndedSet,
+	after = EndQuestSystems,
 )]
 fn remove_quest_nodes(
-    mut ev_ended: EventReader<QuestEnded>,
+    mut end: MessageReader<EndQuest>,
     mut commands: Commands,
     quest_nodes: Query<(Entity, &QuestScreenNode)>,
 ) {
-    if ev_ended.is_empty() {
+    if end.is_empty() {
         return;
     }
 
-    let quest_ids = ev_ended.read().map(|ev| ev.0).collect::<HashSet<_>>();
+    let quest_ids = end.read().map(|ev| ev.0).collect::<HashSet<_>>();
 
     for (quest_node_entity, quest_node) in quest_nodes
         .iter()

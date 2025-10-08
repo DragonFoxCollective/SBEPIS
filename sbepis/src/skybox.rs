@@ -1,13 +1,11 @@
 use std::array::IntoIter;
 
-use bevy::asset::LoadState;
+use bevy::asset::{LoadState, RenderAssetUsages};
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::Extent3d;
-use bevy::render::render_resource::TextureDimension;
-use bevy::render::render_resource::TextureViewDescriptor;
-use bevy::render::render_resource::TextureViewDimension;
+use bevy::render::render_resource::{
+    Extent3d, TextureDimension, TextureViewDescriptor, TextureViewDimension,
+};
 use bevy_butler::*;
 
 use crate::prelude::*;
@@ -47,7 +45,7 @@ fn is_skybox_loaded(current_skybox: Res<CurrentSkybox>) -> bool {
 fn is_skybox_parts_loaded(
     current_skybox: Res<CurrentSkybox>,
     asset_server: Res<AssetServer>,
-) -> bool {
+) -> Result<bool> {
     current_skybox
         .parts()
         .map(|image| match image {
@@ -61,9 +59,7 @@ fn is_skybox_parts_loaded(
             None => Ok(false),
         })
         .collect::<Result<Vec<bool>>>()
-        .unwrap() // TODO: Can't return a result because of combinators, see https://github.com/bevyengine/bevy/issues/18796
-        .into_iter()
-        .all(|loaded| loaded)
+        .map(|states| states.into_iter().all(|loaded| loaded))
 }
 
 #[add_system(

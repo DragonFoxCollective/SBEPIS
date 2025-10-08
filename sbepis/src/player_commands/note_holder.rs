@@ -2,9 +2,9 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use soundyrust::Note;
 
-use crate::player_commands::notes::NotePlayed;
+use crate::player_commands::notes::PlayNote;
 use crate::player_commands::{NotePlayedSet, PlayerCommandsPlugin};
-use crate::player_commands::{NotesCleared, NotesClearedSet, staff::*};
+use crate::player_commands::{ClearNotes, NotesClearedSet, staff::*};
 use crate::util::MapRangeBetween;
 
 #[derive(Component, Default)]
@@ -33,13 +33,13 @@ impl NoteNodeHolder {
 )]
 fn add_note_to_holder(
     mut commands: Commands,
-    mut ev_note_played: EventReader<NotePlayed>,
+    mut play_note: MessageReader<PlayNote>,
     mut note_holder: Query<(&mut NoteNodeHolder, Entity)>,
     asset_server: Res<AssetServer>,
 ) -> Result {
     let (mut note_holder, note_holder_entity) = note_holder.single_mut()?;
 
-    for ev in ev_note_played.read() {
+    for ev in play_note.read() {
         let note = ev.note;
 
         debug!(
@@ -72,7 +72,7 @@ fn add_note_to_holder(
 #[add_system(
 	plugin = PlayerCommandsPlugin, schedule = Update,
 	after = NotesClearedSet,
-	run_if = on_event::<NotesCleared>,
+	run_if = on_message::<ClearNotes>,
 )]
 fn clear_holder_notes(
     mut commands: Commands,

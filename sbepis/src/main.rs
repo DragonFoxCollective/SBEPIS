@@ -41,7 +41,7 @@ mod prelude {
     pub use crate::main_menu::GameState;
     pub use crate::player_controller::PlayerBody;
     pub use crate::player_controller::camera_controls::{
-        InteractedWith, InteractedWithSet, interact_with,
+        InteractWith, InteractedWithSet, interact_with,
     };
     pub use crate::post_processing::PostProcessSettings;
 }
@@ -167,7 +167,7 @@ fn setup_in_game(mut commands: Commands) {
             acceleration_at_radius: 15.0,
         },
         GravityPriority(0),
-        StateScoped(GameState::InGame),
+        DespawnOnExit(GameState::InGame),
     ));
 
     commands.spawn((
@@ -181,7 +181,7 @@ fn setup_in_game(mut commands: Commands) {
             rotation: Quat::from_euler(EulerRot::XYZ, -1.9, 0.8, 0.0),
             ..default()
         },
-        StateScoped(GameState::InGame),
+        DespawnOnExit(GameState::InGame),
     ));
 }
 
@@ -189,8 +189,8 @@ fn setup_in_game(mut commands: Commands) {
 	plugin = SbepisPlugin, schedule = Update,
 	run_if = input_just_pressed(KeyCode::Escape),
 )]
-fn quit(mut ev_quit: EventWriter<AppExit>) {
-    ev_quit.write(AppExit::Success);
+fn exit(mut exit: MessageWriter<AppExit>) {
+    exit.write(AppExit::Success);
 }
 
 use crate::gravity::{GravityPoint, GravityPriority};

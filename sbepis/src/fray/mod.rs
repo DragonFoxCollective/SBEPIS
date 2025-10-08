@@ -9,7 +9,7 @@ use soundyrust::*;
 use tracks::{FrayTracks, Track};
 
 use crate::npcs::imp::Imp;
-use crate::player_controller::weapons::{EntityHit, EntityHitSet};
+use crate::player_controller::weapons::{Hit, HitSystems};
 use crate::prelude::*;
 use crate::util::MapRangeBetween;
 
@@ -86,7 +86,7 @@ fn spawn_background_music(mut commands: Commands, tracks: Res<FrayTracks>) {
             .paused(),
         Name::new("Background Music"),
         FrayMusic::new(tracks.backing_track),
-        StateScoped(GameState::InGame),
+        DespawnOnExit(GameState::InGame),
     ));
 
     commands.spawn((
@@ -100,7 +100,7 @@ fn spawn_background_music(mut commands: Commands, tracks: Res<FrayTracks>) {
             ..default()
         },
         PlayerCameraNode,
-        StateScoped(GameState::InGame),
+        DespawnOnExit(GameState::InGame),
     ));
 }
 
@@ -224,10 +224,10 @@ fn tick_fray_music(
 
 #[add_system(
 	plugin = FrayPlugin, schedule = Update,
-	after = EntityHitSet,
+	after = HitSystems,
 )]
 fn queue_tracks_on_hit(
-    mut ev_hit: EventReader<EntityHit>,
+    mut hit: MessageReader<Hit>,
     imps: Query<(), With<Imp>>,
     players: Query<(), With<PlayerBody>>,
     audio_players: Query<&AudioPlayer<MidiAudio>>,
@@ -238,7 +238,7 @@ fn queue_tracks_on_hit(
         .get_mut(&ok_or_return_ok!(audio_players.single()).0)
         .ok_or("Midi audio not found")?;
 
-    for event in ev_hit.read() {
+    for event in hit.read() {
         if imps.get(event.perpetrator).is_ok() {
             audio.queue(
                 fray_tracks.imp_track(),

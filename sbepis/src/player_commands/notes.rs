@@ -3,12 +3,12 @@ use bevy_butler::*;
 use leafwing_input_manager::prelude::*;
 use soundyrust::Note;
 
-use crate::input::{MapsToEvent, button_just_pressed};
-use crate::player_commands::{CloseStaffAction, CommandSent, CommandSentSet, PlayerCommandsPlugin};
+use crate::input::{MapsToMessage, button_just_pressed};
+use crate::player_commands::{CloseStaffAction, CommandSentSet, PlayerCommandsPlugin, SendCommand};
 
-#[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct NotePlayed {
+#[derive(Message)]
+#[add_message(plugin = PlayerCommandsPlugin)]
+pub struct PlayNote {
     pub note: Note,
 }
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -16,14 +16,14 @@ pub struct NotePlayedSet;
 
 #[add_system(
 	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <PlayNoteAction, NotePlayed>,
+	generics = <PlayNoteAction, PlayNote>,
 	in_set = NotePlayedSet,
 )]
 use crate::input::map_action_to_event;
 
-#[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct NotesCleared;
+#[derive(Message)]
+#[add_message(plugin = PlayerCommandsPlugin)]
+pub struct ClearNotes;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NotesClearedSet;
 
@@ -253,9 +253,9 @@ impl PlayNoteAction {
         }
     }
 }
-impl MapsToEvent<NotePlayed> for PlayNoteAction {
-    fn make_event(&self) -> NotePlayed {
-        NotePlayed { note: self.note() }
+impl MapsToMessage<PlayNote> for PlayNoteAction {
+    fn make_event(&self) -> PlayNote {
+        PlayNote { note: self.note() }
     }
 }
 
@@ -265,10 +265,10 @@ impl MapsToEvent<NotePlayed> for PlayNoteAction {
 )]
 fn spawn_note_audio(
     mut commands: Commands,
-    mut ev_note_played: EventReader<NotePlayed>,
+    mut play_note: MessageReader<PlayNote>,
     asset_server: Res<AssetServer>,
 ) {
-    for ev in ev_note_played.read() {
+    for ev in play_note.read() {
         let note = ev.note;
 
         commands.spawn((
@@ -282,13 +282,13 @@ fn spawn_note_audio(
 	plugin = PlayerCommandsPlugin, schedule = Update,
 	after = CommandSentSet,
 	in_set = NotesClearedSet,
-	run_if = on_event::<CommandSent>,
+	run_if = on_message::<SendCommand>,
 )]
 #[add_system(
 	plugin = PlayerCommandsPlugin, schedule = Update,
 	in_set = NotesClearedSet,
 	run_if = button_just_pressed(CloseStaffAction),
 )]
-fn clear_notes(mut ev_clear_notes: EventWriter<NotesCleared>) {
-    ev_clear_notes.write(NotesCleared);
+fn clear_notes(mut clear_notes: MessageWriter<ClearNotes>) {
+    clear_notes.write(ClearNotes);
 }

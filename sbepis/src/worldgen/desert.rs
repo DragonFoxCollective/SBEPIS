@@ -63,7 +63,7 @@ fn add_components(
     for chunk in chunks.iter() {
         commands
             .entity(chunk)
-            .insert((FinalizedChunk, StateScoped(GameState::MainMenu)));
+            .insert((FinalizedChunk, DespawnOnExit(GameState::MainMenu)));
     }
 }
 
@@ -117,7 +117,7 @@ fn place_poi_structures(
         commands.spawn((
             SceneRoot(poi_structure.clone()),
             Transform::from_translation(*position).with_rotation(Quat::from_rotation_y(PI)),
-            StateScoped(GameState::MainMenu),
+            DespawnOnExit(GameState::MainMenu),
         ));
     }
 }

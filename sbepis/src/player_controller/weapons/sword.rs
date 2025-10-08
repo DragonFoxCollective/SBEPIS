@@ -1,12 +1,14 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationTarget, AnimationTargetId, animated_field};
+use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
+use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
+use bevy_butler::*;
 
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
+use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::weapons::{DamageSweep, EndDamageSweep, SweepPivot, WeaponAnimation};
 use crate::prelude::*;
 
@@ -148,7 +150,7 @@ pub fn spawn_sword(
                 right_attack_index,
                 asset_server.load("whoosh.mp3"),
             ),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -167,11 +169,9 @@ pub fn spawn_sword(
             AnimationPlayer::default(),
             WeaponAnimation(left_attack_index),
             ChildOf(body),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .add_child(sword_blade)
-        .observe(on_sword_start)
-        .observe(on_sword_end)
         .id();
     commands.entity(sword_pivot).insert(AnimationTarget {
         id: sword_pivot_id,
@@ -181,20 +181,21 @@ pub fn spawn_sword(
     (sword_pivot, sword_blade)
 }
 
-#[derive(Event, Clone, Copy)]
+#[derive(AnimationEvent, Clone)]
 struct SwordStart;
 
-#[derive(Event, Clone, Copy)]
+#[derive(AnimationEvent, Clone)]
 struct SwordEnd;
 
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn on_sword_start(
-    trigger: Trigger<SwordStart>,
+    start: On<SwordStart>,
     sword_pivots: Query<&SwordPivot>,
     mut swords: Query<(&mut Sword, &GlobalTransform)>,
     fray: Query<&FrayMusic>,
     mut commands: Commands,
 ) -> Result {
-    let sword_pivot_entity = trigger.target();
+    let sword_pivot_entity = start.trigger().animation_player;
     let sword_pivot = sword_pivots.get(sword_pivot_entity)?;
     let sword_blade_entity = sword_pivot.blade;
     let (mut sword, transform) = swords.get_mut(sword_blade_entity)?;
@@ -220,13 +221,14 @@ fn on_sword_start(
     Ok(())
 }
 
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn on_sword_end(
-    trigger: Trigger<SwordEnd>,
+    end: On<SwordEnd>,
     mut sword_pivots: Query<(&SwordPivot, &mut WeaponAnimation)>,
     mut swords: Query<&mut Sword>,
     mut commands: Commands,
 ) -> Result {
-    let sword_pivot_entity = trigger.target();
+    let sword_pivot_entity = end.trigger().animation_player;
     let (sword_pivot, mut animation) = sword_pivots.get_mut(sword_pivot_entity)?;
     let sword_blade_entity = sword_pivot.blade;
     let mut sword = swords.get_mut(sword_blade_entity)?;

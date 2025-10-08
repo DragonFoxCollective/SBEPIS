@@ -70,7 +70,7 @@ pub fn interact_with<T: Component>(
     entities: Query<Entity, With<T>>,
     parents: Query<&ChildOf>,
     input: Query<&ActionState<PlayerAction>>,
-    mut ev_interact: EventWriter<InteractedWith<T>>,
+    mut interact: MessageWriter<InteractWith<T>>,
 ) -> Result {
     if !match input.iter().find(|input| !input.disabled()) {
         Some(input) => input.just_pressed(&PlayerAction::Interact),
@@ -103,15 +103,15 @@ pub fn interact_with<T: Component>(
     );
 
     if let Some((Some(entity), _)) = hit_entity {
-        ev_interact.write(InteractedWith::new(entity));
+        interact.write(InteractWith::new(entity));
     }
 
     Ok(())
 }
 
-#[derive(Event)]
-pub struct InteractedWith<T>(pub Entity, PhantomData<T>);
-impl<T> InteractedWith<T> {
+#[derive(Message)]
+pub struct InteractWith<T>(pub Entity, PhantomData<T>);
+impl<T> InteractWith<T> {
     pub fn new(entity: Entity) -> Self {
         Self(entity, PhantomData)
     }

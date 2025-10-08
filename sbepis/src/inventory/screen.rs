@@ -5,7 +5,7 @@ use leafwing_input_manager::prelude::InputMap;
 
 use crate::camera::PlayerCameraNode;
 use crate::input::input_manager_bundle;
-use crate::inventory::{InventoryPlugin, Item, ItemPickedUp, pick_up_items};
+use crate::inventory::{InventoryPlugin, Item, PickUpItem, pick_up_items};
 use crate::menus::*;
 
 #[derive(Component)]
@@ -47,14 +47,14 @@ fn spawn_inventory_screen(mut commands: Commands) {
 	after = pick_up_items,
 )]
 fn add_item_to_inventory_screen(
-    mut ev_picked_up: EventReader<ItemPickedUp>,
+    mut pick_up: MessageReader<PickUpItem>,
     mut commands: Commands,
     items: Query<&Item>,
     inventory_screen: Query<Entity, With<InventoryScreen>>,
 ) -> Result {
     let inventory_screen = inventory_screen.single()?;
 
-    for ItemPickedUp(item_entity) in ev_picked_up.read() {
+    for PickUpItem(item_entity) in pick_up.read() {
         let item = items.get(*item_entity)?;
 
         commands.spawn((

@@ -3,7 +3,7 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use screen::*;
 
-use crate::menus::{MenuManipulationSet, OpenMenuBinding};
+use crate::menus::{MenuManipulationSystems, OpenMenuBinding};
 use crate::player_controller::PlayerAction;
 use crate::player_controller::camera_controls::InteractedWithSet;
 use crate::prelude::*;
@@ -24,9 +24,9 @@ pub struct Item {
     pub icon: Handle<Image>,
 }
 
-#[derive(Event)]
-#[add_event(plugin = InventoryPlugin)]
-pub struct ItemPickedUp(pub Entity);
+#[derive(Message)]
+#[add_message(plugin = InventoryPlugin)]
+pub struct PickUpItem(pub Entity);
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ItemPickedUpSet;
 
@@ -46,13 +46,13 @@ use crate::prelude::interact_with;
 	in_set = InventoryChangedSet,
 )]
 fn pick_up_items(
-    mut ev_interact: EventReader<InteractedWith<Item>>,
+    mut interact: MessageReader<InteractWith<Item>>,
     mut commands: Commands,
     mut player: Query<(Entity, &mut Inventory)>,
-    mut ev_picked_up: EventWriter<ItemPickedUp>,
-    mut ev_inventory_changed: EventWriter<InventoryChanged>,
+    mut pick_up: MessageWriter<PickUpItem>,
+    mut change_inventory: MessageWriter<ChangeInventory>,
 ) -> Result {
-    for ev in ev_interact.read() {
+    for ev in interact.read() {
         let (inventory_entity, mut inventory) = player.single_mut()?;
         inventory.items.push(ev.0);
         commands
@@ -60,8 +60,8 @@ fn pick_up_items(
             .remove::<RigidBody>()
             .insert(Visibility::Hidden)
             .insert(ColliderDisabled);
-        ev_picked_up.write(ItemPickedUp(ev.0));
-        ev_inventory_changed.write(InventoryChanged {
+        pick_up.write(PickUpItem(ev.0));
+        change_inventory.write(ChangeInventory {
             _inventory: inventory_entity,
         });
     }
@@ -80,17 +80,17 @@ impl OpenMenuBinding for OpenInventoryBinding {
 #[add_system(
 	plugin = InventoryPlugin, schedule = Update,
 	generics = <OpenInventoryBinding>,
-	in_set = MenuManipulationSet,
+	in_set = MenuManipulationSystems,
 )]
 use crate::menus::show_menu_on_action;
 
-#[derive(Event)]
-#[add_event(plugin = InventoryPlugin)]
-pub struct InventoryChanged {
+#[derive(Message)]
+#[add_message(plugin = InventoryPlugin)]
+pub struct ChangeInventory {
     pub _inventory: Entity,
 }
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InventoryChangedSet;
 
-#[add_event(plugin = InventoryPlugin, generics = <Item>)]
-use crate::player_controller::camera_controls::InteractedWith;
+#[add_message(plugin = InventoryPlugin, generics = <Item>)]
+use crate::player_controller::camera_controls::InteractWith;

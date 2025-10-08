@@ -4,8 +4,8 @@ use bevy_butler::*;
 
 use crate::camera::PlayerCamera;
 use crate::menus::{
-    Menu, MenuActivated, MenuActivatedSet, MenuDeactivated, MenuDeactivatedSet,
-    MenuManipulationSet, MenuStack, MenuWithMouse,
+    ActivateMenu, DeactivateMenu, Menu, MenuActivatedSet, MenuDeactivatedSet,
+    MenuManipulationSystems, MenuStack, MenuWithMouse,
 };
 use crate::prelude::*;
 
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands) {
 #[add_system(
 	plugin = OverviewCameraPlugin, schedule = Update,
 	run_if = input_just_pressed(KeyCode::Tab),
-	in_set = MenuManipulationSet,
+	in_set = MenuManipulationSystems,
 )]
 fn toggle_camera(
     mut menu_stack: ResMut<MenuStack>,
@@ -64,11 +64,11 @@ fn toggle_camera(
 	after = MenuActivatedSet,
 )]
 fn enable_overview_camera(
-    mut ev_activated: EventReader<MenuActivated>,
+    mut activate: MessageReader<ActivateMenu>,
     mut overview_camera: Query<&mut Camera, (With<OverviewCamera>, Without<PlayerCamera>)>,
     mut player_camera: Query<&mut Camera, (With<PlayerCamera>, Without<OverviewCamera>)>,
 ) -> Result {
-    for MenuActivated(menu) in ev_activated.read() {
+    for ActivateMenu(menu) in activate.read() {
         if overview_camera.get(*menu).is_ok() {
             for mut overview_camera in overview_camera.iter_mut() {
                 overview_camera.is_active = true;
@@ -86,11 +86,11 @@ fn enable_overview_camera(
 	after = MenuDeactivatedSet,
 )]
 fn disable_overview_camera(
-    mut ev_deactivated: EventReader<MenuDeactivated>,
+    mut deactivate: MessageReader<DeactivateMenu>,
     mut overview_camera: Query<&mut Camera, (With<OverviewCamera>, Without<PlayerCamera>)>,
     mut player_camera: Query<&mut Camera, (With<PlayerCamera>, Without<OverviewCamera>)>,
 ) -> Result {
-    for MenuDeactivated(menu) in ev_deactivated.read() {
+    for DeactivateMenu(menu) in deactivate.read() {
         if overview_camera.get(*menu).is_ok() {
             for mut overview_camera in overview_camera.iter_mut() {
                 overview_camera.is_active = false;

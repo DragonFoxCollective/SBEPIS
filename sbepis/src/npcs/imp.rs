@@ -8,16 +8,14 @@ use bevy_butler::*;
 use bevy_rapier3d::geometry::Collider;
 use return_ok::{ok_or_continue, some_or_return_ok};
 
-use crate::entity::spawner::{
-    EntitySpawned, EntitySpawnedSet, SpawnerActivated, SpawnerActivatedSet,
-};
+use crate::entity::spawner::{ActivateSpawner, Spawn, SpawnSystems, SpawnerActivatedSet};
 use crate::entity::{
-    EntityKilled, EntityKilledSet, GelViscosity, Movement, RotateTowardMovement, SpawnHealthBar,
+    EntityKilledSet, GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar,
     TargetPlayer,
 };
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
-use crate::player_controller::weapons::EntityDamaged;
+use crate::player_controller::weapons::Damage;
 use crate::util::AnimationRootReference;
 
 use super::name_tags::{NameTagAssets, SpawnNameTag};
@@ -96,11 +94,11 @@ fn setup_imp_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 	after = SpawnerActivatedSet,
 )]
 fn queue_spawning_imp(
-    mut ev_spawner: EventReader<SpawnerActivated>,
+    mut activate_spawner: MessageReader<ActivateSpawner>,
     mut commands: Commands,
     spawners: Query<(), With<ImpSpawner>>,
 ) {
-    for ev in ev_spawner.read() {
+    for ev in activate_spawner.read() {
         if spawners.get(ev.spawner).is_err() {
             continue;
         }
@@ -116,11 +114,11 @@ fn queue_spawning_imp(
 #[add_system(
 	plugin = NpcPlugin, schedule = Update,
 	after = queue_spawning_imp,
-	in_set = EntitySpawnedSet,
+	in_set = SpawnSystems,
 )]
 fn spawn_imp(
     imps: Query<Entity, With<InsertImpAssets>>,
-    mut ev_spawned: EventWriter<EntitySpawned>,
+    mut spawn: MessageWriter<Spawn>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
     gltfs: Res<Assets<Gltf>>,
@@ -146,14 +144,15 @@ fn spawn_imp(
                 Collider::capsule_y(0.25, 0.25),
             ))
             .observe(
-                |trigger: Trigger<SceneInstanceReady>,
+                |scene_instance_ready: On<SceneInstanceReady>,
                  mut commands: Commands,
                  imp_assets: Res<ImpAssets>,
                  gltfs: Res<Assets<Gltf>>,
                  mut animation_graphs: ResMut<Assets<AnimationGraph>>,
                  children: Query<&Children>,
                  material_names: Query<&GltfMaterialName>,
-                 name_tag_assets: Res<NameTagAssets>| {
+                 name_tag_assets: Res<NameTagAssets>|
+                 -> Result {
                     let imp_gltf = gltfs
                         .get(&imp_assets.model)
                         .ok_or("Gltf should be loaded by now")?;
@@ -176,7 +175,11 @@ fn spawn_imp(
                     let mut transitions = AnimationTransitions::new();
                     transitions.play(&mut animation_player, imp_animations.idle, Duration::ZERO);
 
-                    let scene = *children.get(trigger.target()).unwrap().last().unwrap();
+                    let scene = *children
+                        .get(scene_instance_ready.entity)
+                        .unwrap()
+                        .last()
+                        .unwrap();
                     let armature = children.get(scene).unwrap()[0];
 
                     commands.entity(armature).insert((
@@ -187,11 +190,14 @@ fn spawn_imp(
                         imp_animations,
                     ));
 
-                    for child in children.iter_descendants(trigger.target()).filter(|child| {
-                        material_names
-                            .get(*child)
-                            .is_ok_and(|name| name.0 == "Candy")
-                    }) {
+                    for child in children
+                        .iter_descendants(scene_instance_ready.entity)
+                        .filter(|child| {
+                            material_names
+                                .get(*child)
+                                .is_ok_and(|name| name.0 == "Candy")
+                        })
+                    {
                         commands
                             .entity(child)
                             .remove::<MeshMaterial3d<StandardMaterial>>()
@@ -199,14 +205,14 @@ fn spawn_imp(
                     }
 
                     commands
-                        .entity(trigger.target())
+                        .entity(scene_instance_ready.entity)
                         .insert(AnimationRootReference(armature));
 
                     Ok(())
                 },
             );
 
-        ev_spawned.write(EntitySpawned { _entity: imp });
+        spawn.write(Spawn { _entity: imp });
     }
 
     Ok(())
@@ -214,7 +220,7 @@ fn spawn_imp(
 
 #[add_system(
 	plugin = NpcPlugin, schedule = Update,
-	after = EntitySpawnedSet,
+	after = SpawnSystems,
 )]
 fn update_imp_animations(
     mut imps: Query<(&Movement, &AnimationRootReference), With<Imp>>,
@@ -263,12 +269,12 @@ fn update_imp_animations(
 	after = EntityKilledSet,
 )]
 fn imp_hurt_sound(
-    mut ev_damaged: EventReader<EntityDamaged>,
+    mut damage: MessageReader<Damage>,
     mut imps: Query<(&GelViscosity, &GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
 ) {
-    for ev in ev_damaged.read() {
+    for ev in damage.read() {
         let (health, transform, mut sound_timer) = ok_or_continue!(imps.get_mut(ev.victim));
 
         if ev.damage + health.value < 0.0 {
@@ -293,12 +299,12 @@ fn imp_hurt_sound(
 	after = EntityKilledSet,
 )]
 fn imp_kill_sound(
-    mut ev_damaged: EventReader<EntityKilled>,
+    mut kill: MessageReader<Kill>,
     mut imps: Query<(&GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
 ) {
-    for ev in ev_damaged.read() {
+    for ev in kill.read() {
         let (transform, mut sound_timer) = ok_or_continue!(imps.get_mut(ev.0));
 
         commands.spawn((

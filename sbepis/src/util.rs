@@ -85,7 +85,7 @@ pub fn despawn_after_timer(
 ) {
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.tick(time.delta());
-        if despawn_timer.finished() {
+        if despawn_timer.is_finished() {
             commands.entity(entity).despawn();
         }
     }
@@ -165,14 +165,22 @@ where
     }
 }
 
-pub fn find_in_ancestors<'a, D: QueryData, F: QueryFilter>(
+pub fn find_in_ancestors<'w, 's: 'w, 'a: 'w, D: QueryData, F: QueryFilter>(
     entity: Entity,
-    query: &'a Query<D, F>,
-    parents: &Query<&ChildOf>,
-) -> Option<ROQueryItem<'a, D>> {
-    Iterator::chain(std::iter::once(entity), parents.iter_ancestors(entity))
-        .filter_map(|entity| query.get(entity).ok())
-        .next()
+    query: &'a Query<'w, 's, D, F>,
+    parents: &Query<'w, 's, &ChildOf>,
+) -> Option<ROQueryItem<'w, 's, D>> {
+    if let Ok(item) = query.get(entity) {
+        return Some(item);
+    }
+
+    for e in parents.iter_ancestors(entity) {
+        if let Ok(item) = query.get(e) {
+            return Some(item);
+        }
+    }
+
+    None
 }
 
 #[derive(Component)]

@@ -1,5 +1,5 @@
+use bevy::core_pipeline::FullscreenShader;
 use bevy::core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy::core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy::ecs::query::QueryItem;
 use bevy::prelude::*;
 use bevy::render::extract_component::{
@@ -7,7 +7,7 @@ use bevy::render::extract_component::{
     UniformComponentPlugin,
 };
 use bevy::render::render_graph::{
-    NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+    NodeRunError, RenderGraphContext, RenderGraphExt as _, RenderLabel, ViewNode, ViewNodeRunner,
 };
 use bevy::render::render_resource::binding_types::{
     sampler, texture_2d, texture_depth_2d, uniform_buffer,
@@ -25,7 +25,7 @@ use bevy::render::view::{
     ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     prepare_view_targets,
 };
-use bevy::render::{Render, RenderApp, RenderSet};
+use bevy::render::{Render, RenderApp, RenderSystems};
 use bevy_butler::*;
 
 use crate::prelude::*;
@@ -62,7 +62,7 @@ impl Plugin for PostProcessPlugin {
                 Render,
                 (configure_view_targets, prepare_textures)
                     .after(prepare_view_targets)
-                    .in_set(RenderSet::ManageViews),
+                    .in_set(RenderSystems::ManageViews),
             )
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
             // It currently runs on each view/camera and executes each node in the specified order.
@@ -264,6 +264,7 @@ impl ViewNode for PostProcessNode {
                     view: &blur_textures.vertical_blur_texture.default_view,
                     resolve_target: None,
                     ops: Operations::default(),
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -321,6 +322,7 @@ impl ViewNode for PostProcessNode {
                     view: &blur_textures.horizontal_blur_texture.default_view,
                     resolve_target: None,
                     ops: Operations::default(),
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -378,6 +380,7 @@ impl ViewNode for PostProcessNode {
                     view: &blur_textures.vertical_blur_texture.default_view,
                     resolve_target: None,
                     ops: Operations::default(),
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -435,6 +438,7 @@ impl ViewNode for PostProcessNode {
                     view: post_process.destination,
                     resolve_target: None,
                     ops: Operations::default(),
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -502,6 +506,8 @@ impl FromWorld for PostProcessPipeline {
         // Get the shader handle
         let shader = world.load_asset(SHADER_ASSET_PATH);
 
+        let fullscreen_shader = world.resource::<FullscreenShader>().clone();
+
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         let depth_blit_pipeline_id = pipeline_cache
@@ -510,13 +516,13 @@ impl FromWorld for PostProcessPipeline {
                 label: Some("depth_blit_post_process_pipeline".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: fullscreen_shader.to_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: shader.clone(),
                     shader_defs: vec![],
                     // Make sure this matches the entry point of your shader.
                     // It can be anything as long as it matches here and in the shader.
-                    entry_point: "depth_blit".into(),
+                    entry_point: Some("depth_blit".into()),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::R32Float,
                         blend: None,
@@ -538,13 +544,13 @@ impl FromWorld for PostProcessPipeline {
                 label: Some("blur_horizontal_post_process_pipeline".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: fullscreen_shader.to_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: shader.clone(),
                     shader_defs: vec![],
                     // Make sure this matches the entry point of your shader.
                     // It can be anything as long as it matches here and in the shader.
-                    entry_point: "blur_horizontal".into(),
+                    entry_point: Some("blur_horizontal".into()),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::R32Float,
                         blend: None,
@@ -566,13 +572,13 @@ impl FromWorld for PostProcessPipeline {
                 label: Some("blur_vertical_post_process_pipeline".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: fullscreen_shader.to_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: shader.clone(),
                     shader_defs: vec![],
                     // Make sure this matches the entry point of your shader.
                     // It can be anything as long as it matches here and in the shader.
-                    entry_point: "blur_vertical".into(),
+                    entry_point: Some("blur_vertical".into()),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::R32Float,
                         blend: None,
@@ -594,13 +600,13 @@ impl FromWorld for PostProcessPipeline {
                 label: Some("main_post_process_pipeline".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
-                vertex: fullscreen_shader_vertex_state(),
+                vertex: fullscreen_shader.to_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: shader.clone(),
                     shader_defs: vec![],
                     // Make sure this matches the entry point of your shader.
                     // It can be anything as long as it matches here and in the shader.
-                    entry_point: "main".into(),
+                    entry_point: Some("main".into()),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::bevy_default(),
                         blend: None,
@@ -670,7 +676,6 @@ pub fn configure_view_targets(mut view_targets: Query<&mut Camera3d, With<PostPr
 pub struct PostProcessTextures {
     horizontal_blur_texture: CachedTexture,
     vertical_blur_texture: CachedTexture,
-    id_texture: CachedTexture,
 }
 
 /// Creates the second render target texture that the blur needs.
@@ -709,22 +714,9 @@ pub fn prepare_textures(
         let vertical_blur_texture =
             texture_cache.get(&render_device, vertical_blur_texture_descriptor);
 
-        let id_texture_descriptor = TextureDescriptor {
-            label: Some("post_process_id_texture"),
-            size: view_target.main_texture().size(),
-            mip_level_count: 1,
-            sample_count: view_target.main_texture().sample_count(),
-            dimension: TextureDimension::D2,
-            format: TextureFormat::bevy_default(),
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        };
-        let id_texture = texture_cache.get(&render_device, id_texture_descriptor);
-
         commands.entity(entity).insert(PostProcessTextures {
             horizontal_blur_texture,
             vertical_blur_texture,
-            id_texture,
         });
     }
 }

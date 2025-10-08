@@ -16,9 +16,9 @@ pub mod spawner;
 #[add_plugin(to_plugin = SbepisPlugin)]
 pub struct EntityPlugin;
 
-#[derive(Event)]
-#[add_event(plugin = EntityPlugin)]
-pub struct EntityKilled(pub Entity);
+#[derive(Message)]
+#[add_message(plugin = EntityPlugin)]
+pub struct Kill(pub Entity);
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EntityKilledSet;
 
@@ -26,8 +26,8 @@ pub struct EntityKilledSet;
 	plugin = EntityPlugin, schedule = Update,
 	after = EntityKilledSet,
 )]
-fn kill_entities(mut ev_killed: EventReader<EntityKilled>, mut commands: Commands) {
-    for ev in ev_killed.read() {
+fn kill_entities(mut kill: MessageReader<Kill>, mut commands: Commands) {
+    for ev in kill.read() {
         commands.entity(ev.0).despawn();
     }
 }

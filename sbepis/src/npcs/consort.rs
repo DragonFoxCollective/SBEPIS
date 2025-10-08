@@ -1,11 +1,9 @@
+use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::geometry::Collider;
 
-use crate::entity::spawner::{
-    EntitySpawned, EntitySpawnedSet, SpawnerActivated, SpawnerActivatedSet,
-};
+use crate::entity::spawner::{ActivateSpawner, Spawn, SpawnSystems, SpawnerActivatedSet};
 use crate::entity::{Healing, RandomInput, RotateTowardMovement, SpawnHealthBar};
 use crate::gridbox_material;
 use crate::main_bundles::Mob;
@@ -23,18 +21,18 @@ pub struct ConsortSpawner;
 #[add_system(
 	plugin = NpcPlugin, schedule = Update,
 	after = SpawnerActivatedSet,
-	in_set = EntitySpawnedSet,
+	in_set = SpawnSystems,
 )]
 fn spawn_consort(
-    mut ev_spawner: EventReader<SpawnerActivated>,
-    mut ev_spawned: EventWriter<EntitySpawned>,
+    mut activate_spawner: MessageReader<ActivateSpawner>,
+    mut spawn: MessageWriter<Spawn>,
     spawners: Query<(), With<ConsortSpawner>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    for ev in ev_spawner.read() {
+    for ev in activate_spawner.read() {
         if spawners.get(ev.spawner).is_err() {
             continue;
         }
@@ -69,6 +67,6 @@ fn spawn_consort(
                 MeshMaterial3d(gridbox_material("magenta", &mut materials, &asset_server)),
                 Collider::capsule_y(0.25, 0.25),
             ));
-        ev_spawned.write(EntitySpawned { _entity: ev.entity });
+        spawn.write(Spawn { _entity: ev.entity });
     }
 }

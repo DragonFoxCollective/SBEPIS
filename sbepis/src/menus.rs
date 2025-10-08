@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
+use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use bevy_butler::*;
 use leafwing_input_manager::plugin::{InputManagerPlugin, InputManagerSystem};
 use leafwing_input_manager::prelude::{ActionState, InputMap};
@@ -19,7 +19,7 @@ impl Plugin for MenusPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
             Update,
-            MenuManipulationSet.run_if(resource_exists::<MenuStack>),
+            MenuManipulationSystems.run_if(resource_exists::<MenuStack>),
         );
     }
 }
@@ -69,7 +69,6 @@ pub struct MenuDespawnsWhenClosed;
 
 #[derive(Resource, Default, Debug, Reflect)]
 #[insert_resource(plugin = MenusPlugin)]
-#[register_type(plugin = MenusPlugin)]
 pub struct MenuStack {
     stack: Vec<Entity>,
     current: Option<Entity>,
@@ -98,20 +97,20 @@ impl MenuStack {
     }
 }
 
-#[derive(Event)]
-#[add_event(plugin = MenusPlugin)]
-pub struct MenuActivated(pub Entity);
+#[derive(Message)]
+#[add_message(plugin = MenusPlugin)]
+pub struct ActivateMenu(pub Entity);
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuActivatedSet;
 
-#[derive(Event)]
-#[add_event(plugin = MenusPlugin)]
-pub struct MenuDeactivated(pub Entity);
+#[derive(Message)]
+#[add_message(plugin = MenusPlugin)]
+pub struct DeactivateMenu(pub Entity);
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuDeactivatedSet;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MenuManipulationSet;
+pub struct MenuManipulationSystems;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
 pub struct CloseMenuAction;
@@ -129,20 +128,20 @@ impl CloseMenuBinding for CloseMenuAction {
 
 #[add_system(
 	plugin = MenusPlugin, schedule = Update,
-	after = MenuManipulationSet,
+	after = MenuManipulationSystems,
 	before = MenuActivatedSet,
 	before = MenuDeactivatedSet,
 	run_if = resource_exists::<MenuStack>.and(resource_changed::<MenuStack>),
 )]
 fn activate_stack_current(
     mut menu_stack: ResMut<MenuStack>,
-    mut ev_activated: EventWriter<MenuActivated>,
-    mut ev_deactivated: EventWriter<MenuDeactivated>,
+    mut activate: MessageWriter<ActivateMenu>,
+    mut deactivate: MessageWriter<DeactivateMenu>,
 ) -> Result {
     if let Some(current) = menu_stack.current
         && menu_stack.stack.last() != Some(&current)
     {
-        ev_deactivated.write(MenuDeactivated(current));
+        deactivate.write(DeactivateMenu(current));
         menu_stack.current = None;
     }
 
@@ -152,7 +151,7 @@ fn activate_stack_current(
             .last()
             .ok_or("Menu stack was empty (impossible)")?;
         menu_stack.current = Some(new_current);
-        ev_activated.write(MenuActivated(new_current));
+        activate.write(ActivateMenu(new_current));
     }
 
     Ok(())
@@ -163,15 +162,15 @@ fn activate_stack_current(
 	after = MenuActivatedSet,
 )]
 fn show_mouse(
-    mut ev_activated: EventReader<MenuActivated>,
+    mut activate: MessageReader<ActivateMenu>,
     menus: Query<(), With<MenuWithMouse>>,
-    mut window: Query<&mut Window, With<PrimaryWindow>>,
+    mut cursor_options: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    let mut window = ok_or_return!(window.single_mut());
-    for MenuActivated(menu) in ev_activated.read() {
+    let mut cursor_options = ok_or_return!(cursor_options.single_mut());
+    for ActivateMenu(menu) in activate.read() {
         if menus.get(*menu).is_ok() {
-            window.cursor_options.grab_mode = CursorGrabMode::None;
-            window.cursor_options.visible = true;
+            cursor_options.grab_mode = CursorGrabMode::None;
+            cursor_options.visible = true;
         }
     }
 }
@@ -181,24 +180,24 @@ fn show_mouse(
 	after = MenuActivatedSet,
 )]
 fn hide_mouse(
-    mut ev_activated: EventReader<MenuActivated>,
+    mut activate: MessageReader<ActivateMenu>,
     menus: Query<(), With<MenuWithoutMouse>>,
-    mut window: Query<&mut Window, With<PrimaryWindow>>,
+    mut cursor_options: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    let mut window = ok_or_return!(window.single_mut());
-    for MenuActivated(menu) in ev_activated.read() {
+    let mut cursor_options = ok_or_return!(cursor_options.single_mut());
+    for ActivateMenu(menu) in activate.read() {
         if menus.get(*menu).is_ok() {
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
+            cursor_options.grab_mode = CursorGrabMode::Locked;
+            cursor_options.visible = false;
         }
     }
 }
 
 fn enable_input_managers<Action: Actionlike>(
-    mut ev_activated: EventReader<MenuActivated>,
+    mut activate: MessageReader<ActivateMenu>,
     mut menus: Query<&mut ActionState<Action>, With<MenuWithInputManager>>,
 ) {
-    for MenuActivated(menu) in ev_activated.read() {
+    for ActivateMenu(menu) in activate.read() {
         if let Ok(mut input_manager) = menus.get_mut(*menu) {
             input_manager.enable();
 
@@ -210,10 +209,10 @@ fn enable_input_managers<Action: Actionlike>(
 }
 
 fn disable_input_managers<Action: Actionlike>(
-    mut ev_deactivated: EventReader<MenuDeactivated>,
+    mut deactivate: MessageReader<DeactivateMenu>,
     mut menus: Query<&mut ActionState<Action>, With<MenuWithInputManager>>,
 ) {
-    for MenuDeactivated(menu) in ev_deactivated.read() {
+    for DeactivateMenu(menu) in deactivate.read() {
         if let Ok(mut input_manager) = menus.get_mut(*menu) {
             input_manager.disable();
         }
@@ -233,7 +232,7 @@ pub trait OpenMenuBinding {
 #[add_system(
 	plugin = MenusPlugin, schedule = Update,
 	generics = <CloseMenuAction>,
-	in_set = MenuManipulationSet,
+	in_set = MenuManipulationSystems,
 )]
 pub fn close_menu_on_action<Binding: CloseMenuBinding>(
     input: Query<(Entity, &ActionState<Binding::Action>)>,
@@ -247,11 +246,11 @@ pub fn close_menu_on_action<Binding: CloseMenuBinding>(
     }
 }
 
-pub fn close_menu_on_event<Ev: Event + InputManagerReference>(
+pub fn close_menu_on_message<Mes: Message + InputManagerReference>(
     mut menu_stack: ResMut<MenuStack>,
-    mut ev_input: EventReader<Ev>,
+    mut input: MessageReader<Mes>,
 ) {
-    for input_manager in ev_input.read() {
+    for input_manager in input.read() {
         menu_stack.remove(input_manager.input_manager());
     }
 }
@@ -276,10 +275,10 @@ pub fn show_menu_on_action<Binding: OpenMenuBinding>(
 	after = MenuActivatedSet,
 )]
 fn show_menus(
-    mut ev_activated: EventReader<MenuActivated>,
+    mut activate: MessageReader<ActivateMenu>,
     mut menus: Query<&mut Visibility, With<MenuHidesWhenClosed>>,
 ) {
-    for MenuActivated(menu) in ev_activated.read() {
+    for ActivateMenu(menu) in activate.read() {
         if let Ok(mut visibility) = menus.get_mut(*menu) {
             *visibility = Visibility::Visible;
         }
@@ -291,10 +290,10 @@ fn show_menus(
 	after = MenuDeactivatedSet,
 )]
 fn hide_menus(
-    mut ev_deactivated: EventReader<MenuDeactivated>,
+    mut deactivate: MessageReader<DeactivateMenu>,
     mut menus: Query<&mut Visibility, With<MenuHidesWhenClosed>>,
 ) {
-    for MenuDeactivated(menu) in ev_deactivated.read() {
+    for DeactivateMenu(menu) in deactivate.read() {
         if let Ok(mut visibility) = menus.get_mut(*menu) {
             *visibility = Visibility::Hidden;
         }
@@ -306,11 +305,11 @@ fn hide_menus(
 	after = MenuDeactivatedSet,
 )]
 fn despawn_menus(
-    mut ev_deactivated: EventReader<MenuDeactivated>,
+    mut deactivate: MessageReader<DeactivateMenu>,
     mut menus: Query<Entity, With<MenuDespawnsWhenClosed>>,
     mut commands: Commands,
 ) {
-    for MenuDeactivated(menu) in ev_deactivated.read() {
+    for DeactivateMenu(menu) in deactivate.read() {
         if let Ok(menu) = menus.get_mut(*menu) {
             commands.entity(menu).despawn();
         }
@@ -319,17 +318,17 @@ fn despawn_menus(
 
 #[add_system(
 	plugin = MenusPlugin, schedule = Update,
-	in_set = MenuManipulationSet,
+	in_set = MenuManipulationSystems,
 )]
 fn remove_despawned_menus(
     mut menu_stack: ResMut<MenuStack>,
-    mut ev_deactivated: EventWriter<MenuDeactivated>,
+    mut deactivate: MessageWriter<DeactivateMenu>,
     entities: Query<()>,
 ) {
     for menu in menu_stack.stack.clone() {
         if entities.get(menu).is_err() {
             menu_stack.remove(menu);
-            ev_deactivated.write(MenuDeactivated(menu));
+            deactivate.write(DeactivateMenu(menu));
 
             if menu_stack.current == Some(menu) {
                 menu_stack.current = None;

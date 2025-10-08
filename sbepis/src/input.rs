@@ -13,14 +13,14 @@ pub fn input_manager_bundle<Action: Actionlike>(
     (input_map, action_state)
 }
 
-pub trait ActionButtonEvent {
+pub trait ActionButtonMessage {
     type Action: Actionlike + Copy;
     type Button: Component + InputManagerReference;
-    type Event: Event + InputManagerReference;
-    fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> + 'static;
+    type Message: Message + InputManagerReference;
+    fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Message, ()> + 'static;
     fn action() -> Self::Action;
 }
-pub fn fire_action_button_events<T: ActionButtonEvent>(
+pub fn fire_action_button_messages<T: ActionButtonMessage>(
     input: Query<(Entity, &ActionState<T::Action>)>,
     buttons: Query<(&T::Button, &Interaction), Changed<Interaction>>,
     mut commands: Commands,
@@ -28,8 +28,8 @@ pub fn fire_action_button_events<T: ActionButtonEvent>(
 ) -> Result {
     if system.is_none() {
         *system = Some(commands.register_system(T::make_event_system().pipe(
-            |In(ev): In<T::Event>, mut ev_action: EventWriter<T::Event>| {
-                ev_action.write(ev);
+            |In(ev): In<T::Message>, mut actions: MessageWriter<T::Message>| {
+                actions.write(ev);
             },
         )));
     }
@@ -56,26 +56,26 @@ pub trait InputManagerReference {
     fn input_manager(&self) -> Entity;
 }
 
-pub trait MapsToEvent<Event> {
-    fn make_event(&self) -> Event;
+pub trait MapsToMessage<Message> {
+    fn make_event(&self) -> Message;
 }
-pub fn map_event<EventA: Event + MapsToEvent<EventB>, EventB: Event>(
-    mut ev_a: EventReader<EventA>,
-    mut ev_b: EventWriter<EventB>,
+pub fn map_event<MessageA: Message + MapsToMessage<MessageB>, MessageB: Message>(
+    mut message_a: MessageReader<MessageA>,
+    mut message_b: MessageWriter<MessageB>,
 ) {
-    for ev in ev_a.read() {
-        ev_b.write(ev.make_event());
+    for ev in message_a.read() {
+        message_b.write(ev.make_event());
     }
 }
-pub fn map_action_to_event<Action: Actionlike + MapsToEvent<EventB>, EventB: Event>(
+pub fn map_action_to_event<Action: Actionlike + MapsToMessage<MessageB>, MessageB: Message>(
     input: Query<(Entity, &ActionState<Action>)>,
-    mut ev_b: EventWriter<EventB>,
+    mut message_b: MessageWriter<MessageB>,
 ) {
     input
         .iter()
         .flat_map(|(_, input)| input.get_just_pressed())
         .for_each(|action| {
-            ev_b.write(action.make_event());
+            message_b.write(action.make_event());
         });
 }
 
