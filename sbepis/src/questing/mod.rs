@@ -11,7 +11,7 @@ use return_ok::some_or_continue;
 use screen::QuestProgressUpdatedSet;
 use uuid::Uuid;
 
-use crate::entity::{EntityKilledSet, Kill};
+use crate::entity::Kill;
 use crate::gridbox_material;
 use crate::input::{InputManagerReference, MapsToMessage};
 use crate::inventory::{ChangeInventory, Inventory, InventoryChangedSet, Item};
@@ -262,21 +262,16 @@ fn complete_quest_if_done(
     Ok(())
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn end_quest_if_giver_killed(
-    mut kill: MessageReader<Kill>,
+    kill: On<Kill>,
     mut end_quest: MessageWriter<EndQuest>,
     quest_givers: Query<&QuestGiver>,
 ) {
-    for &Kill(entity) in kill.read() {
-        if let Ok(quest_proposal) = quest_givers.get(entity)
-            && let Some(quest_id) = quest_proposal.given_quest
-        {
-            end_quest.write(EndQuest(quest_id));
-        }
+    if let Ok(quest_proposal) = quest_givers.get(kill.victim)
+        && let Some(quest_id) = quest_proposal.given_quest
+    {
+        end_quest.write(EndQuest(quest_id));
     }
 }
 
@@ -301,22 +296,12 @@ fn remove_quest(
     Ok(())
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet,
-	in_set = QuestProgressUpdatedSet,
-)]
-fn update_killed_imps(
-    mut kill: MessageReader<Kill>,
-    mut quests: ResMut<Quests>,
-    imps: Query<(), With<Imp>>,
-) {
-    for Kill(entity) in kill.read() {
-        if imps.get(*entity).is_ok() {
-            for (_, quest) in quests.0.iter_mut() {
-                if let QuestType::Kill { done, .. } = &mut quest.quest_type {
-                    *done += 1;
-                }
+#[add_observer(plugin = QuestingPlugin)]
+fn update_killed_imps(kill: On<Kill>, mut quests: ResMut<Quests>, imps: Query<(), With<Imp>>) {
+    if imps.get(kill.victim).is_ok() {
+        for (_, quest) in quests.0.iter_mut() {
+            if let QuestType::Kill { done, .. } = &mut quest.quest_type {
+                *done += 1;
             }
         }
     }
@@ -337,12 +322,9 @@ fn update_picked_up_items(inventories: Query<&Inventory>, mut quests: ResMut<Que
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn spawn_quest_drops(
-    mut kill: MessageReader<Kill>,
+    kill: On<Kill>,
     mut commands: Commands,
     quests: Res<Quests>,
     imps: Query<&Transform, With<Imp>>,
@@ -356,30 +338,26 @@ fn spawn_quest_drops(
         .values()
         .filter(|quest| matches!(quest.quest_type, QuestType::Fetch { .. }))
         .count();
-    let mut num_items = items.iter().count();
+    let num_items = items.iter().count();
+    if num_items >= num_fetch_quests {
+        return;
+    }
 
-    for Kill(entity) in kill.read() {
-        if num_items >= num_fetch_quests {
-            break;
+    if let Ok(transform) = imps.get(kill.victim) {
+        if rand::random() {
+            return;
         }
 
-        if let Ok(transform) = imps.get(*entity) {
-            if rand::random() {
-                continue;
-            }
-
-            commands.spawn((
-                Transform::from_translation(transform.translation + Vec3::Y * 0.2),
-                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.2)))),
-                MeshMaterial3d(gridbox_material("orange", &mut materials, &asset_server)),
-                Box,
-                Collider::cuboid(0.1, 0.1, 0.1),
-                Item {
-                    icon: asset_server.load("item.png"),
-                },
-            ));
-            num_items += 1;
-        }
+        commands.spawn((
+            Transform::from_translation(transform.translation + Vec3::Y * 0.2),
+            Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.2)))),
+            MeshMaterial3d(gridbox_material("orange", &mut materials, &asset_server)),
+            Box,
+            Collider::cuboid(0.1, 0.1, 0.1),
+            Item {
+                icon: asset_server.load("item.png"),
+            },
+        ));
     }
 }
 

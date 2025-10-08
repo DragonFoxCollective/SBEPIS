@@ -157,7 +157,6 @@ fn on_rifle_fire(
     rifle_pivots: Query<&RiflePivot>,
     mut rifles: Query<&mut Rifle>,
     mut commands: Commands,
-    mut hit: MessageWriter<Hit>,
     rapier_context: ReadRapierContext,
     frays: Query<&FrayMusic>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
@@ -194,7 +193,7 @@ fn on_rifle_fire(
         rifle.charge = 0;
         let damage = fray.modify_fray_damage(rifle.damage) * charge_multiplier;
         let fray_modifier = fray.modify_fray_damage(1.0);
-        hit.write(Hit {
+        commands.trigger(Hit {
             victim: hit_entity,
             perpetrator: rifle.wielder,
             allies: rifle.allies.clone(),

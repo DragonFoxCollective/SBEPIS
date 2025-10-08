@@ -14,8 +14,8 @@ use meshtext::{Face, MeshGenerator, MeshText, TextSection};
 use rand::seq::{IndexedRandom as _, IteratorRandom};
 use return_ok::some_or_return;
 
+use crate::entity::Kill;
 use crate::entity::spawner::SpawnSystems;
-use crate::entity::{EntityKilledSet, Kill};
 use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
 
@@ -480,26 +480,22 @@ fn add_available_names(
     commands.insert_resource(AvailableNames::from(names.clone()));
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn add_killed_name_back(
-    mut kill: MessageReader<Kill>,
+    kill: On<Kill>,
     mut names: Option<ResMut<AvailableNames>>,
     name_tagged: Query<&NameTagged>,
 ) -> Result {
-    for ev in kill.read() {
-        if let Ok(name_tagged) = name_tagged.get(ev.0)
-            && name_tagged.0.tier.is_some()
-        {
-            names
-                .as_mut()
-                .ok_or("Names not loaded (this should be impossible???)")?
-                .names
-                .push(name_tagged.0.clone());
-        }
+    if let Ok(name_tagged) = name_tagged.get(kill.victim)
+        && name_tagged.0.tier.is_some()
+    {
+        names
+            .as_mut()
+            .ok_or("Names not loaded (this should be impossible???)")?
+            .names
+            .push(name_tagged.0.clone());
     }
+
     Ok(())
 }
 

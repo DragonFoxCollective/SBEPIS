@@ -4,7 +4,7 @@ use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy_butler::*;
 
-use crate::entity::{EntityKilledSet, EntityPlugin, Kill};
+use crate::entity::{EntityPlugin, Kill};
 
 #[derive(Component)]
 pub struct Spawner {
@@ -59,14 +59,9 @@ fn spawn_entities(
     }
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	in_set = EntityKilledSet,
-)]
-fn remove_entity(mut spawners: Query<&mut Spawner>, mut kill: MessageReader<Kill>) {
-    for killed in kill.read() {
-        for mut spawner in spawners.iter_mut() {
-            spawner.entities.remove(&killed.0);
-        }
+#[add_observer(plugin = EntityPlugin)]
+fn remove_entity(kill: On<Kill>, mut spawners: Query<&mut Spawner>) {
+    for mut spawner in spawners.iter_mut() {
+        spawner.entities.remove(&kill.victim);
     }
 }

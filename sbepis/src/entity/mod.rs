@@ -16,18 +16,13 @@ pub mod spawner;
 #[add_plugin(to_plugin = SbepisPlugin)]
 pub struct EntityPlugin;
 
-#[derive(Message)]
-#[add_message(plugin = EntityPlugin)]
-pub struct Kill(pub Entity);
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntityKilledSet;
+#[derive(EntityEvent)]
+pub struct Kill {
+    #[event_target]
+    pub victim: Entity,
+}
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
-fn kill_entities(mut kill: MessageReader<Kill>, mut commands: Commands) {
-    for ev in kill.read() {
-        commands.entity(ev.0).despawn();
-    }
+#[add_observer(plugin = EntityPlugin)]
+fn kill_entities(kill: On<Kill>, mut commands: Commands) {
+    commands.entity(kill.victim).despawn();
 }

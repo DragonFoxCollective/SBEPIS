@@ -6,12 +6,11 @@ use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_butler::*;
 use bevy_rapier3d::geometry::Collider;
-use return_ok::{ok_or_continue, some_or_return_ok};
+use return_ok::{ok_or_return, some_or_return_ok};
 
 use crate::entity::spawner::{ActivateSpawner, Spawn, SpawnSystems, SpawnerActivatedSet};
 use crate::entity::{
-    EntityKilledSet, GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar,
-    TargetPlayer,
+    GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar, TargetPlayer,
 };
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
@@ -264,59 +263,49 @@ fn update_imp_animations(
     }
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn imp_hurt_sound(
-    mut damage: MessageReader<Damage>,
+    damage: On<Damage>,
     mut imps: Query<(&GelViscosity, &GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
 ) {
-    for ev in damage.read() {
-        let (health, transform, mut sound_timer) = ok_or_continue!(imps.get_mut(ev.victim));
+    let (health, transform, mut sound_timer) = ok_or_return!(imps.get_mut(damage.victim));
 
-        if ev.damage + health.value < 0.0 {
-            // dead
-            continue;
-        }
-
-        commands.spawn((
-            Transform::from_translation(transform.translation()),
-            AudioPlayer(imp_assets.hurt_sound.clone()),
-            PlaybackSettings::DESPAWN
-                .with_speed(imp_assets.random_sound_effect_variance())
-                .with_spatial(true),
-        ));
-
-        sound_timer.0 = imp_assets.random_ambient_sound_time();
+    if damage.damage + health.value < 0.0 {
+        // dead
+        return;
     }
+
+    commands.spawn((
+        Transform::from_translation(transform.translation()),
+        AudioPlayer(imp_assets.hurt_sound.clone()),
+        PlaybackSettings::DESPAWN
+            .with_speed(imp_assets.random_sound_effect_variance())
+            .with_spatial(true),
+    ));
+
+    sound_timer.0 = imp_assets.random_ambient_sound_time();
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn imp_kill_sound(
-    mut kill: MessageReader<Kill>,
+    kill: On<Kill>,
     mut imps: Query<(&GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
 ) {
-    for ev in kill.read() {
-        let (transform, mut sound_timer) = ok_or_continue!(imps.get_mut(ev.0));
+    let (transform, mut sound_timer) = ok_or_return!(imps.get_mut(kill.victim));
 
-        commands.spawn((
-            Transform::from_translation(transform.translation()),
-            AudioPlayer(imp_assets.death_sound.clone()),
-            PlaybackSettings::DESPAWN
-                .with_speed(imp_assets.random_sound_effect_variance())
-                .with_spatial(true),
-        ));
+    commands.spawn((
+        Transform::from_translation(transform.translation()),
+        AudioPlayer(imp_assets.death_sound.clone()),
+        PlaybackSettings::DESPAWN
+            .with_speed(imp_assets.random_sound_effect_variance())
+            .with_spatial(true),
+    ));
 
-        sound_timer.0 = imp_assets.random_ambient_sound_time();
-    }
+    sound_timer.0 = imp_assets.random_ambient_sound_time();
 }
 
 #[derive(Component, Default)]

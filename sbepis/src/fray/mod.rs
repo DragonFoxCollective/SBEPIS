@@ -9,7 +9,7 @@ use soundyrust::*;
 use tracks::{FrayTracks, Track};
 
 use crate::npcs::imp::Imp;
-use crate::player_controller::weapons::{Hit, HitSystems};
+use crate::player_controller::weapons::Hit;
 use crate::prelude::*;
 use crate::util::MapRangeBetween;
 
@@ -222,12 +222,9 @@ fn tick_fray_music(
     Ok(())
 }
 
-#[add_system(
-	plugin = FrayPlugin, schedule = Update,
-	after = HitSystems,
-)]
+#[add_observer(plugin = FrayPlugin)]
 fn queue_tracks_on_hit(
-    mut hit: MessageReader<Hit>,
+    hit: On<Hit>,
     imps: Query<(), With<Imp>>,
     players: Query<(), With<PlayerBody>>,
     audio_players: Query<&AudioPlayer<MidiAudio>>,
@@ -238,27 +235,25 @@ fn queue_tracks_on_hit(
         .get_mut(&ok_or_return_ok!(audio_players.single()).0)
         .ok_or("Midi audio not found")?;
 
-    for event in hit.read() {
-        if imps.get(event.perpetrator).is_ok() {
-            audio.queue(
-                fray_tracks.imp_track(),
-                MidiQueueEvent {
-                    event: MidiQueueEventType::Play,
-                    timing: MidiQueueTiming::Bar,
-                    looping: MidiQueueLooping::Once,
-                },
-            );
-        }
-        if players.get(event.perpetrator).is_ok() {
-            audio.queue(
-                fray_tracks.player_track(),
-                MidiQueueEvent {
-                    event: MidiQueueEventType::Play,
-                    timing: MidiQueueTiming::Bar,
-                    looping: MidiQueueLooping::Once,
-                },
-            );
-        }
+    if imps.get(hit.perpetrator).is_ok() {
+        audio.queue(
+            fray_tracks.imp_track(),
+            MidiQueueEvent {
+                event: MidiQueueEventType::Play,
+                timing: MidiQueueTiming::Bar,
+                looping: MidiQueueLooping::Once,
+            },
+        );
+    }
+    if players.get(hit.perpetrator).is_ok() {
+        audio.queue(
+            fray_tracks.player_track(),
+            MidiQueueEvent {
+                event: MidiQueueEventType::Play,
+                timing: MidiQueueTiming::Bar,
+                looping: MidiQueueLooping::Once,
+            },
+        );
     }
 
     Ok(())
