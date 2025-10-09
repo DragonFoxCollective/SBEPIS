@@ -5,7 +5,7 @@ use leafwing_input_manager::prelude::InputMap;
 
 use crate::camera::PlayerCameraNode;
 use crate::input::input_manager_bundle;
-use crate::inventory::{InventoryPlugin, Item, PickUpItem, pick_up_items};
+use crate::inventory::{InventoryPlugin, Item, PickUpItem};
 use crate::menus::*;
 
 #[derive(Component)]
@@ -42,32 +42,27 @@ fn spawn_inventory_screen(mut commands: Commands) {
         .insert(Name::new("Inventory Screen"));
 }
 
-#[add_system(
-	plugin = InventoryPlugin, schedule = Update,
-	after = pick_up_items,
-)]
+#[add_observer(plugin = InventoryPlugin)]
 fn add_item_to_inventory_screen(
-    mut pick_up: MessageReader<PickUpItem>,
+    pick_up: On<PickUpItem>,
     mut commands: Commands,
     items: Query<&Item>,
     inventory_screen: Query<Entity, With<InventoryScreen>>,
 ) -> Result {
     let inventory_screen = inventory_screen.single()?;
 
-    for PickUpItem(item_entity) in pick_up.read() {
-        let item = items.get(*item_entity)?;
+    let item = items.get(pick_up.entity)?;
 
-        commands.spawn((
-            ImageNode::new(item.icon.clone()),
-            Node {
-                width: Val::Px(100.0),
-                height: Val::Px(100.0),
-                ..default()
-            },
-            BackgroundColor(css::DARK_GRAY.into()),
-            ChildOf(inventory_screen),
-        ));
-    }
+    commands.spawn((
+        ImageNode::new(item.icon.clone()),
+        Node {
+            width: Val::Px(100.0),
+            height: Val::Px(100.0),
+            ..default()
+        },
+        BackgroundColor(css::DARK_GRAY.into()),
+        ChildOf(inventory_screen),
+    ));
 
     Ok(())
 }

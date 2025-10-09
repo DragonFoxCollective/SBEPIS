@@ -13,14 +13,15 @@ pub fn input_manager_bundle<Action: Actionlike>(
     (input_map, action_state)
 }
 
-pub trait ActionButtonMessage {
+// TODO: there's gotta be a way to remove this now
+pub trait ActionButtonEvent {
     type Action: Actionlike + Copy;
     type Button: Component + InputManagerReference;
-    type Message: Message + InputManagerReference;
-    fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Message, ()> + 'static;
+    type Event: Event + InputManagerReference;
+    fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> + 'static;
     fn action() -> Self::Action;
 }
-pub fn fire_action_button_messages<T: ActionButtonMessage>(
+pub fn fire_action_button_events<'a, T: ActionButtonEvent<Event: Event<Trigger<'a>: Default>>>(
     input: Query<(Entity, &ActionState<T::Action>)>,
     buttons: Query<(&T::Button, &Interaction), Changed<Interaction>>,
     mut commands: Commands,
@@ -28,8 +29,8 @@ pub fn fire_action_button_messages<T: ActionButtonMessage>(
 ) -> Result {
     if system.is_none() {
         *system = Some(commands.register_system(T::make_event_system().pipe(
-            |In(ev): In<T::Message>, mut actions: MessageWriter<T::Message>| {
-                actions.write(ev);
+            |In(ev): In<T::Event>, mut commands: Commands| {
+                commands.trigger(ev);
             },
         )));
     }
@@ -54,29 +55,6 @@ pub fn fire_action_button_messages<T: ActionButtonMessage>(
 
 pub trait InputManagerReference {
     fn input_manager(&self) -> Entity;
-}
-
-pub trait MapsToMessage<Message> {
-    fn make_event(&self) -> Message;
-}
-pub fn map_event<MessageA: Message + MapsToMessage<MessageB>, MessageB: Message>(
-    mut message_a: MessageReader<MessageA>,
-    mut message_b: MessageWriter<MessageB>,
-) {
-    for ev in message_a.read() {
-        message_b.write(ev.make_event());
-    }
-}
-pub fn map_action_to_event<Action: Actionlike + MapsToMessage<MessageB>, MessageB: Message>(
-    input: Query<(Entity, &ActionState<Action>)>,
-    mut message_b: MessageWriter<MessageB>,
-) {
-    input
-        .iter()
-        .flat_map(|(_, input)| input.get_just_pressed())
-        .for_each(|action| {
-            message_b.write(action.make_event());
-        });
 }
 
 const UNIVERSAL_DEADZONE: f32 = 0.05;
@@ -142,4 +120,11 @@ pub fn button_just_released<T: Actionlike + Copy>(
             false
         }
     }
+}
+
+#[derive(EntityEvent)]
+pub struct JustPressed<T: Actionlike> {
+    #[event_target]
+    pub input_manager: Entity,
+    pub action: T,
 }

@@ -3,8 +3,7 @@ use bevy_butler::*;
 use soundyrust::Note;
 
 use crate::player_commands::notes::PlayNote;
-use crate::player_commands::{NotePlayedSet, PlayerCommandsPlugin};
-use crate::player_commands::{ClearNotes, NotesClearedSet, staff::*};
+use crate::player_commands::{ClearNotes, PlayerCommandsPlugin, staff::*};
 use crate::util::MapRangeBetween;
 
 #[derive(Component, Default)]
@@ -26,55 +25,46 @@ impl NoteNodeHolder {
     }
 }
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	after = NotePlayedSet,
-	before = NotesClearedSet,
-)]
+#[add_observer(plugin = PlayerCommandsPlugin)]
 fn add_note_to_holder(
+    play_note: On<PlayNote>,
     mut commands: Commands,
-    mut play_note: MessageReader<PlayNote>,
     mut note_holder: Query<(&mut NoteNodeHolder, Entity)>,
     asset_server: Res<AssetServer>,
 ) -> Result {
     let (mut note_holder, note_holder_entity) = note_holder.single_mut()?;
 
-    for ev in play_note.read() {
-        let note = ev.note;
+    let note = play_note.note;
 
-        debug!(
-            "{} {} {}",
-            note,
-            note.position(),
-            note_holder.note_top(&note)
-        );
+    debug!(
+        "{} {} {}",
+        note,
+        note.position(),
+        note_holder.note_top(&note)
+    );
 
-        let note_entity = commands
-            .spawn((
-                ImageNode::new(asset_server.load("quarter_note.png")),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(note_holder.next_note_left()),
-                    top: Val::Px(note_holder.note_top(&note)),
-                    height: Val::Px(QUARTER_NOTE_HEIGHT),
-                    ..default()
-                },
-                ChildOf(note_holder_entity),
-            ))
-            .id();
+    let note_entity = commands
+        .spawn((
+            ImageNode::new(asset_server.load("quarter_note.png")),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(note_holder.next_note_left()),
+                top: Val::Px(note_holder.note_top(&note)),
+                height: Val::Px(QUARTER_NOTE_HEIGHT),
+                ..default()
+            },
+            ChildOf(note_holder_entity),
+        ))
+        .id();
 
-        note_holder.note_entities.push(note_entity);
-    }
+    note_holder.note_entities.push(note_entity);
 
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	after = NotesClearedSet,
-	run_if = on_message::<ClearNotes>,
-)]
+#[add_observer(plugin = PlayerCommandsPlugin)]
 fn clear_holder_notes(
+    _: On<ClearNotes>,
     mut commands: Commands,
     mut note_holder: Query<&mut NoteNodeHolder>,
 ) -> Result {

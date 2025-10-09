@@ -14,32 +14,23 @@ pub struct Spawner {
     pub entities: HashSet<Entity>,
 }
 
-#[derive(Message)]
-#[add_message(plugin = EntityPlugin)]
+#[derive(EntityEvent)]
 pub struct ActivateSpawner {
-    pub entity: Entity,
+    #[event_target]
     pub spawner: Entity,
+    pub spawned_entity: Entity,
     pub position: Vec3,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SpawnerActivatedSet;
 
-#[derive(Message)]
-#[add_message(plugin = EntityPlugin)]
+#[derive(EntityEvent)]
 pub struct Spawn {
-    pub _entity: Entity,
+    pub entity: Entity,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SpawnSystems;
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	in_set = SpawnerActivatedSet,
-)]
+#[add_system(plugin = EntityPlugin, schedule = Update)]
 fn spawn_entities(
     mut spawners: Query<(Entity, &mut Spawner, &GlobalTransform)>,
     time: Res<Time>,
-    mut activate_spawner: MessageWriter<ActivateSpawner>,
     mut commands: Commands,
 ) {
     for (spawner_entity, mut spawner, transform) in spawners.iter_mut() {
@@ -47,11 +38,11 @@ fn spawn_entities(
 
         if spawner.spawn_timer >= spawner.spawn_delay && spawner.entities.len() < spawner.max_amount
         {
-            let entity = commands.spawn_empty().id();
-            spawner.entities.insert(entity);
+            let spawned_entity = commands.spawn_empty().id();
+            spawner.entities.insert(spawned_entity);
             spawner.spawn_timer = Duration::ZERO;
-            activate_spawner.write(ActivateSpawner {
-                entity,
+            commands.trigger(ActivateSpawner {
+                spawned_entity,
                 spawner: spawner_entity,
                 position: transform.translation(),
             });

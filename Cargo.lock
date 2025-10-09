@@ -533,7 +533,7 @@ dependencies = [
 [[package]]
 name = "bevy-butler"
 version = "0.7.0"
-source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#fa0c952e8c6ed81a7ce90e3669d42a0f55b3cc65"
+source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#4adaf3b8e82d4b810aeac40625994cc7120aa25a"
 dependencies = [
  "bevy-butler-proc-macro",
  "bevy_app",
@@ -547,7 +547,7 @@ dependencies = [
 [[package]]
 name = "bevy-butler-proc-macro"
 version = "0.7.0"
-source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#fa0c952e8c6ed81a7ce90e3669d42a0f55b3cc65"
+source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#4adaf3b8e82d4b810aeac40625994cc7120aa25a"
 dependencies = [
  "deluxe",
  "deluxe-core",
@@ -2604,7 +2604,7 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 [[package]]
 name = "deluxe"
 version = "0.5.0"
-source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#fa0c952e8c6ed81a7ce90e3669d42a0f55b3cc65"
+source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#4adaf3b8e82d4b810aeac40625994cc7120aa25a"
 dependencies = [
  "deluxe-core",
  "deluxe-macros",
@@ -2616,7 +2616,7 @@ dependencies = [
 [[package]]
 name = "deluxe-core"
 version = "0.5.0"
-source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#fa0c952e8c6ed81a7ce90e3669d42a0f55b3cc65"
+source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#4adaf3b8e82d4b810aeac40625994cc7120aa25a"
 dependencies = [
  "arrayvec",
  "proc-macro2",
@@ -2628,7 +2628,7 @@ dependencies = [
 [[package]]
 name = "deluxe-macros"
 version = "0.5.0"
-source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#fa0c952e8c6ed81a7ce90e3669d42a0f55b3cc65"
+source = "git+https://github.com/DragonFoxCollective/bevy-butler.git#4adaf3b8e82d4b810aeac40625994cc7120aa25a"
 dependencies = [
  "deluxe-core",
  "heck 0.4.1",

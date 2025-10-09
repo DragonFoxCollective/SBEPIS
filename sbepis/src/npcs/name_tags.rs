@@ -15,7 +15,6 @@ use rand::seq::{IndexedRandom as _, IteratorRandom};
 use return_ok::some_or_return;
 
 use crate::entity::Kill;
-use crate::entity::spawner::SpawnSystems;
 use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
 
@@ -57,6 +56,8 @@ impl From<Supporters> for AvailableNames {
     }
 }
 
+/// Marks an entity that should have a name tag spawned for it.
+/// This isn't an observer because the names might not be loaded when the entity is spawned.
 #[derive(Component)]
 pub struct SpawnNameTag;
 
@@ -322,10 +323,7 @@ fn load_names(
     Ok(())
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = SpawnSystems,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_name_tags(
     mut commands: Commands,
     asset: Res<NameTagAssets>,

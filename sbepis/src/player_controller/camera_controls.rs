@@ -70,7 +70,7 @@ pub fn interact_with<T: Component>(
     entities: Query<Entity, With<T>>,
     parents: Query<&ChildOf>,
     input: Query<&ActionState<PlayerAction>>,
-    mut interact: MessageWriter<InteractWith<T>>,
+    mut commands: Commands,
 ) -> Result {
     if !match input.iter().find(|input| !input.disabled()) {
         Some(input) => input.just_pressed(&PlayerAction::Interact),
@@ -103,42 +103,22 @@ pub fn interact_with<T: Component>(
     );
 
     if let Some((Some(entity), _)) = hit_entity {
-        interact.write(InteractWith::new(entity));
+        commands.trigger(InteractWith::<T>::new(entity));
     }
 
     Ok(())
 }
 
-#[derive(Message)]
-pub struct InteractWith<T>(pub Entity, PhantomData<T>);
+#[derive(EntityEvent)]
+pub struct InteractWith<T> {
+    pub entity: Entity,
+    pub _marker: PhantomData<T>,
+}
 impl<T> InteractWith<T> {
     pub fn new(entity: Entity) -> Self {
-        Self(entity, PhantomData)
+        Self {
+            entity,
+            _marker: PhantomData,
+        }
     }
-}
-#[derive(SystemSet)]
-pub struct InteractedWithSet<T>(PhantomData<T>);
-impl<T> Default for InteractedWithSet<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-impl<T> std::fmt::Debug for InteractedWithSet<T> {
-    fn fmt(&self, _: &mut std::fmt::Formatter) -> std::fmt::Result {
-        Ok(())
-    }
-}
-impl<T> Clone for InteractedWithSet<T> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-impl<T> PartialEq for InteractedWithSet<T> {
-    fn eq(&self, _: &Self) -> bool {
-        true
-    }
-}
-impl<T> Eq for InteractedWithSet<T> {}
-impl<T> std::hash::Hash for InteractedWithSet<T> {
-    fn hash<H: std::hash::Hasher>(&self, _: &mut H) {}
 }

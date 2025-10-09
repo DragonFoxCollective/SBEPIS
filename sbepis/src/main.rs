@@ -41,9 +41,7 @@ mod prelude {
     pub use crate::camera::PlayerCameraNode;
     pub use crate::main_menu::GameState;
     pub use crate::player_controller::PlayerBody;
-    pub use crate::player_controller::camera_controls::{
-        InteractWith, InteractedWithSet, interact_with,
-    };
+    pub use crate::player_controller::camera_controls::{InteractWith, interact_with};
     pub use crate::post_processing::PostProcessSettings;
 }
 

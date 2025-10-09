@@ -8,7 +8,7 @@ use bevy_butler::*;
 use bevy_rapier3d::geometry::Collider;
 use return_ok::{ok_or_return, some_or_return_ok};
 
-use crate::entity::spawner::{ActivateSpawner, Spawn, SpawnSystems, SpawnerActivatedSet};
+use crate::entity::spawner::{ActivateSpawner, Spawn};
 use crate::entity::{
     GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar, TargetPlayer,
 };
@@ -88,36 +88,26 @@ fn setup_imp_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = SpawnerActivatedSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn queue_spawning_imp(
-    mut activate_spawner: MessageReader<ActivateSpawner>,
+    spawn: On<ActivateSpawner>,
     mut commands: Commands,
     spawners: Query<(), With<ImpSpawner>>,
 ) {
-    for ev in activate_spawner.read() {
-        if spawners.get(ev.spawner).is_err() {
-            continue;
-        }
-
-        commands.entity(ev.entity).insert((
-            Name::new("Imp"),
-            Transform::from_translation(ev.position),
-            InsertImpAssets,
-        ));
+    if spawners.get(spawn.spawner).is_err() {
+        return;
     }
+
+    commands.entity(spawn.spawned_entity).insert((
+        Name::new("Imp"),
+        Transform::from_translation(spawn.position),
+        InsertImpAssets,
+    ));
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = queue_spawning_imp,
-	in_set = SpawnSystems,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_imp(
     imps: Query<Entity, With<InsertImpAssets>>,
-    mut spawn: MessageWriter<Spawn>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
     gltfs: Res<Assets<Gltf>>,
@@ -211,16 +201,13 @@ fn spawn_imp(
                 },
             );
 
-        spawn.write(Spawn { _entity: imp });
+        commands.trigger(Spawn { entity: imp });
     }
 
     Ok(())
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = SpawnSystems,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn update_imp_animations(
     mut imps: Query<(&Movement, &AnimationRootReference), With<Imp>>,
     mut animations: Query<(
