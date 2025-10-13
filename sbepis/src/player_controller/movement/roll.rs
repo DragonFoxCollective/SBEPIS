@@ -43,12 +43,12 @@ impl FromWorld for RollingAssets {
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn to_rolling_assets(
-    trigger: Trigger<OnAdd, (Rolling,)>,
+    add: On<Add, (Rolling,)>,
     players: Query<&PlayerBody>,
     assets: Res<RollingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = players.get(trigger.target())?;
+    let body = players.get(add.entity)?;
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));
@@ -60,22 +60,22 @@ fn to_rolling_assets(
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn remove_movement(trigger: Trigger<OnAdd, Rolling>, mut commands: Commands) {
+fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
     commands
-        .entity(trigger.target())
+        .entity(add.entity)
         .remove::<Movement>()
         .insert(AffectedByGravity);
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn readd_movement(
-    trigger: Trigger<OnRemove, Rolling>,
+    add: On<Add, Rolling>,
     velocities: Query<&Velocity>,
     mut commands: Commands,
 ) -> Result {
-    let velocity = velocities.get(trigger.target())?;
+    let velocity = velocities.get(add.entity)?;
     commands
-        .entity(trigger.target())
+        .entity(add.entity)
         .insert(Movement(velocity.linvel));
     Ok(())
 }

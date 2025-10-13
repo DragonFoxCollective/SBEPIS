@@ -3,10 +3,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 
 use crate::camera::PlayerCamera;
-use crate::menus::{
-    Menu, MenuActivated, MenuActivatedSet, MenuDeactivated, MenuDeactivatedSet,
-    MenuManipulationSet, MenuStack, MenuWithMouse,
-};
+use crate::menus::{ActivateMenu, DeactivateMenu, Menu, MenuStack, MenuWithMouse};
 use crate::prelude::*;
 
 #[butler_plugin]
@@ -48,7 +45,6 @@ fn setup(mut commands: Commands) {
 #[add_system(
 	plugin = OverviewCameraPlugin, schedule = Update,
 	run_if = input_just_pressed(KeyCode::Tab),
-	in_set = MenuManipulationSet,
 )]
 fn toggle_camera(
     mut menu_stack: ResMut<MenuStack>,
@@ -59,46 +55,34 @@ fn toggle_camera(
     Ok(())
 }
 
-#[add_system(
-	plugin = OverviewCameraPlugin, schedule = Update,
-	after = MenuActivatedSet,
-)]
+#[add_observer(plugin = OverviewCameraPlugin)]
 fn enable_overview_camera(
-    mut ev_activated: EventReader<MenuActivated>,
+    activate: On<ActivateMenu>,
     mut overview_camera: Query<&mut Camera, (With<OverviewCamera>, Without<PlayerCamera>)>,
     mut player_camera: Query<&mut Camera, (With<PlayerCamera>, Without<OverviewCamera>)>,
-) -> Result {
-    for MenuActivated(menu) in ev_activated.read() {
-        if overview_camera.get(*menu).is_ok() {
-            for mut overview_camera in overview_camera.iter_mut() {
-                overview_camera.is_active = true;
-            }
-            for mut player_camera in player_camera.iter_mut() {
-                player_camera.is_active = false;
-            }
+) {
+    if overview_camera.get(activate.menu).is_ok() {
+        for mut overview_camera in overview_camera.iter_mut() {
+            overview_camera.is_active = true;
+        }
+        for mut player_camera in player_camera.iter_mut() {
+            player_camera.is_active = false;
         }
     }
-    Ok(())
 }
 
-#[add_system(
-	plugin = OverviewCameraPlugin, schedule = Update,
-	after = MenuDeactivatedSet,
-)]
+#[add_observer(plugin = OverviewCameraPlugin)]
 fn disable_overview_camera(
-    mut ev_deactivated: EventReader<MenuDeactivated>,
+    deactivate: On<DeactivateMenu>,
     mut overview_camera: Query<&mut Camera, (With<OverviewCamera>, Without<PlayerCamera>)>,
     mut player_camera: Query<&mut Camera, (With<PlayerCamera>, Without<OverviewCamera>)>,
-) -> Result {
-    for MenuDeactivated(menu) in ev_deactivated.read() {
-        if overview_camera.get(*menu).is_ok() {
-            for mut overview_camera in overview_camera.iter_mut() {
-                overview_camera.is_active = false;
-            }
-            for mut player_camera in player_camera.iter_mut() {
-                player_camera.is_active = true;
-            }
+) {
+    if overview_camera.get(deactivate.menu).is_ok() {
+        for mut overview_camera in overview_camera.iter_mut() {
+            overview_camera.is_active = false;
+        }
+        for mut player_camera in player_camera.iter_mut() {
+            player_camera.is_active = true;
         }
     }
-    Ok(())
 }

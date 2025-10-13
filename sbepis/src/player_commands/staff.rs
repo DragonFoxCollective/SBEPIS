@@ -7,8 +7,8 @@ use leafwing_input_manager::prelude::InputMap;
 use crate::camera::PlayerCameraNode;
 use crate::input::input_manager_bundle;
 use crate::menus::{
-    CloseMenuBinding, Menu, MenuHidesWhenClosed, MenuManipulationSet, MenuWithInputManager,
-    MenuWithoutMouse, OpenMenuBinding,
+    CloseMenuBinding, Menu, MenuHidesWhenClosed, MenuWithInputManager, MenuWithoutMouse,
+    OpenMenuBinding,
 };
 use crate::player_commands::PlayerCommandsPlugin;
 use crate::player_commands::note_holder::NoteNodeHolder;
@@ -150,11 +150,7 @@ impl OpenMenuBinding for OpenStaffBinding {
     }
 }
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <OpenStaffBinding>,
-	in_set = MenuManipulationSet,
-)]
+#[add_observer(plugin = PlayerCommandsPlugin, generics = <OpenStaffBinding>)]
 use crate::menus::show_menu_on_action;
 
 #[derive(Actionlike, Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
@@ -168,9 +164,5 @@ impl CloseMenuBinding for CloseStaffBinding {
     }
 }
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <CloseStaffBinding>,
-	in_set = MenuManipulationSet,
-)]
+#[add_observer(plugin = PlayerCommandsPlugin, generics = <CloseStaffBinding>)]
 use crate::menus::close_menu_on_action;

@@ -1,19 +1,20 @@
 use std::f32::consts::PI;
 
+use bevy::asset::RenderAssetUsages;
 use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::render::render_resource::AsBindGroup;
 use bevy::scene::SceneInstanceReady;
+use bevy::shader::ShaderRef;
 use bevy_butler::*;
-use bevy_hanabi::prelude::*;
-use faker_rand::en_us::names::FirstName;
+use bevy_hanabi::prelude::{Gradient, *};
+use fake::Fake;
+use fake::faker::name::en::FirstName;
 use meshtext::{Face, MeshGenerator, MeshText, TextSection};
-use rand::seq::{IteratorRandom, SliceRandom};
+use rand::seq::{IndexedRandom as _, IteratorRandom};
 use return_ok::some_or_return;
 
-use crate::entity::spawner::EntitySpawnedSet;
-use crate::entity::{EntityKilled, EntityKilledSet};
+use crate::entity::Kill;
 use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
 
@@ -55,6 +56,8 @@ impl From<Supporters> for AvailableNames {
     }
 }
 
+/// Marks an entity that should have a name tag spawned for it.
+/// This isn't an observer because the names might not be loaded when the entity is spawned.
 #[derive(Component)]
 pub struct SpawnNameTag;
 
@@ -70,7 +73,7 @@ pub struct NameTag {
 impl Default for NameTag {
     fn default() -> Self {
         Self {
-            name: rand::random::<FirstName>().to_string(),
+            name: FirstName().fake(),
             tier: None,
         }
     }
@@ -320,10 +323,7 @@ fn load_names(
     Ok(())
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntitySpawnedSet,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_name_tags(
     mut commands: Commands,
     asset: Res<NameTagAssets>,
@@ -355,7 +355,7 @@ fn spawn_name_tags(
             Some(SupporterTier::Denizen) => NameTagShader::Standard(
                 asset
                     .denizen_materials
-                    .choose(&mut rand::thread_rng())
+                    .choose(&mut rand::rng())
                     .ok_or("No denizen-level materials")?
                     .clone(),
             ),
@@ -423,15 +423,18 @@ fn spawn_name_tags(
 
         if !matches!(name_tag.tier, Some(SupporterTier::Master)) {
             commands.entity(entity).observe(
-                |trigger: Trigger<SceneInstanceReady>,
+                |scene_instance_ready: On<SceneInstanceReady>,
                  material_names: Query<&GltfMaterialName>,
                  mut commands: Commands,
                  children: Query<&Children>| {
-                    for child in children.iter_descendants(trigger.target()).filter(|child| {
-                        material_names
-                            .get(*child)
-                            .is_ok_and(|name| name.0 == "Candy")
-                    }) {
+                    for child in children
+                        .iter_descendants(scene_instance_ready.entity)
+                        .filter(|child| {
+                            material_names
+                                .get(*child)
+                                .is_ok_and(|name| name.0 == "Candy")
+                        })
+                    {
                         commands.entity(child).insert(Visibility::Hidden);
                     }
                 },
@@ -454,7 +457,7 @@ fn get_name(available_names: Option<&mut ResMut<AvailableNames>>) -> Option<Name
         .names
         .iter()
         .enumerate()
-        .choose(&mut rand::thread_rng())
+        .choose(&mut rand::rng())
         .map(|(i, name)| (i, name.clone()));
     if let Some((i, _)) = opt {
         available_names.names.swap_remove(i);
@@ -475,26 +478,22 @@ fn add_available_names(
     commands.insert_resource(AvailableNames::from(names.clone()));
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn add_killed_name_back(
-    mut ev_killed: EventReader<EntityKilled>,
+    kill: On<Kill>,
     mut names: Option<ResMut<AvailableNames>>,
     name_tagged: Query<&NameTagged>,
 ) -> Result {
-    for ev in ev_killed.read() {
-        if let Ok(name_tagged) = name_tagged.get(ev.0)
-            && name_tagged.0.tier.is_some()
-        {
-            names
-                .as_mut()
-                .ok_or("Names not loaded (this should be impossible???)")?
-                .names
-                .push(name_tagged.0.clone());
-        }
+    if let Ok(name_tagged) = name_tagged.get(kill.victim)
+        && name_tagged.0.tier.is_some()
+    {
+        names
+            .as_mut()
+            .ok_or("Names not loaded (this should be impossible???)")?
+            .names
+            .push(name_tagged.0.clone());
     }
+
     Ok(())
 }
 

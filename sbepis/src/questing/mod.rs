@@ -6,15 +6,14 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::Collider;
 use proposal::*;
 use rand::Rng;
-use rand::distributions::{Distribution, Standard};
-use return_ok::some_or_continue;
-use screen::QuestProgressUpdatedSet;
+use rand::distr::{Distribution, StandardUniform};
+use return_ok::some_or_return_ok;
 use uuid::Uuid;
 
-use crate::entity::{EntityKilled, EntityKilledSet};
+use crate::entity::Kill;
 use crate::gridbox_material;
-use crate::input::{InputManagerReference, MapsToEvent};
-use crate::inventory::{Inventory, InventoryChanged, InventoryChangedSet, Item};
+use crate::input::InputManagerReference;
+use crate::inventory::{ChangeInventory, Inventory, Item};
 use crate::main_bundles::Box;
 use crate::npcs::imp::Imp;
 use crate::prelude::*;
@@ -41,11 +40,9 @@ use crate::menus::InputManagerMenuPlugin;
 #[derive(Resource, Default, Debug, Reflect)]
 #[reflect(Resource)]
 #[insert_resource(plugin = QuestingPlugin)]
-#[register_type(plugin = QuestingPlugin)]
 pub struct Quests(pub HashMap<QuestId, Quest>);
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Reflect)]
-#[register_type(plugin = QuestingPlugin)]
 pub struct QuestId(Uuid);
 impl QuestId {
     #[allow(clippy::new_without_default)]
@@ -124,12 +121,12 @@ impl QuestType {
         self.min_progress() as f32..self.max_progress() as f32
     }
 }
-impl Distribution<QuestType> for Standard {
+impl Distribution<QuestType> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> QuestType {
-        match rng.gen_range(0..=1) {
+        match rng.random_range(0..=1) {
             0 => QuestType::Fetch { done: false },
             _ => QuestType::Kill {
-                amount: rng.gen_range(1..=5),
+                amount: rng.random_range(1..=5),
                 done: 0,
             },
         }
@@ -137,16 +134,15 @@ impl Distribution<QuestType> for Standard {
 }
 
 #[derive(Debug, Reflect)]
-#[register_type(plugin = QuestingPlugin)]
 pub struct Quest {
     pub id: QuestId,
     pub quest_type: QuestType,
     pub name: String,
     pub description: String,
 }
-impl Distribution<Quest> for Standard {
+impl Distribution<Quest> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Quest {
-        let quest_type: QuestType = rng.r#gen();
+        let quest_type: QuestType = rng.random();
         match quest_type {
             QuestType::Kill { amount, .. } => Quest {
                 id: QuestId::new(),
@@ -167,171 +163,123 @@ impl Distribution<Quest> for Standard {
 }
 
 #[derive(Component, Default, Reflect)]
-#[register_type(plugin = QuestingPlugin)]
 pub struct QuestGiver {
     pub given_quest: Option<QuestId>,
     quest_marker: Option<Entity>,
 }
 
-#[add_event(plugin = QuestingPlugin, generics = <QuestGiver>)]
-use crate::prelude::InteractedWith;
-
 #[derive(Event)]
-#[add_event(plugin = QuestingPlugin)]
-pub struct QuestAccepted {
+pub struct AcceptQuest {
     pub quest_proposal: Entity,
     pub quest_id: QuestId,
 }
-impl InputManagerReference for QuestAccepted {
+impl InputManagerReference for AcceptQuest {
     fn input_manager(&self) -> Entity {
         self.quest_proposal
     }
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct QuestAcceptedSet;
 
-#[derive(Event, Clone)]
-#[add_event(plugin = QuestingPlugin)]
-pub struct QuestDeclined {
+/// Quest has been declined, and will end.
+#[derive(Event)]
+pub struct DeclineQuest {
     pub quest_proposal: Entity,
     pub quest_id: QuestId,
 }
-impl InputManagerReference for QuestDeclined {
+impl InputManagerReference for DeclineQuest {
     fn input_manager(&self) -> Entity {
         self.quest_proposal
     }
 }
-impl MapsToEvent<QuestEnded> for QuestDeclined {
-    fn make_event(&self) -> QuestEnded {
-        QuestEnded(self.quest_id)
-    }
-}
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct QuestDeclinedSet;
 
+/// Quest has ended, either by being completed, declined, or something else.
 #[derive(Event)]
-#[add_event(plugin = QuestingPlugin)]
-pub struct QuestEnded(pub QuestId);
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct QuestEndedSet;
-
-#[derive(Event, Clone)]
-#[add_event(plugin = QuestingPlugin)]
-pub struct QuestCompleted(pub QuestId);
-impl MapsToEvent<QuestEnded> for QuestCompleted {
-    fn make_event(&self) -> QuestEnded {
-        QuestEnded(self.0)
-    }
+pub struct EndQuest {
+    pub quest_id: QuestId,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct QuestCompletedSet;
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestDeclined, QuestEnded>,
-	after = QuestDeclinedSet,
-	in_set = QuestEndedSet,
-)]
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestCompleted, QuestEnded>,
-	after = QuestCompletedSet,
-	in_set = QuestEndedSet,
-)]
-use crate::input::map_event;
+/// Quest has been completed successfully, and will end.
+#[derive(Event, Clone)]
+pub struct CompleteQuest {
+    pub quest_id: QuestId,
+}
 
-type InteractedWithQuestGiverSet = InteractedWithSet<QuestGiver>;
+#[add_observer(plugin = QuestingPlugin)]
+fn complete_to_end(complete: On<CompleteQuest>, mut commands: Commands) {
+    commands.trigger(EndQuest {
+        quest_id: complete.quest_id,
+    });
+}
+#[add_observer(plugin = QuestingPlugin)]
+fn decline_to_end(decline: On<DeclineQuest>, mut commands: Commands) {
+    commands.trigger(EndQuest {
+        quest_id: decline.quest_id,
+    });
+}
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = InteractedWithQuestGiverSet::default(),
-	in_set = QuestCompletedSet,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn complete_quest_if_done(
-    mut ev_interact: EventReader<InteractedWith<QuestGiver>>,
-    mut ev_completed: EventWriter<QuestCompleted>,
+    interact: On<InteractWith<QuestGiver>>,
+    mut commands: Commands,
     quests: Res<Quests>,
     quest_givers: Query<&QuestGiver>,
 ) -> Result {
-    for ev in ev_interact.read() {
-        let quest_proposal = quest_givers.get(ev.0)?;
-        let quest_id = some_or_continue!(quest_proposal.given_quest);
-        let quest = quests.0.get(&quest_id).ok_or("Unknown quest")?;
-        if !quest.quest_type.is_completed() {
-            continue;
-        }
-        ev_completed.write(QuestCompleted(quest_id));
+    let quest_proposal = quest_givers.get(interact.entity)?;
+    let quest_id = some_or_return_ok!(quest_proposal.given_quest);
+    let quest = quests.0.get(&quest_id).ok_or("Unknown quest")?;
+    if !quest.quest_type.is_completed() {
+        return Ok(());
     }
+    commands.trigger(CompleteQuest { quest_id });
     Ok(())
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn end_quest_if_giver_killed(
-    mut ev_killed: EventReader<EntityKilled>,
-    mut ev_ended: EventWriter<QuestEnded>,
+    kill: On<Kill>,
+    mut commands: Commands,
     quest_givers: Query<&QuestGiver>,
 ) {
-    for &EntityKilled(entity) in ev_killed.read() {
-        if let Ok(quest_proposal) = quest_givers.get(entity)
-            && let Some(quest_id) = quest_proposal.given_quest
-        {
-            ev_ended.write(QuestEnded(quest_id));
-        }
+    if let Ok(quest_proposal) = quest_givers.get(kill.victim)
+        && let Some(quest_id) = quest_proposal.given_quest
+    {
+        commands.trigger(EndQuest { quest_id });
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = end_quest_if_giver_killed,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn remove_quest(
-    mut ev_ended: EventReader<QuestEnded>,
+    end: On<EndQuest>,
     mut quests: ResMut<Quests>,
     mut quest_givers: Query<&mut QuestGiver>,
 ) -> Result {
-    for ev in ev_ended.read() {
-        quests.0.remove(&ev.0);
+    quests.0.remove(&end.quest_id);
 
-        let mut quest_giver = quest_givers
-            .iter_mut()
-            .find(|qg| qg.given_quest == Some(ev.0))
-            .ok_or("Quest giver missing")?;
-        quest_giver.given_quest = None;
-    }
+    let mut quest_giver = quest_givers
+        .iter_mut()
+        .find(|qg| qg.given_quest == Some(end.quest_id))
+        .ok_or("Quest giver missing")?;
+    quest_giver.given_quest = None;
+
     Ok(())
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet,
-	in_set = QuestProgressUpdatedSet,
-)]
-fn update_killed_imps(
-    mut ev_killed: EventReader<EntityKilled>,
-    mut quests: ResMut<Quests>,
-    imps: Query<(), With<Imp>>,
-) {
-    for EntityKilled(entity) in ev_killed.read() {
-        if imps.get(*entity).is_ok() {
-            for (_, quest) in quests.0.iter_mut() {
-                if let QuestType::Kill { done, .. } = &mut quest.quest_type {
-                    *done += 1;
-                }
+#[add_observer(plugin = QuestingPlugin)]
+fn update_killed_imps(kill: On<Kill>, mut quests: ResMut<Quests>, imps: Query<(), With<Imp>>) {
+    if imps.get(kill.victim).is_ok() {
+        for (_, quest) in quests.0.iter_mut() {
+            if let QuestType::Kill { done, .. } = &mut quest.quest_type {
+                *done += 1;
             }
         }
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = InventoryChangedSet,
-	in_set = QuestProgressUpdatedSet,
-	run_if = on_event::<InventoryChanged>,
-)]
-fn update_picked_up_items(inventories: Query<&Inventory>, mut quests: ResMut<Quests>) {
+#[add_observer(plugin = QuestingPlugin)]
+fn update_picked_up_items(
+    _change: On<ChangeInventory>,
+    inventories: Query<&Inventory>,
+    mut quests: ResMut<Quests>,
+) {
     let num_items = inventories.iter().map(|inv| inv.items.len()).sum::<usize>();
     for (_, quest) in quests.0.iter_mut() {
         if let QuestType::Fetch { done } = &mut quest.quest_type {
@@ -340,12 +288,9 @@ fn update_picked_up_items(inventories: Query<&Inventory>, mut quests: ResMut<Que
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn spawn_quest_drops(
-    mut ev_killed: EventReader<EntityKilled>,
+    kill: On<Kill>,
     mut commands: Commands,
     quests: Res<Quests>,
     imps: Query<&Transform, With<Imp>>,
@@ -359,52 +304,44 @@ fn spawn_quest_drops(
         .values()
         .filter(|quest| matches!(quest.quest_type, QuestType::Fetch { .. }))
         .count();
-    let mut num_items = items.iter().count();
+    let num_items = items.iter().count();
+    if num_items >= num_fetch_quests {
+        return;
+    }
 
-    for EntityKilled(entity) in ev_killed.read() {
-        if num_items >= num_fetch_quests {
-            break;
+    if let Ok(transform) = imps.get(kill.victim) {
+        if rand::random() {
+            return;
         }
 
-        if let Ok(transform) = imps.get(*entity) {
-            if rand::random() {
-                continue;
-            }
-
-            commands.spawn((
-                Transform::from_translation(transform.translation + Vec3::Y * 0.2),
-                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.2)))),
-                MeshMaterial3d(gridbox_material("orange", &mut materials, &asset_server)),
-                Box,
-                Collider::cuboid(0.1, 0.1, 0.1),
-                Item {
-                    icon: asset_server.load("item.png"),
-                },
-            ));
-            num_items += 1;
-        }
+        commands.spawn((
+            Transform::from_translation(transform.translation + Vec3::Y * 0.2),
+            Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.2)))),
+            MeshMaterial3d(gridbox_material("orange", &mut materials, &asset_server)),
+            Box,
+            Collider::cuboid(0.1, 0.1, 0.1),
+            Item {
+                icon: asset_server.load("item.png"),
+            },
+        ));
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = QuestCompletedSet,
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn consume_quest_drop(
-    mut ev_completed: EventReader<QuestCompleted>,
+    complete: On<CompleteQuest>,
     mut inventories: Query<&mut Inventory>,
     mut commands: Commands,
     quests: Res<Quests>,
 ) -> Result {
-    for QuestCompleted(quest_id) in ev_completed.read() {
-        let quest = quests.0.get(quest_id).ok_or("Unknown quest")?;
-        if let QuestType::Fetch { .. } = &quest.quest_type
-            && quest.quest_type.is_completed()
-        {
-            let mut inventory = inventories.single_mut()?;
-            let item = inventory.items.pop().ok_or("No item to consume")?;
-            commands.entity(item).despawn();
-        }
+    let quest = quests.0.get(&complete.quest_id).ok_or("Unknown quest")?;
+    if let QuestType::Fetch { .. } = &quest.quest_type
+        && quest.quest_type.is_completed()
+    {
+        let mut inventory = inventories.single_mut()?;
+        let item = inventory.items.pop().ok_or("No item to consume")?;
+        commands.entity(item).despawn();
     }
+
     Ok(())
 }

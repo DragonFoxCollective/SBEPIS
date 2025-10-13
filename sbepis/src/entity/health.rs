@@ -2,9 +2,8 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Velocity;
 
-use crate::entity::{EntityKilledSet, EntityPlugin};
+use crate::entity::EntityPlugin;
 use crate::gravity::AffectedByGravity;
-use crate::player_controller::weapons::EntityDamagedSet;
 use crate::util::{Billboard, DespawnTimer};
 use crate::{gridbox_material, gridbox_material_extra, util::MapRange};
 
@@ -94,10 +93,7 @@ fn spawn_health_bars(
     }
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_system(plugin = EntityPlugin, schedule = PostUpdate)]
 fn despawn_invalid_health_bars(
     mut commands: Commands,
     health_bars: Query<&GelVial>,
@@ -131,11 +127,7 @@ fn despawn_invalid_health_bars(
     Ok(())
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	after = spawn_health_bars,
-	after = EntityDamagedSet,
-)]
+#[add_system(plugin = EntityPlugin, schedule = PostUpdate)]
 fn update_health_bars_health(mut health_bars: Query<&mut GelVial>, healths: Query<&GelViscosity>) {
     for mut health_bar in health_bars.iter_mut() {
         let Ok(health) = healths.get(health_bar.entity) else {
@@ -147,7 +139,7 @@ fn update_health_bars_health(mut health_bars: Query<&mut GelVial>, healths: Quer
 }
 
 #[add_system(
-	plugin = EntityPlugin, schedule = Update,
+	plugin = EntityPlugin, schedule = PostUpdate,
 	after = update_health_bars_health,
 )]
 fn update_health_bars_size(
@@ -174,10 +166,7 @@ fn update_health_bars_size(
 #[derive(Component)]
 pub struct Healing(pub f32);
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	in_set = EntityDamagedSet,
-)]
+#[add_system(plugin = EntityPlugin, schedule = Update)]
 fn heal(mut healings: Query<(&Healing, &mut GelViscosity)>, time: Res<Time>) {
     for (healing, mut health) in healings.iter_mut() {
         health.value += healing.0 * time.delta_secs();

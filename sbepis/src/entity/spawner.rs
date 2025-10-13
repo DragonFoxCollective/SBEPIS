@@ -4,7 +4,7 @@ use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy_butler::*;
 
-use crate::entity::{EntityKilled, EntityKilledSet, EntityPlugin};
+use crate::entity::{EntityPlugin, Kill};
 
 #[derive(Component)]
 pub struct Spawner {
@@ -14,32 +14,23 @@ pub struct Spawner {
     pub entities: HashSet<Entity>,
 }
 
-#[derive(Event)]
-#[add_event(plugin = EntityPlugin)]
-pub struct SpawnerActivated {
-    pub entity: Entity,
+#[derive(EntityEvent)]
+pub struct ActivateSpawner {
+    #[event_target]
     pub spawner: Entity,
+    pub spawned_entity: Entity,
     pub position: Vec3,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SpawnerActivatedSet;
 
-#[derive(Event)]
-#[add_event(plugin = EntityPlugin)]
-pub struct EntitySpawned {
-    pub _entity: Entity,
+#[derive(EntityEvent)]
+pub struct Spawn {
+    pub entity: Entity,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntitySpawnedSet;
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	in_set = SpawnerActivatedSet,
-)]
+#[add_system(plugin = EntityPlugin, schedule = Update)]
 fn spawn_entities(
     mut spawners: Query<(Entity, &mut Spawner, &GlobalTransform)>,
     time: Res<Time>,
-    mut ev_spawned: EventWriter<SpawnerActivated>,
     mut commands: Commands,
 ) {
     for (spawner_entity, mut spawner, transform) in spawners.iter_mut() {
@@ -47,11 +38,11 @@ fn spawn_entities(
 
         if spawner.spawn_timer >= spawner.spawn_delay && spawner.entities.len() < spawner.max_amount
         {
-            let entity = commands.spawn_empty().id();
-            spawner.entities.insert(entity);
+            let spawned_entity = commands.spawn_empty().id();
+            spawner.entities.insert(spawned_entity);
             spawner.spawn_timer = Duration::ZERO;
-            ev_spawned.write(SpawnerActivated {
-                entity,
+            commands.trigger(ActivateSpawner {
+                spawned_entity,
                 spawner: spawner_entity,
                 position: transform.translation(),
             });
@@ -59,14 +50,9 @@ fn spawn_entities(
     }
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-	in_set = EntityKilledSet,
-)]
-fn remove_entity(mut spawners: Query<&mut Spawner>, mut ev_killed: EventReader<EntityKilled>) {
-    for killed in ev_killed.read() {
-        for mut spawner in spawners.iter_mut() {
-            spawner.entities.remove(&killed.0);
-        }
+#[add_observer(plugin = EntityPlugin)]
+fn remove_entity(kill: On<Kill>, mut spawners: Query<&mut Spawner>) {
+    for mut spawner in spawners.iter_mut() {
+        spawner.entities.remove(&kill.victim);
     }
 }

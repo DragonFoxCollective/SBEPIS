@@ -55,22 +55,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
             rotation: Quat::from_euler(EulerRot::XYZ, -1.9, 0.8, 0.0),
             ..default()
         },
-        StateScoped(GameState::MainMenu),
+        DespawnOnExit(GameState::MainMenu),
     ));
 
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
         Transform::from_translation(Vec3::new(-10.0, 4.0, -10.0)).looking_at(Vec3::ZERO, Vec3::Y),
-        StateScoped(GameState::MainMenu),
+        DespawnOnExit(GameState::MainMenu),
         PlayerCamera,
         ChunkLoader::<DesertWorldGen>::new(10),
-        PostProcessSettings { intensity: 0.02 },
+        PostProcessSettings {
+            intensity: 0.02,
+            radius: 4.0,
+        },
+        Msaa::Off,
     ));
 
     commands.spawn((
         Name::new("BGM"),
-        StateScoped(GameState::MainMenu),
+        DespawnOnExit(GameState::MainMenu),
         AudioPlayer::new(asset_server.load("crystalanthemums remix remix remix remix.mp3")),
         PlaybackSettings {
             mode: PlaybackMode::Loop,
@@ -111,7 +115,7 @@ fn setup_home(
                 ..default()
             },
             PlayerCameraNode,
-            StateScoped(MenuState::Home),
+            DespawnOnExit(MenuState::Home),
         ))
         .id();
 
@@ -145,7 +149,7 @@ fn setup_home(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             TextColor(Color::from(Srgba::hex("03a9f4")?)),
@@ -172,13 +176,13 @@ fn setup_home(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
         .observe(
-            |_: Trigger<Pointer<Click>>, mut next_state: ResMut<NextState<GameState>>| {
+            |_: On<Pointer<Click>>, mut next_state: ResMut<NextState<GameState>>| {
                 next_state.set(GameState::InGame);
             },
         );
@@ -200,13 +204,13 @@ fn setup_home(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
         .observe(
-            |_: Trigger<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
+            |_: On<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
                 commands.spawn((
                     Name::new("Deny Sound"),
                     AudioPlayer::new(deny_sound.0.clone()),
@@ -231,13 +235,13 @@ fn setup_home(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
         .observe(
-            |_: Trigger<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
+            |_: On<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
                 commands.spawn((
                     Name::new("Deny Sound"),
                     AudioPlayer::new(deny_sound.0.clone()),
@@ -262,13 +266,13 @@ fn setup_home(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
         .observe(
-            |_: Trigger<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
+            |_: On<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
                 commands.spawn((
                     Name::new("Deny Sound"),
                     AudioPlayer::new(deny_sound.0.clone()),
@@ -292,13 +296,13 @@ fn setup_home(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
         .observe(
-            |_: Trigger<Pointer<Click>>, mut state: ResMut<NextState<MenuState>>| {
+            |_: On<Pointer<Click>>, mut state: ResMut<NextState<MenuState>>| {
                 state.set(MenuState::Credits);
             },
         );
@@ -319,16 +323,14 @@ fn setup_home(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
-        .observe(
-            |_: Trigger<Pointer<Click>>, mut ev_exit: EventWriter<AppExit>| {
-                ev_exit.write(AppExit::Success);
-            },
-        );
+        .observe(|_: On<Pointer<Click>>, mut exit: MessageWriter<AppExit>| {
+            exit.write(AppExit::Success);
+        });
 
     Ok(())
 }
@@ -441,7 +443,7 @@ fn setup_credits(
                 ..default()
             },
             PlayerCameraNode,
-            StateScoped(MenuState::Credits),
+            DespawnOnExit(MenuState::Credits),
         ))
         .id();
 
@@ -499,7 +501,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
         )],
@@ -518,7 +520,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
         )],
@@ -538,7 +540,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
         )],
@@ -560,7 +562,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("ff2106")?)),
@@ -575,7 +577,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             ChildOf(mechanics_root),
@@ -598,7 +600,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("20401f")?)),
@@ -613,7 +615,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             ChildOf(programming_root),
@@ -636,7 +638,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("2df901")?)),
@@ -651,7 +653,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             ChildOf(art_root),
@@ -674,7 +676,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("bd1864")?)),
@@ -689,7 +691,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             ChildOf(music_root),
@@ -712,7 +714,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("fff547")?)),
@@ -727,7 +729,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             ChildOf(documentation_root),
@@ -750,7 +752,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("033476")?)),
@@ -765,7 +767,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
             ChildOf(contributor_root),
@@ -804,7 +806,7 @@ fn setup_credits(
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(Color::from(Srgba::hex("ff0000")?)),
@@ -819,7 +821,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 ChildOf(master_root),
@@ -849,7 +851,7 @@ fn setup_credits(
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(Color::from(Srgba::hex("efbf04")?)),
@@ -864,7 +866,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 ChildOf(denizen_root),
@@ -889,7 +891,7 @@ fn setup_credits(
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(Color::from(Srgba::hex("03a9f4")?)),
@@ -904,7 +906,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 ChildOf(alchemiter_root),
@@ -929,7 +931,7 @@ fn setup_credits(
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(Color::from(Srgba::hex("ff067c")?)),
@@ -944,7 +946,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 ChildOf(captcha_root),
@@ -969,7 +971,7 @@ fn setup_credits(
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(Color::from(Srgba::hex("4bec13")?)),
@@ -984,7 +986,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 ChildOf(pgo_root),
@@ -1009,7 +1011,7 @@ fn setup_credits(
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(Color::from(Srgba::hex("aaaaaa")?)),
@@ -1024,7 +1026,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 ChildOf(past_root),
@@ -1048,7 +1050,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
                 TextColor(Color::from(Srgba::hex("46fbc4")?)),
@@ -1060,7 +1062,7 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             ),
@@ -1089,7 +1091,7 @@ fn setup_credits(
                 ..default()
             },
             TextLayout {
-                justify: JustifyText::Center,
+                justify: Justify::Center,
                 ..default()
             },
         ),],
@@ -1118,13 +1120,13 @@ fn setup_credits(
                     ..default()
                 },
                 TextLayout {
-                    justify: JustifyText::Center,
+                    justify: Justify::Center,
                     ..default()
                 },
             )],
         ))
         .observe(
-            |_: Trigger<Pointer<Click>>, mut state: ResMut<NextState<MenuState>>| {
+            |_: On<Pointer<Click>>, mut state: ResMut<NextState<MenuState>>| {
                 state.set(MenuState::Home);
             },
         );

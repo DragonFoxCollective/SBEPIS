@@ -39,9 +39,9 @@ impl ChunkComputeShader for WorldGen {
         let mut rand = rand::prelude::StdRng::seed_from_u64(159);
         let poi_positions = [Vec3::ZERO; 6].map(|_| {
             Vec3::new(
-                rand.gen_range(-radius..radius),
+                rand.random_range(-radius..radius),
                 0.0,
-                rand.gen_range(-radius..radius),
+                rand.random_range(-radius..radius),
             )
         });
         debug!("Generated POI positions: {:?}", poi_positions);
@@ -78,7 +78,7 @@ fn add_components(
         commands.entity(chunk).insert((
             Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
                 .expect("Failed to create chunk collider"),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ));
     }
 }
@@ -181,7 +181,7 @@ fn place_poi_structures(
                 Vec3::Y,
                 (*position - Vec3::NEG_Y * 1000.0).normalize(),
             )),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ));
     }
 }

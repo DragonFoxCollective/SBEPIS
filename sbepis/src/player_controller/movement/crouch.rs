@@ -1,5 +1,5 @@
+use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 
@@ -48,12 +48,12 @@ impl FromWorld for CrouchingAssets {
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn to_crouching_assets(
-    trigger: Trigger<OnAdd, (Crouching, Sliding, ChargeCrouching, Sneaking)>,
+    add: On<Add, (Crouching, Sliding, ChargeCrouching, Sneaking)>,
     players: Query<&PlayerBody>,
     assets: Res<CrouchingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = players.get(trigger.target())?;
+    let body = players.get(add.entity)?;
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));

@@ -6,16 +6,12 @@ use soundyrust::{MidiAudio, MidiAudioTrackHandle};
 use crate::dialogue::spawn_dialogue;
 use crate::fray::FrayPlugin;
 use crate::input::{ActionButtonEvent, InputManagerReference};
-use crate::menus::{MenuManipulationSet, MenuStack};
-use crate::prelude::InteractedWithSet;
+use crate::menus::MenuStack;
+use crate::prelude::*;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = FrayPlugin)]
 pub struct TrackSwitcher;
-
-#[add_event(plugin = FrayPlugin, generics = <TrackSwitcher>)]
-use crate::prelude::InteractedWith;
 
 #[derive(Resource)]
 pub struct FrayTracks {
@@ -54,70 +50,51 @@ impl FrayTracks {
 #[add_system(
 	plugin = FrayPlugin, schedule = Update,
 	generics = <TrackSwitcher>,
-	in_set = InteractedWithTrackSwitcherSet::default(),
 )]
 use crate::player_controller::camera_controls::interact_with;
 
-type InteractedWithTrackSwitcherSet = InteractedWithSet<TrackSwitcher>;
-
-#[add_system(
-	plugin = FrayPlugin, schedule = Update,
-	after = InteractedWithTrackSwitcherSet::default(),
-	in_set = MenuManipulationSet,
-)]
+#[add_observer(plugin = FrayPlugin)]
 fn open_track_switch_dialogue(
-    mut ev_interact: EventReader<InteractedWith<TrackSwitcher>>,
+    _: On<InteractWith<TrackSwitcher>>,
     mut commands: Commands,
     mut menu_stack: ResMut<MenuStack>,
 ) {
-    for _ev in ev_interact.read() {
-        let mut dialogue = spawn_dialogue(
-            &mut commands,
-            &mut menu_stack,
-            "Select a track for the player to use.\nThe imps will use the other one.".to_owned(),
-            (),
-            InputMap::<TrackSwitcherAction>::default(),
-        );
-        dialogue.add_option(
-            &mut commands,
-            "4/4".to_owned(),
-            TrackSwitcherFourFour {
-                dialogue: dialogue.root,
-            },
-        );
-        dialogue.add_option(
-            &mut commands,
-            "6/8".to_owned(),
-            TrackSwitcherSixEight {
-                dialogue: dialogue.root,
-            },
-        );
-    }
+    let mut dialogue = spawn_dialogue(
+        &mut commands,
+        &mut menu_stack,
+        "Select a track for the player to use.\nThe imps will use the other one.".to_owned(),
+        (),
+        InputMap::<TrackSwitcherAction>::default(),
+    );
+    dialogue.add_option(
+        &mut commands,
+        "4/4".to_owned(),
+        TrackSwitcherFourFour {
+            dialogue: dialogue.root,
+        },
+    );
+    dialogue.add_option(
+        &mut commands,
+        "6/8".to_owned(),
+        TrackSwitcherSixEight {
+            dialogue: dialogue.root,
+        },
+    );
 }
 
 #[add_system(
 	plugin = FrayPlugin, schedule = Update,
 	generics = <TrackSwitcherFourFour>,
-	in_set = TrackSwitchedSet,
 )]
 #[add_system(
 	plugin = FrayPlugin, schedule = Update,
 	generics = <TrackSwitcherSixEight>,
-	in_set = TrackSwitchedSet,
 )]
 use crate::input::fire_action_button_events;
 
-#[add_system(
-	plugin = FrayPlugin, schedule = Update,
-	after = TrackSwitchedSet,
-)]
-fn switch_track(
-    mut ev_track_switched: EventReader<TrackSwitched>,
-    mut fray_tracks: ResMut<FrayTracks>,
-) {
-    for ev in ev_track_switched.read() {
-        fray_tracks.set_player_track(ev.track);
-    }
+#[add_observer(plugin = FrayPlugin)]
+fn switch_track(switch_track: On<SwitchTrack>, mut fray_tracks: ResMut<FrayTracks>) {
+    fray_tracks.set_player_track(switch_track.track);
 }
 
 #[derive(Component)]
@@ -132,10 +109,10 @@ impl InputManagerReference for TrackSwitcherFourFour {
 impl ActionButtonEvent for TrackSwitcherFourFour {
     type Action = TrackSwitcherAction;
     type Button = Self;
-    type Event = TrackSwitched;
+    type Event = SwitchTrack;
 
     fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> {
-        IntoSystem::into_system(|In(dialogue): In<Entity>| TrackSwitched {
+        IntoSystem::into_system(|In(dialogue): In<Entity>| SwitchTrack {
             track: Track::FourFour,
             dialogue,
         })
@@ -158,10 +135,10 @@ impl InputManagerReference for TrackSwitcherSixEight {
 impl ActionButtonEvent for TrackSwitcherSixEight {
     type Action = TrackSwitcherAction;
     type Button = Self;
-    type Event = TrackSwitched;
+    type Event = SwitchTrack;
 
     fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> {
-        IntoSystem::into_system(|In(dialogue): In<Entity>| TrackSwitched {
+        IntoSystem::into_system(|In(dialogue): In<Entity>| SwitchTrack {
             track: Track::SixEight,
             dialogue,
         })
@@ -192,24 +169,16 @@ pub enum Track {
     SixEight,
 }
 
-#[add_system(
-	plugin = FrayPlugin, schedule = Update,
-	generics = <TrackSwitched>,
-	after = TrackSwitchedSet,
-	in_set = MenuManipulationSet,
-)]
+#[add_observer(plugin = FrayPlugin, generics = <SwitchTrack>)]
 use crate::menus::close_menu_on_event;
 
-#[derive(Event, Clone, Copy)]
-#[add_event(plugin = FrayPlugin)]
-pub struct TrackSwitched {
+#[derive(Event)]
+pub struct SwitchTrack {
     pub track: Track,
     pub dialogue: Entity,
 }
-impl InputManagerReference for TrackSwitched {
+impl InputManagerReference for SwitchTrack {
     fn input_manager(&self) -> Entity {
         self.dialogue
     }
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TrackSwitchedSet;

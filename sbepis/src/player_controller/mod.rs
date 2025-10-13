@@ -83,7 +83,7 @@ fn setup(
             Menu,
             MenuWithInputManager,
             MenuWithoutMouse,
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
     menu_stack.push(input);
@@ -95,7 +95,7 @@ fn setup(
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -103,7 +103,7 @@ fn setup(
         .spawn((
             Name::new("Player Mesh"),
             MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -118,8 +118,12 @@ fn setup(
             PlayerCamera,
             Pitch(0.0),
             SpatialListener::new(-0.25),
-            StateScoped(GameState::InGame),
-            // PostProcessSettings { intensity: 0.02 },
+            DespawnOnExit(GameState::InGame),
+            PostProcessSettings {
+                intensity: 0.02,
+                radius: 4.0,
+            },
+            Msaa::Off,
         ))
         .id();
 
@@ -143,7 +147,7 @@ fn setup(
             },
             ChunkLoader::<WorldGen>::new(3),
             Ccd::enabled(),
-            StateScoped(GameState::InGame),
+            DespawnOnExit(GameState::InGame),
         ))
         .add_children(&[camera, collider, mesh])
         .id();
@@ -189,7 +193,7 @@ fn setup(
     commands.spawn((
         Name::new("Damage Numbers"),
         Text("Damage".to_owned()),
-        TextLayout::new_with_justify(JustifyText::Right),
+        TextLayout::new_with_justify(Justify::Right),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
