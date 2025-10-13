@@ -48,13 +48,14 @@ bevy_common_assets = { version = "0.14.0", features = ["ron"] }
 meshtext = "0.3.1"
 soundyrust = { path = "../soundyrust" }
 bevy_hanabi = "0.17"
-bevy-butler = { git = "https://github.com/DragonFoxCollective/bevy-butler.git" }
+bevy-butler = "0.7"
 typetag = "0.2.19"
-return-ok = { git = "https://github.com/DragonFoxCollective/return-ok.git" }
+return-ok = "0.1"
 bevy_skein = "0.3.0-rc.1"
 bevy-marching-cubes = { path = "../bevy-marching-cubes" }
 crossbeam-channel = "0.5.15"
 fake = "4.4.0"
+pretty-type-name = "1.0.1"
 
 [build-dependencies]
 winres = "0.1"

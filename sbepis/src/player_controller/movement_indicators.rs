@@ -1,10 +1,9 @@
-use std::any::type_name;
-
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
+use pretty_type_name::pretty_type_name;
 use return_ok::ok_or_return;
 
 use crate::entity::Movement;
@@ -139,29 +138,28 @@ fn check_states(
         let has = arr
             .into_iter()
             .zip([
-                type_name::<Standing>(),
-                type_name::<Walking>(),
-                type_name::<Sprinting>(),
-                type_name::<Crouching>(),
-                type_name::<Sneaking>(),
-                type_name::<Dashing>(),
-                type_name::<ChargeStanding>(),
-                type_name::<ChargeCrouching>(),
-                type_name::<ChargeWalking>(),
-                type_name::<Tripping>(),
-                type_name::<TripRecoverInAir>(),
-                type_name::<TripRecoverOnGround>(),
-                type_name::<Sliding>(),
-                type_name::<Rolling>(),
-                type_name::<Grounded>(),
-                type_name::<EffectiveGrounded>(),
-                type_name::<TryingToDash>(),
-                type_name::<TryingToJump>(),
-                type_name::<TryingToGroundParry>(),
-                type_name::<Movement>(),
+                pretty_type_name::<Standing>(),
+                pretty_type_name::<Walking>(),
+                pretty_type_name::<Sprinting>(),
+                pretty_type_name::<Crouching>(),
+                pretty_type_name::<Sneaking>(),
+                pretty_type_name::<Dashing>(),
+                pretty_type_name::<ChargeStanding>(),
+                pretty_type_name::<ChargeCrouching>(),
+                pretty_type_name::<ChargeWalking>(),
+                pretty_type_name::<Tripping>(),
+                pretty_type_name::<TripRecoverInAir>(),
+                pretty_type_name::<TripRecoverOnGround>(),
+                pretty_type_name::<Sliding>(),
+                pretty_type_name::<Rolling>(),
+                pretty_type_name::<Grounded>(),
+                pretty_type_name::<EffectiveGrounded>(),
+                pretty_type_name::<TryingToDash>(),
+                pretty_type_name::<TryingToJump>(),
+                pretty_type_name::<TryingToGroundParry>(),
+                pretty_type_name::<Movement>(),
             ])
             .filter_map(|(has, name)| if has { Some(name) } else { None })
-            .map(|name| name.split("::").last().unwrap())
             .join("\n");
         debug_state.0 = has;
     }
