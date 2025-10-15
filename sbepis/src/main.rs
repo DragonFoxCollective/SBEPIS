@@ -19,11 +19,9 @@ mod entity;
 mod framerate;
 mod fray;
 mod gravity;
-mod input;
 mod inventory;
 mod main_bundles;
 mod main_menu;
-pub mod menus;
 mod npcs;
 #[cfg(feature = "overview_camera")]
 mod overview_camera;
@@ -95,6 +93,9 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 #[add_plugin(to_plugin = SbepisPlugin, init = HanabiPlugin)]
 use bevy_hanabi::HanabiPlugin;
+
+#[add_plugin(to_plugin = SbepisPlugin)]
+use bevy_pretty_nice_menus::PrettyNiceMenusPlugin;
 
 #[add_system(
 	plugin = SbepisPlugin, schedule = Startup,

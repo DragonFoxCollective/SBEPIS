@@ -1,17 +1,19 @@
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 use bevy_rapier3d::prelude::*;
 
-use crate::input::{button_is_pressed, button_is_released};
-use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::sneak::Sneaking;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::prelude::PlayerBody;
 
 use super::charge::ChargeCrouching;
 use super::slide::Sliding;
 use super::stand::Standing;
+
+#[derive(Action)]
+pub struct Crouch;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin)]
@@ -67,30 +69,18 @@ fn to_crouching_assets(
 #[derive(Component, Default)]
 pub struct Crouching;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_is_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn standing_to_crouching(players: Query<Entity, With<Standing>>, mut commands: Commands) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Standing>()
-            .insert(Crouching);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn standing_to_crouching(crouch: On<JustPressed<Crouch>>, mut commands: Commands) {
+    commands
+        .entity(crouch.input)
+        .remove::<Standing>()
+        .insert(Crouching);
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_is_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn crouching_to_standing(players: Query<Entity, With<Crouching>>, mut commands: Commands) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Crouching>()
-            .insert(Standing);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn crouching_to_standing(crouch: On<JustReleased<Crouch>>, mut commands: Commands) {
+    commands
+        .entity(crouch.input)
+        .remove::<Crouching>()
+        .insert(Standing);
 }

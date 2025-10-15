@@ -1,11 +1,10 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use leafwing_input_manager::prelude::ActionState;
-use return_ok::ok_or_return;
+use bevy_pretty_nice_input::Pressed;
 
 use crate::camera::PlayerCamera;
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerBody, PlayerControllerPlugin};
+use crate::player_controller::movement::walk::Walk;
+use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
 #[derive(Component, Default)]
 pub struct DirectionalInput {
@@ -15,20 +14,22 @@ pub struct DirectionalInput {
     pub forward: Vec3,
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateDi,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn update_di(
-    input: Query<&ActionState<PlayerAction>>,
-    mut players: Query<&mut DirectionalInput, With<PlayerBody>>,
+    walk: On<Pressed<Walk>>,
+    mut players: Query<(&mut DirectionalInput, &PlayerBody)>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
-) {
-    let input = ok_or_return!(input.single());
-    let mut di = ok_or_return!(players.single_mut());
-    let transform = ok_or_return!(player_cameras.single());
-    di.input = input.axis_pair(&PlayerAction::Move).clamp_length_max(1.0) * Vec2::new(1.0, -1.0);
+) -> Result {
+    let (mut di, body) = players.get_mut(walk.input)?;
+    let transform = player_cameras.get(body.camera)?;
+    di.input = walk
+        .data
+        .as_2d()
+        .ok_or::<BevyError>("Walk didn't have 2D data".into())?
+        .clamp_length_max(1.0)
+        * Vec2::new(1.0, -1.0);
     di.local_space = Vec3::new(di.input.x, 0.0, di.input.y);
     di.world_space = transform.rotation() * di.local_space;
     di.forward = transform.rotation() * -Vec3::Z;
+    Ok(())
 }

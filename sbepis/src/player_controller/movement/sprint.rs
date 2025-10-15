@@ -1,46 +1,29 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 
-use crate::input::{button_just_pressed, button_just_released};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
+use crate::player_controller::PlayerControllerPlugin;
 
 use super::walk::Walking;
+
+#[derive(Action)]
+pub struct Sprint;
 
 #[derive(Component, Default)]
 pub struct Sprinting;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_pressed(PlayerAction::Sprint),
-)]
-fn walking_to_sprinting(
-    players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Walking>()
-            .insert(Sprinting);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn walking_to_sprinting(sprint: On<JustPressed<Sprint>>, mut commands: Commands) {
+    commands
+        .entity(sprint.input)
+        .remove::<Walking>()
+        .insert(Sprinting);
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_released(PlayerAction::Sprint),
-)]
-fn sprinting_to_walking(
-    players: Query<Entity, (With<PlayerBody>, With<Sprinting>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Sprinting>()
-            .insert(Walking);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn sprinting_to_walking(sprint: On<JustReleased<Sprint>>, mut commands: Commands) {
+    commands
+        .entity(sprint.input)
+        .remove::<Sprinting>()
+        .insert(Walking);
 }

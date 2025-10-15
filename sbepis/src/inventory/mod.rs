@@ -3,8 +3,7 @@ use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use screen::*;
 
-use crate::menus::OpenMenuBinding;
-use crate::player_controller::PlayerAction;
+use crate::player_controller::OpenInventory;
 use crate::prelude::*;
 
 mod screen;
@@ -28,7 +27,7 @@ pub struct PickUpItem {
     pub entity: Entity,
 }
 
-#[add_system(plugin = InventoryPlugin, schedule = Update, generics = <Item>)]
+#[add_observer(plugin = InventoryPlugin, generics = <Item>)]
 use crate::prelude::interact_with;
 
 #[add_observer(plugin = InventoryPlugin)]
@@ -54,17 +53,8 @@ fn pick_up_items(
     Ok(())
 }
 
-pub struct OpenInventoryBinding;
-impl OpenMenuBinding for OpenInventoryBinding {
-    type Action = PlayerAction;
-    type Menu = InventoryScreen;
-    fn action() -> Self::Action {
-        PlayerAction::OpenInventory
-    }
-}
-
-#[add_observer(plugin = InventoryPlugin, generics = <OpenInventoryBinding>)]
-use crate::menus::show_menu_on_action;
+#[add_observer(plugin = InventoryPlugin, generics = <OpenInventory, InventoryScreen>)]
+use bevy_pretty_nice_menus::show_menu_on_action;
 
 #[derive(EntityEvent)]
 pub struct ChangeInventory {

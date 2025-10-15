@@ -2,17 +2,27 @@ use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 
 use crate::gravity::{AffectedByGravity, ComputedGravity};
-use crate::input::{button_is_released, button_just_pressed, button_just_released};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::movement::dash::add_trying_to_dash;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::dash::Dash;
+use crate::player_controller::movement::trip::Trip;
 
-use super::dash::TryingToDash;
-use super::grounded::EffectiveGrounded;
 use super::stand::Standing;
 use super::trip::{PlayerTripSettings, Tripping};
+
+#[derive(Action)]
+pub struct Charge;
+
+#[derive(Action)]
+pub struct ChargeCrouch;
+
+#[derive(Action)]
+pub struct ChargeWalk;
+
+#[derive(Action)]
+pub struct ChargeDash;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerChargeSettings {
@@ -162,165 +172,133 @@ impl From<ChargeStanding> for ChargeWalking {
 #[derive(Component)]
 pub struct ChargingSound(pub Entity);
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::UpdateDi,
-	after = MovementControlSet::UpdateGrounded,
-	after = add_trying_to_dash,
-	in_set = MovementControlSet::UpdateState,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn standing_to_charging(
-    players: Query<
-        Entity,
-        (
-            With<EffectiveGrounded>,
-            With<TryingToDash>,
-            With<Standing>,
-            Without<ChargeStanding>,
-        ),
-    >,
+    charge: On<JustPressed<Charge>>,
     mut commands: Commands,
     assets: Res<ChargeAssets>,
     settings: Res<PlayerChargeSettings>,
 ) {
-    for player in players.iter() {
-        debug!("Charging!");
+    debug!("Charging!");
 
-        let sound = commands
-            .spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN))
-            .id();
+    let sound = commands
+        .spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN))
+        .id();
 
-        commands
-            .entity(player)
-            .insert(ChargeStanding::new(&settings))
-            .insert(ChargingSound(sound))
-            .remove::<TryingToDash>()
-            .remove::<Standing>();
-    }
+    commands
+        .entity(charge.input)
+        .insert(ChargeStanding::new(&settings))
+        .insert(ChargingSound(sound))
+        .remove::<Standing>();
 }
 
-#[add_system(
-    plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_is_released(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn charging_to_standing(
-    players: Query<(Entity, &ChargingSound), With<ChargeStanding>>,
+    charge: On<JustReleased<Charge>>,
+    sounds: Query<&ChargingSound>,
     mut commands: Commands,
 ) {
-    for (player, charging_sound) in players.iter() {
-        commands
-            .entity(player)
-            .remove::<ChargeStanding>()
-            .remove::<ChargingSound>()
-            .insert(Standing);
+    commands
+        .entity(charge.input)
+        .remove::<ChargeStanding>()
+        .remove::<ChargingSound>()
+        .insert(Standing);
 
-        if let Ok(mut sound) = commands.get_entity(charging_sound.0) {
-            sound.despawn();
-        }
+    if let Ok(charging_sound) = sounds.get(charge.input)
+        && let Ok(mut sound) = commands.get_entity(charging_sound.0)
+    {
+        sound.despawn();
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn charching_to_charge_crouching(
-    players: Query<(Entity, &ChargeStanding)>,
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn charging_to_charge_crouching(
+    crouch: On<JustPressed<ChargeCrouch>>,
+    players: Query<&ChargeStanding>,
     mut commands: Commands,
-) {
-    for (player, charging) in players.iter() {
-        commands
-            .entity(player)
-            .remove::<ChargeStanding>()
-            .insert(ChargeCrouching::from(charging.clone()));
-    }
+) -> Result {
+    let charging = players.get(crouch.input)?;
+    commands
+        .entity(crouch.input)
+        .remove::<ChargeStanding>()
+        .insert(ChargeCrouching::from(charging.clone()));
+    Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouching_to_charging(
-    players: Query<(Entity, &ChargeCrouching)>,
+    crouch: On<JustReleased<ChargeCrouch>>,
+    players: Query<&ChargeCrouching>,
     mut commands: Commands,
-) {
-    for (player, charge_crouching) in players.iter() {
-        commands
-            .entity(player)
-            .remove::<ChargeCrouching>()
-            .insert(ChargeStanding::from(charge_crouching.clone()));
-    }
+) -> Result {
+    let charging = players.get(crouch.input)?;
+    commands
+        .entity(crouch.input)
+        .remove::<ChargeCrouching>()
+        .insert(ChargeStanding::from(charging.clone()));
+    Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Move),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn charching_to_charge_walking(players: Query<(Entity, &ChargeStanding)>, mut commands: Commands) {
-    for (player, charging) in players.iter() {
-        commands
-            .entity(player)
-            .remove::<ChargeStanding>()
-            .insert(ChargeWalking::from(charging.clone()));
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Move),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn charge_walking_to_charging(players: Query<(Entity, &ChargeWalking)>, mut commands: Commands) {
-    for (player, charge_walking) in players.iter() {
-        commands
-            .entity(player)
-            .remove::<ChargeWalking>()
-            .insert(ChargeStanding::from(charge_walking.clone()));
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-)]
-pub fn charge_walking_to_trying_to_dash(
-    players: Query<Entity, With<ChargeWalking>>,
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn charging_to_charge_walking(
+    walk: On<JustPressed<ChargeWalk>>,
+    players: Query<&ChargeStanding>,
     mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands.entity(player).insert(TryingToDash::default());
-    }
+) -> Result {
+    let charging = players.get(walk.input)?;
+    commands
+        .entity(walk.input)
+        .remove::<ChargeStanding>()
+        .insert(ChargeWalking::from(charging.clone()));
+    Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn charge_walking_to_charging(
+    walk: On<JustReleased<ChargeWalk>>,
+    players: Query<&ChargeWalking>,
+    mut commands: Commands,
+) -> Result {
+    let charging = players.get(walk.input)?;
+    commands
+        .entity(walk.input)
+        .remove::<ChargeWalking>()
+        .insert(ChargeStanding::from(charging.clone()));
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+pub fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut commands: Commands) {
+    // TODO: replace this with another event with params
+    commands.trigger(JustPressed {
+        input: dash.input,
+        action: Dash,
+        data: dash.data,
+    });
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
 pub fn charge_crouching_to_tripping(
-    players: Query<(Entity, Option<&ChargingSound>, &ComputedGravity), With<ChargeCrouching>>,
+    sprint: On<JustPressed<Trip>>, // TODO: equivalent to ButtonRelease of ChargeDash
+    players: Query<(Option<&ChargingSound>, &ComputedGravity)>,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
-) {
-    for (player, charging_sound, gravity) in players.iter() {
-        commands
-            .entity(player)
-            .remove::<ChargeCrouching>()
-            .remove::<AffectedByGravity>()
-            .insert(Tripping::new(
-                gravity.up,
-                gravity.up * trip_settings.upward_speed,
-            ));
+) -> Result {
+    let (charging_sound, gravity) = players.get(sprint.input)?;
+    commands
+        .entity(sprint.input)
+        .remove::<ChargeCrouching>()
+        .remove::<AffectedByGravity>()
+        .insert(Tripping::new(
+            gravity.up,
+            gravity.up * trip_settings.upward_speed,
+        ));
 
-        if let Some(charging_sound) = charging_sound
-            && let Ok(mut sound) = commands.get_entity(charging_sound.0)
-        {
-            sound.despawn();
-        }
+    if let Some(charging_sound) = charging_sound
+        && let Ok(mut sound) = commands.get_entity(charging_sound.0)
+    {
+        sound.despawn();
     }
+
+    Ok(())
 }

@@ -1,27 +1,27 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::ComponentBuffer;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
-use pretty_type_name::pretty_type_name;
 use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::trip::TripRecover;
 use crate::prelude::*;
 
 use super::movement::charge::{ChargeCrouching, ChargeStanding, ChargeWalking};
 use super::movement::crouch::Crouching;
-use super::movement::dash::{Dashing, TryingToDash};
-use super::movement::grounded::{EffectiveGrounded, Grounded};
-use super::movement::jump::TryingToJump;
+use super::movement::dash::Dashing;
+use super::movement::grounded::Grounded;
 use super::movement::roll::Rolling;
 use super::movement::slide::Sliding;
 use super::movement::sneak::Sneaking;
 use super::movement::sprint::Sprinting;
 use super::movement::stand::Standing;
-use super::movement::trip::{TripRecoverInAir, TripRecoverOnGround, Tripping, TryingToGroundParry};
+use super::movement::trip::Tripping;
 use super::movement::walk::Walking;
 
 #[butler_plugin]
@@ -92,8 +92,8 @@ fn setup_debug_state(mut commands: Commands) {
 
 #[add_system(
 	plugin = MovementIndicatorsPlugin, schedule = Update,
-	after = MovementControlSet::DoHorizontalMovement,
-	after = MovementControlSet::DoVerticalMovement,
+	after = MovementControlSystems::DoHorizontalMovement,
+	after = MovementControlSystems::DoVerticalMovement,
 )]
 fn check_states(
     players: Query<
@@ -111,18 +111,13 @@ fn check_states(
             ),
             (
                 Has<Tripping>,
-                Has<TripRecoverInAir>,
-                Has<TripRecoverOnGround>,
+                Has<TripRecover>,
+                Has<ComponentBuffer<TripRecover>>,
             ),
             Has<Sliding>,
             Has<Rolling>,
             Has<Grounded>,
-            Has<EffectiveGrounded>,
-            (
-                Has<TryingToDash>,
-                Has<TryingToJump>,
-                Has<TryingToGroundParry>,
-            ),
+            Has<ComponentBuffer<Grounded>>,
             Has<Movement>,
         ),
         With<PlayerBody>,
@@ -133,31 +128,28 @@ fn check_states(
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
-            tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12.0, tup.12.1, tup.12.2, tup.13,
+            tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12,
         ];
         let has = arr
             .into_iter()
             .zip([
-                pretty_type_name::<Standing>(),
-                pretty_type_name::<Walking>(),
-                pretty_type_name::<Sprinting>(),
-                pretty_type_name::<Crouching>(),
-                pretty_type_name::<Sneaking>(),
-                pretty_type_name::<Dashing>(),
-                pretty_type_name::<ChargeStanding>(),
-                pretty_type_name::<ChargeCrouching>(),
-                pretty_type_name::<ChargeWalking>(),
-                pretty_type_name::<Tripping>(),
-                pretty_type_name::<TripRecoverInAir>(),
-                pretty_type_name::<TripRecoverOnGround>(),
-                pretty_type_name::<Sliding>(),
-                pretty_type_name::<Rolling>(),
-                pretty_type_name::<Grounded>(),
-                pretty_type_name::<EffectiveGrounded>(),
-                pretty_type_name::<TryingToDash>(),
-                pretty_type_name::<TryingToJump>(),
-                pretty_type_name::<TryingToGroundParry>(),
-                pretty_type_name::<Movement>(),
+                ShortName::of::<Standing>(),
+                ShortName::of::<Walking>(),
+                ShortName::of::<Sprinting>(),
+                ShortName::of::<Crouching>(),
+                ShortName::of::<Sneaking>(),
+                ShortName::of::<Dashing>(),
+                ShortName::of::<ChargeStanding>(),
+                ShortName::of::<ChargeCrouching>(),
+                ShortName::of::<ChargeWalking>(),
+                ShortName::of::<Tripping>(),
+                ShortName::of::<TripRecover>(),
+                ShortName::of::<ComponentBuffer<TripRecover>>(),
+                ShortName::of::<Sliding>(),
+                ShortName::of::<Rolling>(),
+                ShortName::of::<Grounded>(),
+                ShortName::of::<ComponentBuffer<Grounded>>(),
+                ShortName::of::<Movement>(),
             ])
             .filter_map(|(has, name)| if has { Some(name) } else { None })
             .join("\n");
@@ -176,8 +168,8 @@ fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
 
 #[add_system(
 	plugin = MovementIndicatorsPlugin, schedule = Update,
-	after = MovementControlSet::DoHorizontalMovement,
-	after = MovementControlSet::DoVerticalMovement,
+	after = MovementControlSystems::DoHorizontalMovement,
+	after = MovementControlSystems::DoVerticalMovement,
 )]
 fn movement_direction_gizmos(
     mut gizmos: Gizmos,

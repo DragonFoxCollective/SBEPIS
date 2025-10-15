@@ -5,11 +5,16 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Binding1D, input};
+use bevy_pretty_nice_menus::MenuInputOf;
 
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::weapons::{DamageSweep, EndDamageSweep, SweepPivot, WeaponAnimation};
+use crate::player_controller::weapons::{
+    Attack, DamageSweep, EndDamageSweep, NextWeapon, PrevWeapon, SweepPivot, WeaponAnimation,
+    WeaponOf,
+};
 use crate::prelude::*;
 
 #[derive(Component)]
@@ -34,7 +39,7 @@ pub fn spawn_hammer(
     animations: &mut Assets<AnimationClip>,
     graphs: &mut Assets<AnimationGraph>,
     body: Entity,
-) -> (Entity, Entity) {
+) {
     let hammer_pivot_id = AnimationTargetId::from_iter(["Hammer Pivot"]);
 
     let lead_in_time = 0.5;
@@ -112,6 +117,13 @@ pub fn spawn_hammer(
             WeaponAnimation(animation_index),
             ChildOf(body),
             DespawnOnExit(GameState::InGame),
+            WeaponOf(body),
+            (
+                MenuInputOf(body),
+                input!(Attack, [Binding1D::left_click()]),
+                input!(NextWeapon, [Binding1D::scroll_up()]),
+                input!(PrevWeapon, [Binding1D::scroll_down()]),
+            ),
         ))
         .add_child(hammer_head)
         .id();
@@ -119,8 +131,6 @@ pub fn spawn_hammer(
         id: hammer_pivot_id,
         player: hammer_pivot,
     });
-
-    (hammer_pivot, hammer_head)
 }
 
 #[derive(AnimationEvent, Clone)]

@@ -3,19 +3,34 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
+use bevy_pretty_nice_input::{
+    Action, Binding1D, Binding2D, ButtonPress, ButtonRelease, ComponentBuffer, Cooldown, Filter,
+    InputBuffer, ResetBuffer, input,
+};
+use bevy_pretty_nice_menus::{Menu, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
-use leafwing_input_manager::prelude::*;
-use movement::MovementControlSet;
+use movement::MovementControlSystems;
 use movement::di::DirectionalInput;
 use movement::stand::Standing;
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
 use crate::gridbox_material;
-use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
+use crate::player_controller::movement::charge::{
+    Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeWalking,
+};
+use crate::player_controller::movement::crouch::{Crouch, Crouching};
+use crate::player_controller::movement::dash::Dash;
+use crate::player_controller::movement::grounded::Grounded;
+use crate::player_controller::movement::jump::Jump;
+use crate::player_controller::movement::roll::{RollCrouching, RollSprinting};
+use crate::player_controller::movement::slide::{Slide, Sliding};
+use crate::player_controller::movement::sneak::{Sneak, Sneaking};
+use crate::player_controller::movement::sprint::{Sprint, Sprinting};
+use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover};
+use crate::player_controller::movement::walk::{Walk, Walking};
 use crate::prelude::*;
 use crate::worldgen::terrain::WorldGen;
 
@@ -40,17 +55,18 @@ impl Plugin for PlayerControllerPlugin {
         app.configure_sets(
             Update,
             (
-                MovementControlSet::UpdateDi.before(MovementControlSet::UpdateState),
-                MovementControlSet::UpdateGrounded.before(MovementControlSet::UpdateState),
-                MovementControlSet::DoHorizontalMovement.after(MovementControlSet::UpdateState),
-                MovementControlSet::DoVerticalMovement.after(MovementControlSet::UpdateState),
+                MovementControlSystems::UpdateDi.before(MovementControlSystems::UpdateState),
+                MovementControlSystems::UpdateGrounded.before(MovementControlSystems::UpdateState),
+                MovementControlSystems::DoHorizontalMovement
+                    .after(MovementControlSystems::UpdateState),
+                MovementControlSystems::DoVerticalMovement
+                    .after(MovementControlSystems::UpdateState),
             ),
         );
     }
 }
 
-#[add_plugin(to_plugin = PlayerControllerPlugin, generics = <PlayerAction>)]
-use crate::menus::InputManagerMenuPlugin;
+// TODO: figure out how to UNIT TEST this stuff
 
 #[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
@@ -62,30 +78,138 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
-    let input = commands
-        .spawn((
-            input_manager_bundle(
-                InputMap::default()
-                    .with_dual_axis(PlayerAction::Move, VirtualDPad::wasd())
-                    .with(PlayerAction::Jump, KeyCode::Space)
-                    .with_dual_axis(PlayerAction::Look, MouseMove::default())
-                    .with(PlayerAction::Sprint, KeyCode::ShiftLeft)
-                    .with(PlayerAction::Crouch, KeyCode::ControlLeft)
-                    .with(PlayerAction::Use, MouseButton::Left)
-                    .with(PlayerAction::Interact, KeyCode::KeyE)
-                    .with(PlayerAction::NextWeapon, MouseScrollDirection::UP)
-                    .with(PlayerAction::PrevWeapon, MouseScrollDirection::DOWN)
-                    .with(PlayerAction::OpenQuestScreen, KeyCode::KeyJ)
-                    .with(PlayerAction::OpenInventory, KeyCode::KeyV)
-                    .with(PlayerAction::OpenStaff, KeyCode::Backquote),
-                false,
-            ),
-            Menu,
-            MenuWithInputManager,
-            MenuWithoutMouse,
-            DespawnOnExit(GameState::InGame),
-        ))
-        .id();
+    let input =
+        commands
+            .spawn((
+                (
+                    input!(
+                        Walk,
+                        [Binding2D::wasd()],
+                        [Filter::<With<Standing>>::default()]
+                    ),
+                    input!(
+                        Jump,                 // The Action to trigger
+                        [Binding1D::space()], // The trigger
+                        [
+                            ButtonPress::default(), // If the trigger gets this far, if it was just pressed, continue. Otherwise, stop it
+                            InputBuffer::new(0.2), // If the trigger gets this far, start firing the trigger repeatedly for a certain amount of time
+                            Filter::<With<ComponentBuffer<Grounded>>>::default(), // If the trigger gets this far, only let it pass if the entity has this component
+                            Cooldown::new(0.5), // If the trigger gets this far, don't let it pass again for a certain amount of time
+                        ],
+                        // Examples:
+                        // Space not pressed:					blocked by bindings
+                        // Space just pressed, not grounded:	start in bindings,	pass Press,			start InputBuffer,		blocked by Filter
+                        // Space held:							start in bindings,	blocked by Press
+                        // Space just pressed, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		pass Cooldown
+                        // Space just pressed x2, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		blocked by Cooldown // don't do the multi jump bug
+                        // InputBuffer active, not grounded:											start in InputBuffer,	blocked by Filter
+                        // InputBuffer active, grounded: 												start in InputBuffer,	pass Filter,		pass Cooldown
+                        // InputBuffer active x2, grounded:												start in InputBuffer,	pass Filter,		blocked by Cooldown
+
+                        // Cons:
+                        // Unless the cooldown continuously resets the input buffer, the player will automatically jump again.
+                        // This is especially apparent if the cooldown is shorter than the input buffer.
+                    ),
+                    input!(Look, [Binding2D::mouse_move()]),
+                    (
+                        input!(
+                            Sprint,
+                            [Binding1D::left_shift()],
+                            [Filter::<With<Walking>>::default()],
+                        ),
+                        input!(
+                            Dash,
+                            [Binding1D::left_shift()],
+                            [
+                                ButtonPress::default(),
+                                InputBuffer::new(0.2),
+                                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                                ResetBuffer,
+                            ],
+                        ),
+                        input!(
+                            Crouch,
+                            [Binding1D::left_ctrl()],
+                            [Filter::<With<Standing>>::default()],
+                        ),
+                        input!(
+                            Sneak,
+                            [Binding2D::wasd()],
+                            [Filter::<With<Crouching>>::default()]
+                        ),
+                        input!(
+                            Slide,
+                            [Binding1D::left_ctrl()],
+                            [Filter::<With<Walking>>::default()],
+                        ),
+                        input!(
+							RollCrouching,
+							[Binding1D::left_shift()],
+							[Filter::<Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>::default()],
+						),
+                        input!(
+                            RollSprinting,
+                            [Binding1D::left_ctrl()],
+                            [Filter::<With<Sprinting>>::default()],
+                        ),
+                    ),
+                    (
+                        input!(
+                            Charge,
+                            [Binding1D::left_shift()],
+                            [Filter::<With<Standing>>::default()],
+                        ),
+                        input!(
+                            ChargeCrouch,
+                            [Binding1D::left_shift()],
+                            [Filter::<With<Crouching>>::default()],
+                        ),
+                        input!(
+                            ChargeDash,
+                            [Binding1D::left_shift()],
+                            [
+                                ButtonRelease::default(),
+                                Filter::<With<ChargeWalking>>::default()
+                            ],
+                        ),
+                    ),
+                    (
+                        input!(
+                            Trip,
+                            [Binding1D::left_shift()],
+                            [
+                                ButtonRelease::default(),
+                                Filter::<With<ChargeCrouching>>::default(),
+                            ],
+                        ),
+                        input!(
+                            GroundParry,
+                            [Binding1D::left_ctrl()],
+                            [
+                                ButtonPress::default(),
+                                InputBuffer::new(0.2),
+                                Filter::<(
+                                    With<ComponentBuffer<Grounded>>,
+                                    With<ComponentBuffer<TripRecover>>
+                                )>::default(),
+                                ResetBuffer,
+                            ],
+                        ),
+                    ),
+                    input!(Interact, [Binding1D::Key(KeyCode::KeyE)]),
+                    // TODO: move these
+                    input!(OpenQuestScreen, [Binding1D::Key(KeyCode::KeyJ)]),
+                    input!(OpenInventory, [Binding1D::Key(KeyCode::KeyV)]),
+                    input!(OpenStaff, [Binding1D::Key(KeyCode::Backquote)]),
+                ),
+                (
+                    Menu,
+                    MenuWithInput,
+                    MenuWithoutMouse,
+                    DespawnOnExit(GameState::InGame),
+                ),
+            ))
+            .id();
     menu_stack.push(input);
 
     let collider = commands
@@ -148,11 +272,12 @@ fn setup(
             ChunkLoader::<WorldGen>::new(3),
             Ccd::enabled(),
             DespawnOnExit(GameState::InGame),
+            UninitializedWeaponSet,
         ))
         .add_children(&[camera, collider, mesh])
         .id();
 
-    let (hammer_pivot, _hammer_head) = spawn_hammer(
+    spawn_hammer(
         &mut commands,
         &asset_server,
         &mut materials,
@@ -162,7 +287,7 @@ fn setup(
         body,
     );
 
-    let (sword_pivot, _sword_blade) = spawn_sword(
+    spawn_sword(
         &mut commands,
         &asset_server,
         &mut materials,
@@ -172,7 +297,7 @@ fn setup(
         body,
     );
 
-    let (rifle_pivot, _rifle_barrel) = spawn_rifle(
+    spawn_rifle(
         &mut commands,
         &asset_server,
         &mut materials,
@@ -181,14 +306,6 @@ fn setup(
         &mut graphs,
         body,
     );
-
-    commands.entity(body).insert((
-        WeaponSet {
-            weapons: vec![hammer_pivot, sword_pivot, rifle_pivot],
-            active_weapon: 0,
-        },
-        UninitializedWeaponSet,
-    ));
 
     commands.spawn((
         Name::new("Damage Numbers"),
@@ -213,43 +330,21 @@ fn setup(
     Ok(())
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
-pub enum PlayerAction {
-    Move,
-    Jump,
-    Look,
-    Sprint,
-    Crouch,
-    Use,
-    Interact,
-    NextWeapon,
-    PrevWeapon,
-    OpenQuestScreen,
-    OpenInventory,
-    OpenStaff,
-}
-impl Actionlike for PlayerAction {
-    fn input_control_kind(&self) -> InputControlKind {
-        match self {
-            PlayerAction::Move => InputControlKind::DualAxis,
-            PlayerAction::Jump => InputControlKind::Button,
-            PlayerAction::Look => InputControlKind::DualAxis,
-            PlayerAction::Sprint => InputControlKind::Button,
-            PlayerAction::Crouch => InputControlKind::Button,
-            PlayerAction::Use => InputControlKind::Button,
-            PlayerAction::Interact => InputControlKind::Button,
-            PlayerAction::NextWeapon => InputControlKind::Button,
-            PlayerAction::PrevWeapon => InputControlKind::Button,
-            PlayerAction::OpenQuestScreen => InputControlKind::Button,
-            PlayerAction::OpenInventory => InputControlKind::Button,
-            PlayerAction::OpenStaff => InputControlKind::Button,
-        }
-    }
-}
-
 #[derive(Component)]
 pub struct PlayerBody {
     pub camera: Entity,
     pub mesh: Entity,
     pub collider: Entity,
 }
+
+#[derive(Action)]
+pub struct Interact;
+
+#[derive(Action)]
+pub struct OpenQuestScreen;
+
+#[derive(Action)]
+pub struct OpenInventory;
+
+#[derive(Action)]
+pub struct OpenStaff;

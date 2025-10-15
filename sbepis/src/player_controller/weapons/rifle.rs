@@ -5,6 +5,8 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Binding1D, input};
+use bevy_pretty_nice_menus::MenuInputOf;
 use bevy_rapier3d::math::Real;
 use bevy_rapier3d::plugin::ReadRapierContext;
 use bevy_rapier3d::prelude::QueryFilter;
@@ -13,7 +15,9 @@ use crate::camera::PlayerCamera;
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::weapons::{Hit, WeaponAnimation};
+use crate::player_controller::weapons::{
+    Attack, Hit, NextWeapon, PrevWeapon, WeaponAnimation, WeaponOf,
+};
 use crate::prelude::*;
 
 #[derive(Component)]
@@ -54,7 +58,7 @@ pub fn spawn_rifle(
     animations: &mut Assets<AnimationClip>,
     graphs: &mut Assets<AnimationGraph>,
     body: Entity,
-) -> (Entity, Entity) {
+) {
     let rifle_pivot_id = AnimationTargetId::from_iter(["Rifle Pivot"]);
 
     let blast_time = 0.5;
@@ -134,6 +138,13 @@ pub fn spawn_rifle(
             WeaponAnimation(animation_index),
             ChildOf(body),
             DespawnOnExit(GameState::InGame),
+            WeaponOf(body),
+            (
+                MenuInputOf(body),
+                input!(Attack, [Binding1D::left_click()]),
+                input!(NextWeapon, [Binding1D::scroll_up()]),
+                input!(PrevWeapon, [Binding1D::scroll_down()]),
+            ),
         ))
         .add_child(rifle_barrel)
         .id();
@@ -141,8 +152,6 @@ pub fn spawn_rifle(
         id: rifle_pivot_id,
         player: rifle_pivot,
     });
-
-    (rifle_pivot, rifle_barrel)
 }
 
 #[derive(AnimationEvent, Clone)]

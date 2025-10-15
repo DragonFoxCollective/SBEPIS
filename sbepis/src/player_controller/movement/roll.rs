@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 use bevy_rapier3d::prelude::*;
-use leafwing_input_manager::prelude::ActionState;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
-use crate::input::{button_just_pressed, button_just_released, button_pressed};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
+use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::PlayerBody;
 
 use super::crouch::Crouching;
@@ -15,7 +13,12 @@ use super::dash::Dashing;
 use super::slide::Sliding;
 use super::sneak::Sneaking;
 use super::sprint::Sprinting;
-use super::stand::Standing;
+
+#[derive(Action)]
+pub struct RollCrouching;
+
+#[derive(Action)]
+pub struct RollSprinting;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin)]
@@ -83,74 +86,40 @@ fn readd_movement(
 #[derive(Component)]
 pub struct Rolling;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn sliding_or_sneaking_or_crouching_to_rolling(
-    mut players: Query<Entity, Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>,
+    roll: On<JustPressed<RollCrouching>>,
     mut commands: Commands,
 ) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Sliding>()
-            .remove::<Sneaking>()
-            .remove::<Crouching>()
-            .insert(Rolling);
-    }
+    commands
+        .entity(roll.input)
+        .remove::<Sliding>()
+        .remove::<Sneaking>()
+        .remove::<Crouching>()
+        .insert(Rolling);
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn sprinting_to_rolling(mut players: Query<Entity, With<Sprinting>>, mut commands: Commands) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Sprinting>()
-            .remove::<Dashing>()
-            .insert(Rolling);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn sprinting_to_rolling(roll: On<JustPressed<RollSprinting>>, mut commands: Commands) {
+    commands
+        .entity(roll.input)
+        .remove::<Sprinting>()
+        .remove::<Dashing>()
+        .insert(Rolling);
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-	after = rolling_to_sprinting_or_standing,
-)]
-fn rolling_to_sliding(mut players: Query<Entity, With<Rolling>>, mut commands: Commands) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Rolling>()
-            .insert(Sliding::default());
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn rolling_to_sliding(roll: On<JustReleased<RollSprinting>>, mut commands: Commands) {
+    commands
+        .entity(roll.input)
+        .remove::<Rolling>()
+        .insert(Sliding::default());
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn rolling_to_sprinting_or_standing(
-    mut players: Query<Entity, With<Rolling>>,
-    mut commands: Commands,
-    input: Query<&ActionState<PlayerAction>>,
-) -> Result {
-    let input = input.single()?;
-    for player in players.iter_mut() {
-        commands.entity(player).remove::<Rolling>();
-
-        if button_pressed(input, &PlayerAction::Move) {
-            commands.entity(player).insert(Sprinting);
-        } else {
-            commands.entity(player).insert(Standing);
-        }
-    }
-    Ok(())
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn rolling_to_sprinting_or_standing(roll: On<JustReleased<RollSprinting>>, mut commands: Commands) {
+    commands
+        .entity(roll.input)
+        .remove::<Rolling>()
+        .insert(Sprinting);
 }

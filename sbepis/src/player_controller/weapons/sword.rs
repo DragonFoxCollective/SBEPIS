@@ -5,11 +5,16 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Binding1D, input};
+use bevy_pretty_nice_menus::MenuInputOf;
 
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::weapons::{DamageSweep, EndDamageSweep, SweepPivot, WeaponAnimation};
+use crate::player_controller::weapons::{
+    Attack, DamageSweep, EndDamageSweep, NextWeapon, PrevWeapon, SweepPivot, WeaponAnimation,
+    WeaponOf,
+};
 use crate::prelude::*;
 
 #[derive(Component)]
@@ -82,7 +87,7 @@ pub fn spawn_sword(
     animations: &mut Assets<AnimationClip>,
     graphs: &mut Assets<AnimationGraph>,
     body: Entity,
-) -> (Entity, Entity) {
+) {
     let sword_pivot_id = AnimationTargetId::from_iter(["Sword Pivot"]);
 
     let follow_through_time = 0.8;
@@ -170,6 +175,13 @@ pub fn spawn_sword(
             WeaponAnimation(left_attack_index),
             ChildOf(body),
             DespawnOnExit(GameState::InGame),
+            WeaponOf(body),
+            (
+                MenuInputOf(body),
+                input!(Attack, [Binding1D::left_click()]),
+                input!(NextWeapon, [Binding1D::scroll_up()]),
+                input!(PrevWeapon, [Binding1D::scroll_down()]),
+            ),
         ))
         .add_child(sword_blade)
         .id();
@@ -177,8 +189,6 @@ pub fn spawn_sword(
         id: sword_pivot_id,
         player: sword_pivot,
     });
-
-    (sword_pivot, sword_blade)
 }
 
 #[derive(AnimationEvent, Clone)]

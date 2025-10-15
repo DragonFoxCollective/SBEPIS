@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed};
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
-use crate::input::{button_just_pressed, button_just_released};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovementControlSystems;
 
 use super::charge::{ChargeCrouching, ChargeStanding, ChargeWalking};
 use super::crouch::Crouching;
@@ -16,6 +15,9 @@ use super::grounded::Grounded;
 use super::sneak::Sneaking;
 use super::sprint::Sprinting;
 use super::stand::Standing;
+
+#[derive(Action)]
+pub struct Walk;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
@@ -42,37 +44,25 @@ pub struct PlayerWalkSettings {
 #[derive(Component, Default)]
 pub struct Walking;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_pressed(PlayerAction::Move),
-)]
-fn standing_to_walking(
-    players: Query<Entity, (With<PlayerBody>, With<Standing>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands.entity(player).remove::<Standing>().insert(Walking);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn standing_to_walking(walk: On<JustPressed<Walk>>, mut commands: Commands) {
+    commands
+        .entity(walk.input)
+        .remove::<Standing>()
+        .insert(Walking);
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn walking_to_standing(walk: On<JustPressed<Walk>>, mut commands: Commands) {
+    commands
+        .entity(walk.input)
+        .remove::<Walking>()
+        .insert(Standing);
 }
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_released(PlayerAction::Move),
-)]
-fn walking_to_standing(
-    players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands.entity(player).remove::<Walking>().insert(Standing);
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::DoHorizontalMovement,
+	in_set = MovementControlSystems::DoHorizontalMovement,
 	before = ExecuteMovementSet,
 )]
 fn update_walk_velocity(

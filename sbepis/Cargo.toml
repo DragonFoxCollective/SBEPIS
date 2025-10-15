@@ -33,12 +33,17 @@ skip_main_menu = []
 
 [dependencies]
 bevy = { version = "0.17", features = ["wav", "mp3"] }
-bevy-inspector-egui = { version = "0.34", optional = true }
+bevy-inspector-egui = { version = "0.34", optional = true, default-features = false, features = [
+	"bevy_pbr",
+	"bevy_image",
+	"bevy_render",
+	"bevy_core_pipeline",
+	"egui_clipboard",
+] }
 bevy_panorbit_camera = { version = "0.29", optional = true }
 bevy_rapier3d = { git = "https://github.com/lukasfri/bevy_rapier.git" }
 image = "0.25.2"
 itertools = "0.14.0"
-leafwing-input-manager = "0.18"
 num-traits = "0.2.19"
 winit = "0.30"
 rand = "0.9"
@@ -55,7 +60,9 @@ bevy_skein = "0.3.0-rc.1"
 bevy-marching-cubes = { path = "../bevy-marching-cubes" }
 crossbeam-channel = "0.5.15"
 fake = "4.4.0"
-pretty-type-name = "1.0.1"
+bevy-pretty-nice-input = { path = "../bevy-pretty-nice-input" }
+bevy-pretty-nice-menus = { path = "../bevy-pretty-nice-menus" }
+paste = "1.0.15"
 
 [build-dependencies]
 winres = "0.1"

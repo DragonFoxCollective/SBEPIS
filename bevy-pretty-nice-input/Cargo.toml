@@ -1,0 +1,8 @@
+[package]
+name = "bevy-pretty-nice-input"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.17", default-features = false, features = [] }
+bevy-pretty-nice-input-derive = { path = "../bevy-pretty-nice-input-derive" }

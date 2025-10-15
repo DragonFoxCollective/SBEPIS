@@ -1,36 +1,26 @@
-use std::time::Instant;
-
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
-use bevy_butler::*;
-use leafwing_input_manager::plugin::InputManagerPlugin;
-use leafwing_input_manager::prelude::{ActionState, InputMap};
-use leafwing_input_manager::{Actionlike, InputControlKind};
-use return_ok::ok_or_return;
+use bevy_pretty_nice_input::{InputDisabled, JustPressed};
 
-use crate::input::{InputManagerReference, JustPressed};
-use crate::prelude::*;
+#[derive(Default)]
+pub struct PrettyNiceMenusPlugin;
 
-#[add_plugin(to_plugin = SbepisPlugin)]
-#[butler_plugin]
-pub struct MenusPlugin;
-
-#[add_plugin(to_plugin = MenusPlugin, generics = <CloseMenuAction>)]
-pub struct InputManagerMenuPlugin<Action: Actionlike>(std::marker::PhantomData<Action>);
-impl<Action: Actionlike + TypePath + bevy::reflect::GetTypeRegistration> Plugin
-    for InputManagerMenuPlugin<Action>
-{
+impl Plugin for PrettyNiceMenusPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<ActionState<Action>>()
-            .register_type::<InputMap<Action>>()
-            .add_plugins(InputManagerPlugin::<Action>::default())
-            .add_observer(enable_input_managers::<Action>)
-            .add_observer(disable_input_managers::<Action>);
-    }
-}
-impl<Action: Actionlike> Default for InputManagerMenuPlugin<Action> {
-    fn default() -> Self {
-        Self(default())
+        app.insert_resource(MenuStack::default())
+            .add_systems(
+                PostUpdate,
+                (remove_despawned_menus, activate_stack_current).chain(),
+            )
+            .add_observer(show_mouse)
+            .add_observer(hide_mouse)
+            .add_observer(show_menus)
+            .add_observer(hide_menus)
+            .add_observer(despawn_menus)
+            .add_observer(enable_input_managers)
+            .add_observer(disable_input_managers);
+
+        app.add_observer(close_menu_on_action::<CloseMenuAction>);
     }
 }
 
@@ -38,7 +28,7 @@ impl<Action: Actionlike> Default for InputManagerMenuPlugin<Action> {
 pub struct Menu;
 
 #[derive(Component)]
-pub struct MenuWithInputManager;
+pub struct MenuWithInput;
 
 #[derive(Component)]
 pub struct MenuWithMouse;
@@ -53,11 +43,11 @@ pub struct MenuHidesWhenClosed;
 pub struct MenuDespawnsWhenClosed;
 
 #[derive(Resource, Default, Debug, Reflect)]
-#[insert_resource(plugin = MenusPlugin)]
 pub struct MenuStack {
     stack: Vec<Entity>,
     current: Option<Entity>,
 }
+
 impl MenuStack {
     pub fn push(&mut self, menu: Entity) {
         self.stack.push(menu);
@@ -94,22 +84,10 @@ pub struct DeactivateMenu {
     pub menu: Entity,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
 pub struct CloseMenuAction;
-impl Actionlike for CloseMenuAction {
-    fn input_control_kind(&self) -> InputControlKind {
-        InputControlKind::Button
-    }
-}
-impl CloseMenuBinding for CloseMenuAction {
-    type Action = Self;
-    fn action() -> Self {
-        Self
-    }
-}
+impl bevy_pretty_nice_input::Action for CloseMenuAction {}
 
 /// This is the main sync point for changing the menu stack to activating/deactivating menus.
-#[add_system(plugin = MenusPlugin, schedule = PostUpdate)]
 fn activate_stack_current(mut menu_stack: If<ResMut<MenuStack>>, mut commands: Commands) -> Result {
     if !menu_stack.is_changed() {
         return Ok(());
@@ -134,82 +112,86 @@ fn activate_stack_current(mut menu_stack: If<ResMut<MenuStack>>, mut commands: C
     Ok(())
 }
 
-#[add_observer(plugin = MenusPlugin)]
 fn show_mouse(
     activate: On<ActivateMenu>,
     menus: Query<(), With<MenuWithMouse>>,
     mut cursor_options: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    if menus.get(activate.menu).is_ok() {
-        let mut cursor_options = ok_or_return!(cursor_options.single_mut());
+    if menus.get(activate.menu).is_ok()
+        && let Ok(mut cursor_options) = cursor_options.single_mut()
+    {
         cursor_options.grab_mode = CursorGrabMode::None;
         cursor_options.visible = true;
     }
 }
 
-#[add_observer(plugin = MenusPlugin)]
 fn hide_mouse(
     activate: On<ActivateMenu>,
     menus: Query<(), With<MenuWithoutMouse>>,
     mut cursor_options: Query<&mut CursorOptions, With<PrimaryWindow>>,
 ) {
-    if menus.get(activate.menu).is_ok() {
-        let mut cursor_options = ok_or_return!(cursor_options.single_mut());
+    if menus.get(activate.menu).is_ok()
+        && let Ok(mut cursor_options) = cursor_options.single_mut()
+    {
         cursor_options.grab_mode = CursorGrabMode::Locked;
         cursor_options.visible = false;
     }
 }
 
-fn enable_input_managers<Action: Actionlike>(
+fn enable_input_managers(
     activate: On<ActivateMenu>,
-    mut menus: Query<&mut ActionState<Action>, With<MenuWithInputManager>>,
+    menus: Query<Option<&MenuInputs>, With<MenuWithInput>>,
+    mut commands: Commands,
 ) {
-    if let Ok(mut input_manager) = menus.get_mut(activate.menu) {
-        input_manager.enable();
+    if let Ok(menu_inputs) = menus.get(activate.menu) {
+        commands.entity(activate.menu).remove::<InputDisabled>();
 
-        // On the first frame of a new input manager, already held buttons
-        // are "just pressed" so we need to clear them
-        input_manager.tick(Instant::now(), Instant::now());
+        if let Some(menu_inputs) = menu_inputs {
+            for input_manager in &menu_inputs.0 {
+                commands.entity(*input_manager).remove::<InputDisabled>();
+            }
+        }
     }
 }
 
-fn disable_input_managers<Action: Actionlike>(
+fn disable_input_managers(
     deactivate: On<DeactivateMenu>,
-    mut menus: Query<&mut ActionState<Action>, With<MenuWithInputManager>>,
+    menus: Query<Option<&MenuInputs>, With<MenuWithInput>>,
+    mut commands: Commands,
 ) {
-    if let Ok(mut input_manager) = menus.get_mut(deactivate.menu) {
-        input_manager.disable();
+    if let Ok(menu_inputs) = menus.get(deactivate.menu) {
+        commands.entity(deactivate.menu).insert(InputDisabled);
+
+        if let Some(menu_inputs) = menu_inputs {
+            for input_manager in &menu_inputs.0 {
+                commands.entity(*input_manager).insert(InputDisabled);
+            }
+        }
     }
 }
 
-pub trait CloseMenuBinding {
-    type Action: Actionlike + Copy;
-    fn action() -> Self::Action;
-}
-pub trait OpenMenuBinding {
-    type Action: Actionlike + Copy;
-    type Menu: Component;
-    fn action() -> Self::Action;
-}
+#[derive(Component)]
+#[relationship_target(relationship = MenuInputOf)]
+pub struct MenuInputs(#[relationship] Vec<Entity>);
 
-#[add_observer(plugin = MenusPlugin, generics = <CloseMenuAction>)]
-pub fn close_menu_on_action<Binding: CloseMenuBinding>(
-    pressed: On<JustPressed<Binding::Action>>,
+#[derive(Component)]
+#[relationship(relationship_target = MenuInputs)]
+pub struct MenuInputOf(#[relationship] pub Entity);
+
+pub fn close_menu_on_action<Action: bevy_pretty_nice_input::Action>(
+    pressed: On<JustPressed<Action>>,
     mut menu_stack: ResMut<MenuStack>,
 ) {
-    menu_stack.remove(pressed.input_manager);
+    menu_stack.remove(pressed.input);
 }
 
-pub fn close_menu_on_event<Ev: Event + InputManagerReference>(
-    input_manager: On<Ev>,
-    mut menu_stack: ResMut<MenuStack>,
-) {
-    menu_stack.remove(input_manager.input_manager());
+pub fn close_menu_on_event<Ev: EntityEvent>(input: On<Ev>, mut menu_stack: ResMut<MenuStack>) {
+    menu_stack.remove(input.event_target());
 }
 
-pub fn show_menu_on_action<Binding: OpenMenuBinding>(
-    _: On<JustPressed<Binding::Action>>,
-    mut menus: Query<Entity, With<Binding::Menu>>,
+pub fn show_menu_on_action<Action: bevy_pretty_nice_input::Action, Menu: Component>(
+    _: On<JustPressed<Action>>,
+    mut menus: Query<Entity, With<Menu>>,
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
     let menu = menus.single_mut()?;
@@ -217,7 +199,6 @@ pub fn show_menu_on_action<Binding: OpenMenuBinding>(
     Ok(())
 }
 
-#[add_observer(plugin = MenusPlugin)]
 fn show_menus(
     activate: On<ActivateMenu>,
     mut menus: Query<&mut Visibility, With<MenuHidesWhenClosed>>,
@@ -227,7 +208,6 @@ fn show_menus(
     }
 }
 
-#[add_observer(plugin = MenusPlugin)]
 fn hide_menus(
     deactivate: On<DeactivateMenu>,
     mut menus: Query<&mut Visibility, With<MenuHidesWhenClosed>>,
@@ -237,7 +217,6 @@ fn hide_menus(
     }
 }
 
-#[add_observer(plugin = MenusPlugin)]
 fn despawn_menus(
     deactivate: On<DeactivateMenu>,
     mut menus: Query<Entity, With<MenuDespawnsWhenClosed>>,
@@ -248,7 +227,6 @@ fn despawn_menus(
     }
 }
 
-#[add_system(plugin = MenusPlugin, schedule = PostUpdate, before = activate_stack_current)]
 fn remove_despawned_menus(
     mut menu_stack: ResMut<MenuStack>,
     mut commands: Commands,

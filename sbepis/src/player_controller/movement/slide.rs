@@ -2,22 +2,23 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 use bevy_rapier3d::prelude::Velocity;
-use leafwing_input_manager::prelude::ActionState;
 use return_ok::some_or_return_ok;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
-use crate::input::{button_just_pressed, button_just_released, button_pressed};
-use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::grounded::Grounded;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 use crate::util::MapRange;
 
 use super::di::DirectionalInput;
 use super::grounded::GroundedContact;
-use super::stand::Standing;
 use super::walk::Walking;
+
+#[derive(Action)]
+pub struct Slide;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerSlideSettings {
@@ -93,40 +94,20 @@ fn remove_sliding_sound(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn walking_to_sliding(players: Query<Entity, With<Walking>>, mut commands: Commands) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Walking>()
-            .insert(Sliding::default());
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn walking_to_sliding(slide: On<JustPressed<Slide>>, mut commands: Commands) {
+    commands
+        .entity(slide.input)
+        .remove::<Walking>()
+        .insert(Sliding::default());
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn sliding_to_standing_or_walking(
-    players: Query<Entity, With<Sliding>>,
-    mut commands: Commands,
-    input: Query<&ActionState<PlayerAction>>,
-) -> Result {
-    let input = input.single()?;
-    for player in players.iter() {
-        commands.entity(player).remove::<Sliding>();
-        if button_pressed(input, &PlayerAction::Move) {
-            commands.entity(player).insert(Walking);
-        } else {
-            commands.entity(player).insert(Standing);
-        }
-    }
-    Ok(())
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn sliding_to_walking(slide: On<JustReleased<Slide>>, mut commands: Commands) {
+    commands
+        .entity(slide.input)
+        .remove::<Sliding>()
+        .insert(Walking);
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
@@ -141,7 +122,7 @@ fn readd_movement(remove: On<Remove, Sliding>, mut commands: Commands, players: 
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::DoHorizontalMovement,
+	in_set = MovementControlSystems::DoHorizontalMovement,
 	before = ExecuteMovementSet,
 )]
 fn update_slide_velocity(

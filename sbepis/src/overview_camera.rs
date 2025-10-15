@@ -1,9 +1,9 @@
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_menus::{ActivateMenu, DeactivateMenu, Menu, MenuStack, MenuWithMouse};
 
 use crate::camera::PlayerCamera;
-use crate::menus::{ActivateMenu, DeactivateMenu, Menu, MenuStack, MenuWithMouse};
 use crate::prelude::*;
 
 #[butler_plugin]
