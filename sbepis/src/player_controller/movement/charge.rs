@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
@@ -270,10 +271,10 @@ fn charge_walking_to_charging(
 #[add_observer(plugin = PlayerControllerPlugin)]
 pub fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut commands: Commands) {
     // TODO: replace this with another event with params
-    commands.trigger(JustPressed {
+    commands.trigger(JustPressed::<Dash> {
         input: dash.input,
-        action: Dash,
         data: dash.data,
+        _marker: PhantomData,
     });
 }
 

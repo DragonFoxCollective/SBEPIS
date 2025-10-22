@@ -95,6 +95,9 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_hanabi::HanabiPlugin;
 
 #[add_plugin(to_plugin = SbepisPlugin)]
+use bevy_pretty_nice_input::PrettyNiceInputPlugin;
+
+#[add_plugin(to_plugin = SbepisPlugin)]
 use bevy_pretty_nice_menus::PrettyNiceMenusPlugin;
 
 #[add_system(

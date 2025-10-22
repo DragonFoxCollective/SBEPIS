@@ -620,6 +620,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-pretty-nice-input-derive",
+ "paste",
 ]
 
 [[package]]
@@ -1269,6 +1270,7 @@ dependencies = [
  "bevy_transform",
  "bevy_ui",
  "bevy_ui_render",
+ "bevy_ui_widgets",
  "bevy_utils",
  "bevy_window",
  "bevy_winit",
@@ -1926,6 +1928,25 @@ dependencies = [
  "bytemuck",
  "derive_more",
  "tracing",
+]
+
+[[package]]
+name = "bevy_ui_widgets"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f131e13aa2ea9f8fa9af92aadfd6cf7f47d561d21510cf76854b46808c9b9bf"
+dependencies = [
+ "accesskit",
+ "bevy_a11y",
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_input",
+ "bevy_input_focus",
+ "bevy_log",
+ "bevy_math",
+ "bevy_picking",
+ "bevy_reflect",
+ "bevy_ui",
 ]
 
 [[package]]

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed};
+use bevy_pretty_nice_input::{Action, JustPressed, Pressed};
 use bevy_rapier3d::prelude::*;
 
 use crate::camera::PlayerCamera;
@@ -25,7 +25,7 @@ pub struct MouseSensitivity(pub f32);
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn rotate_camera_and_body(
-    look: On<JustPressed<Look>>,
+    look: On<Pressed<Look>>,
     sensitivity: Res<MouseSensitivity>,
     mut player_camera: Query<
         (&mut Transform, &mut Pitch, &Camera),
