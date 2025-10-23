@@ -14,25 +14,20 @@ macro_rules! input {
 				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
 				::bevy_pretty_nice_input::BindingParts::spawn($binding),
-			))*]),
+			)),*]),
 
 			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
 			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
-			$( $condition ),*
+
+			::bevy::prelude::related!(::bevy_pretty_nice_input::Conditions[$((
+				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
+				$condition,
+			)),*]),
 		)])
     };
 
     ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
-			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
-				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
-				::bevy_pretty_nice_input::BindingParts::spawn($binding),
-			))*]),
-
-			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
-			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
-		)])
+        $crate::input!($action, [$($binding),*], [])
     };
 }
 
@@ -385,6 +380,14 @@ pub struct BindingParts(#[relationship] Vec<Entity>);
 #[derive(Component, Debug)]
 #[relationship(relationship_target = BindingParts)]
 pub struct BindingPartOf(#[relationship] Entity);
+
+#[derive(Component, Debug)]
+#[relationship_target(relationship = ConditionOf)]
+pub struct Conditions(#[relationship] Vec<Entity>);
+
+#[derive(Component, Debug)]
+#[relationship(relationship_target = Conditions)]
+pub struct ConditionOf(#[relationship] Entity);
 
 #[derive(Component)]
 pub struct InputDisabled;
