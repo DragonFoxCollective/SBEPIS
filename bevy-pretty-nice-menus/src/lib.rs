@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
-use bevy_pretty_nice_input::{InputDisabled, JustPressed};
+use bevy_pretty_nice_input::{Action, InputDisabled, JustPressed};
 
 #[derive(Default)]
 pub struct PrettyNiceMenusPlugin;
@@ -86,8 +86,8 @@ pub struct DeactivateMenu {
     pub menu: Entity,
 }
 
+#[derive(Action)]
 pub struct CloseMenuAction;
-impl bevy_pretty_nice_input::Action for CloseMenuAction {}
 
 /// This is the main sync point for changing the menu stack to activating/deactivating menus.
 fn activate_stack_current(mut menu_stack: If<ResMut<MenuStack>>, mut commands: Commands) -> Result {

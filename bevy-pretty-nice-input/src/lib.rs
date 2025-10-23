@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::query::QueryFilter;
+use bevy::ecs::system::ObserverSystem;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
@@ -21,7 +22,11 @@ macro_rules! input {
 
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Conditions[$((
 				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				$condition,
+				{
+					use ::bevy_pretty_nice_input::Condition;
+					let condition = $condition;
+					(::bevy::ui_widgets::observe(condition.system()), condition)
+				}
 			)),*]),
 		)])
     };
@@ -39,6 +44,16 @@ pub struct JustPressed<T: Action> {
     pub _marker: PhantomData<T>,
 }
 
+impl<T: Action> Clone for JustPressed<T> {
+    fn clone(&self) -> Self {
+        Self {
+            input: self.input,
+            data: self.data,
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[derive(EntityEvent)]
 pub struct Pressed<T: Action> {
     #[event_target]
@@ -47,11 +62,30 @@ pub struct Pressed<T: Action> {
     pub _marker: PhantomData<T>,
 }
 
+impl<T: Action> Clone for Pressed<T> {
+    fn clone(&self) -> Self {
+        Self {
+            input: self.input,
+            data: self.data,
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[derive(EntityEvent)]
 pub struct JustReleased<T: Action> {
     #[event_target]
     pub input: Entity,
     pub _marker: PhantomData<T>,
+}
+
+impl<T: Action> Clone for JustReleased<T> {
+    fn clone(&self) -> Self {
+        Self {
+            input: self.input,
+            _marker: PhantomData,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -260,33 +294,9 @@ impl ActionData {
         }
     }
 
-    pub fn as_1d_x(&self) -> Option<ActionData> {
-        if let ActionData::Axis1D(value) = self {
-            Some(ActionData::Axis1D(*value))
-        } else {
-            None
-        }
-    }
-
     pub fn as_2d(&self) -> Option<Vec2> {
         if let ActionData::Axis2D(value) = self {
             Some(*value)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_2d_x(&self) -> Option<ActionData> {
-        if let ActionData::Axis2D(value) = self {
-            Some(ActionData::Axis1D(value.x))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_2d_y(&self) -> Option<ActionData> {
-        if let ActionData::Axis2D(value) = self {
-            Some(ActionData::Axis1D(value.y))
         } else {
             None
         }
@@ -300,32 +310,6 @@ impl ActionData {
         }
     }
 
-    pub fn as_3d_x(&self) -> Option<ActionData> {
-        if let ActionData::Axis3D(value) = self {
-            Some(ActionData::Axis1D(value.x))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_3d_y(&self) -> Option<ActionData> {
-        if let ActionData::Axis3D(value) = self {
-            Some(ActionData::Axis1D(value.y))
-        } else {
-            None
-        }
-    }
-
-    pub fn as_3d_z(&self) -> Option<ActionData> {
-        if let ActionData::Axis3D(value) = self {
-            Some(ActionData::Axis1D(value.z))
-        } else {
-            None
-        }
-    }
-}
-
-impl ActionData {
     pub fn is_zero(&self) -> bool {
         match self {
             ActionData::Axis1D(value) => *value == 0.0,
@@ -339,17 +323,6 @@ impl ActionData {
 pub struct BindingPartData(pub f32);
 
 pub trait Action: Send + Sync + 'static {}
-
-#[derive(Component)]
-pub struct Cooldown {
-    pub duration: f32,
-}
-
-impl Cooldown {
-    pub fn new(duration: f32) -> Self {
-        Self { duration }
-    }
-}
 
 #[derive(Component)]
 pub struct ComponentBuffer<T: Component> {
@@ -392,6 +365,44 @@ pub struct ConditionOf(#[relationship] Entity);
 #[derive(Component)]
 pub struct InputDisabled;
 
+pub trait Condition {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()>;
+}
+
+fn condition_pass(update: On<BindingUpdate>, mut commands: Commands) -> Result {
+    let movement = update
+        .movement
+        .as_ref()
+        .ok_or(BevyError::from("No movement"))?;
+    commands.trigger(BindingUpdate {
+        target: movement.entities[movement.index + 1],
+        action: update.action,
+        data: update.data,
+        movement: Some(BindingUpdateMovement {
+            entities: movement.entities.clone(),
+            index: movement.index + 1,
+        }),
+    });
+    Ok(())
+}
+
+#[derive(Component)]
+pub struct Cooldown {
+    pub duration: f32,
+}
+
+impl Cooldown {
+    pub fn new(duration: f32) -> Self {
+        Self { duration }
+    }
+}
+
+impl Condition for Cooldown {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+        IntoSystem::into_system(condition_pass)
+    }
+}
+
 #[derive(Component)]
 pub struct Filter<T: QueryFilter>(PhantomData<T>);
 
@@ -404,6 +415,12 @@ impl<T: QueryFilter> Filter<T> {
 impl<T: QueryFilter> Default for Filter<T> {
     fn default() -> Self {
         Self(PhantomData)
+    }
+}
+
+impl<T: QueryFilter> Condition for Filter<T> {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+        IntoSystem::into_system(condition_pass)
     }
 }
 
@@ -424,6 +441,12 @@ impl Default for ButtonPress {
     }
 }
 
+impl Condition for ButtonPress {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+        IntoSystem::into_system(condition_pass)
+    }
+}
+
 #[derive(Component)]
 pub struct ButtonRelease {
     pub threshold: f32,
@@ -438,6 +461,12 @@ impl ButtonRelease {
 impl Default for ButtonRelease {
     fn default() -> Self {
         Self { threshold: 0.5 }
+    }
+}
+
+impl Condition for ButtonRelease {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+        IntoSystem::into_system(condition_pass)
     }
 }
 
@@ -456,8 +485,20 @@ impl InputBuffer {
     }
 }
 
+impl Condition for InputBuffer {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+        IntoSystem::into_system(condition_pass)
+    }
+}
+
 #[derive(Component)]
 pub struct ResetBuffer;
+
+impl Condition for ResetBuffer {
+    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+        IntoSystem::into_system(condition_pass)
+    }
+}
 
 #[derive(Default)]
 pub struct PrettyNiceInputPlugin;
@@ -475,11 +516,19 @@ impl Plugin for PrettyNiceInputPlugin {
     }
 }
 
-#[derive(EntityEvent, Debug)]
+#[derive(EntityEvent, Debug, Clone)]
 pub struct BindingUpdate {
     #[event_target]
+    pub target: Entity,
     pub action: Entity,
     pub data: ActionData,
+    pub movement: Option<BindingUpdateMovement>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BindingUpdateMovement {
+    pub entities: Vec<Entity>,
+    pub index: usize,
 }
 
 #[derive(EntityEvent, Debug)]
@@ -598,8 +647,10 @@ pub fn binding(
     };
 
     commands.trigger(BindingUpdate {
+        target: binding_of.0,
         action: binding_of.0,
         data,
+        movement: None,
     });
 
     Ok(())
@@ -607,14 +658,28 @@ pub fn binding(
 
 pub fn action<T: Action>(
     binding_update: On<BindingUpdate>,
-    actions: Query<&ActionOf<T>>,
+    actions: Query<(&ActionOf<T>, &Conditions)>,
     inputs: Query<Has<InputDisabled>>,
     mut commands: Commands,
     mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
-    let input = actions.get(binding_update.action)?.0;
-    let input_disabled = inputs.get(input)?;
+    let (action_of, conditions) = actions.get(binding_update.action)?;
+    let input = action_of.0;
 
+    if binding_update.movement.is_none() {
+        // send it off to the condition roulette instead
+        let mut entities = conditions.0.clone();
+        entities.push(binding_update.action);
+        commands.trigger(BindingUpdate {
+            target: entities[0],
+            action: binding_update.action,
+            data: binding_update.data,
+            movement: Some(BindingUpdateMovement { entities, index: 0 }),
+        });
+        return Ok(());
+    }
+
+    let input_disabled = inputs.get(input)?;
     let data_is_zero = binding_update.data.is_zero() || input_disabled;
     let prev_is_zero = prev_data.as_ref().is_none_or(ActionData::is_zero);
 
