@@ -22,7 +22,7 @@ pub struct CrouchingAssets {
     pub mesh_transform: Transform,
     pub collider: Collider,
     pub collider_transform: Transform,
-    pub camera_transform: Transform,
+    pub camera_position: Vec3,
 }
 
 impl FromWorld for CrouchingAssets {
@@ -43,7 +43,7 @@ impl FromWorld for CrouchingAssets {
             mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
             collider: Collider::capsule_y(0.25, 0.25),
             collider_transform: Transform::from_translation(Vec3::Y * 0.5),
-            camera_transform: Transform::from_translation(Vec3::Y * 0.75),
+            camera_position: Vec3::Y * 0.75,
         }
     }
 }
@@ -52,6 +52,7 @@ impl FromWorld for CrouchingAssets {
 fn to_crouching_assets(
     add: On<Add, (Crouching, Sliding, ChargeCrouching, Sneaking)>,
     players: Query<&PlayerBody>,
+    mut cameras: Query<&mut Transform>,
     assets: Res<CrouchingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -62,7 +63,7 @@ fn to_crouching_assets(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    commands.entity(body.camera).insert(assets.camera_transform);
+    cameras.get_mut(body.camera)?.translation = assets.camera_position;
     Ok(())
 }
 

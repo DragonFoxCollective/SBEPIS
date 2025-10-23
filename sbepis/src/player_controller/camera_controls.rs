@@ -20,7 +20,7 @@ pub struct Pitch(pub f32);
 
 /// Probably in radians per pixel?
 #[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.002))]
+#[insert_resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.0015))]
 pub struct MouseSensitivity(pub f32);
 
 #[add_observer(plugin = PlayerControllerPlugin)]
@@ -36,6 +36,8 @@ fn rotate_camera_and_body(
         (Without<PlayerCamera>, With<PlayerBody>),
     >,
 ) -> Result {
+    debug!("looking with delta {:?}", look.data);
+
     let delta = look
         .data
         .as_2d()
