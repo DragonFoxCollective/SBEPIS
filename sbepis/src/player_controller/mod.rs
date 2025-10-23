@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
-    Action, Binding1D, Binding2D, ButtonPress, ButtonRelease, ComponentBuffer, Cooldown, Filter,
-    InputBuffer, ResetBuffer, input,
+    Action, ButtonPress, ButtonRelease, ComponentBuffer, Cooldown, Filter, InputBuffer,
+    ResetBuffer, binding1d, binding2d, input,
 };
 use bevy_pretty_nice_menus::{Menu, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
@@ -84,12 +84,12 @@ fn setup(
                 (
                     input!(
                         Walk,
-                        [Binding2D::wasd()],
+                        [binding2d::wasd()],
                         [Filter::<With<Standing>>::default()]
                     ),
                     input!(
                         Jump,                 // The Action to trigger
-                        [Binding1D::space()], // The trigger
+                        [binding1d::space()], // The trigger
                         [
                             ButtonPress::default(), // If the trigger gets this far, if it was just pressed, continue. Otherwise, stop it
                             InputBuffer::new(0.2), // If the trigger gets this far, start firing the trigger repeatedly for a certain amount of time
@@ -110,16 +110,16 @@ fn setup(
                         // Unless the cooldown continuously resets the input buffer, the player will automatically jump again.
                         // This is especially apparent if the cooldown is shorter than the input buffer.
                     ),
-                    input!(Look, [Binding2D::mouse_move()]),
+                    input!(Look, [binding2d::mouse_move()]),
                     (
                         input!(
                             Sprint,
-                            [Binding1D::left_shift()],
+                            [binding1d::left_shift()],
                             [Filter::<With<Walking>>::default()],
                         ),
                         input!(
                             Dash,
-                            [Binding1D::left_shift()],
+                            [binding1d::left_shift()],
                             [
                                 ButtonPress::default(),
                                 InputBuffer::new(0.2),
@@ -129,44 +129,44 @@ fn setup(
                         ),
                         input!(
                             Crouch,
-                            [Binding1D::left_ctrl()],
+                            [binding1d::left_ctrl()],
                             [Filter::<With<Standing>>::default()],
                         ),
                         input!(
                             Sneak,
-                            [Binding2D::wasd()],
+                            [binding2d::wasd()],
                             [Filter::<With<Crouching>>::default()]
                         ),
                         input!(
                             Slide,
-                            [Binding1D::left_ctrl()],
+                            [binding1d::left_ctrl()],
                             [Filter::<With<Walking>>::default()],
                         ),
                         input!(
 							RollCrouching,
-							[Binding1D::left_shift()],
+							[binding1d::left_shift()],
 							[Filter::<Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>::default()],
 						),
                         input!(
                             RollSprinting,
-                            [Binding1D::left_ctrl()],
+                            [binding1d::left_ctrl()],
                             [Filter::<With<Sprinting>>::default()],
                         ),
                     ),
                     (
                         input!(
                             Charge,
-                            [Binding1D::left_shift()],
+                            [binding1d::left_shift()],
                             [Filter::<With<Standing>>::default()],
                         ),
                         input!(
                             ChargeCrouch,
-                            [Binding1D::left_shift()],
+                            [binding1d::left_shift()],
                             [Filter::<With<Crouching>>::default()],
                         ),
                         input!(
                             ChargeDash,
-                            [Binding1D::left_shift()],
+                            [binding1d::left_shift()],
                             [
                                 ButtonRelease::default(),
                                 Filter::<With<ChargeWalking>>::default()
@@ -176,7 +176,7 @@ fn setup(
                     (
                         input!(
                             Trip,
-                            [Binding1D::left_shift()],
+                            [binding1d::left_shift()],
                             [
                                 ButtonRelease::default(),
                                 Filter::<With<ChargeCrouching>>::default(),
@@ -184,7 +184,7 @@ fn setup(
                         ),
                         input!(
                             GroundParry,
-                            [Binding1D::left_ctrl()],
+                            [binding1d::left_ctrl()],
                             [
                                 ButtonPress::default(),
                                 InputBuffer::new(0.2),
@@ -196,11 +196,11 @@ fn setup(
                             ],
                         ),
                     ),
-                    input!(Interact, [Binding1D::Key(KeyCode::KeyE)]),
+                    input!(Interact, [binding1d::key(KeyCode::KeyE)]),
                     // TODO: move these
-                    input!(OpenQuestScreen, [Binding1D::Key(KeyCode::KeyJ)]),
-                    input!(OpenInventory, [Binding1D::Key(KeyCode::KeyV)]),
-                    input!(OpenStaff, [Binding1D::Key(KeyCode::Backquote)]),
+                    input!(OpenQuestScreen, [binding1d::key(KeyCode::KeyJ)]),
+                    input!(OpenInventory, [binding1d::key(KeyCode::KeyV)]),
+                    input!(OpenStaff, [binding1d::key(KeyCode::Backquote)]),
                 ),
                 (
                     Menu,

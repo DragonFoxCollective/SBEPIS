@@ -6,6 +6,38 @@ use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 pub use bevy_pretty_nice_input_derive::Action;
 
+#[macro_export]
+macro_rules! input {
+    ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {
+        ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
+			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
+				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
+				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
+				::bevy_pretty_nice_input::PrevActionData(None),
+				::bevy_pretty_nice_input::BindingParts::spawn($binding),
+			))*]),
+
+			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
+			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
+			$( $condition ),*
+		)])
+    };
+
+    ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
+			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
+				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
+				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
+				::bevy_pretty_nice_input::PrevActionData(None),
+				::bevy_pretty_nice_input::BindingParts::spawn($binding),
+			))*]),
+
+			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
+			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
+		)])
+    };
+}
+
 #[derive(EntityEvent)]
 pub struct JustPressed<T: Action> {
     #[event_target]
@@ -53,161 +85,152 @@ pub enum MouseScrollDirection {
     Right,
 }
 
-pub trait Binding {
-    fn update_key(&self, key: &KeyboardInput, prev: Option<&ActionData>) -> Option<ActionData>;
-    fn update_mouse_move(
-        &self,
-        mouse: &MouseMotion,
-        prev: Option<&ActionData>,
-    ) -> Option<ActionData>;
+pub mod binding_parts {
+    use bevy::prelude::Component;
+
+    #[derive(Component)]
+    pub struct Key(pub bevy::prelude::KeyCode);
+
+    #[derive(Component)]
+    pub struct KeyAxis(pub bevy::prelude::KeyCode, pub bevy::prelude::KeyCode);
+
+    #[derive(Component)]
+    pub struct GamepadAxis(pub bevy::prelude::GamepadAxis);
+
+    #[derive(Component)]
+    pub struct MouseButton(pub bevy::prelude::MouseButton);
+
+    #[derive(Component)]
+    pub struct MouseMoveAxis(pub crate::AxisDirection);
+
+    #[derive(Component)]
+    pub struct MouseScroll(pub crate::MouseScrollDirection);
+
+    #[derive(Component)]
+    pub struct MouseScrollAxis(pub crate::AxisDirection);
 }
 
-#[derive(Component, Debug)]
-pub enum Binding1D {
-    Key(KeyCode),
-    KeyAxis(KeyCode, KeyCode),
-    GamepadAxis(GamepadAxis),
-    MouseButton(MouseButton),
-    MouseMove(AxisDirection),
-    MouseScroll(MouseScrollDirection),
-    MouseScrollAxis(AxisDirection),
-}
+pub mod binding1d {
+    use bevy::ecs::spawn::SpawnableList;
+    use bevy::prelude::*;
 
-impl Binding1D {
-    pub fn space() -> Self {
-        Self::Key(KeyCode::Space)
+    use crate::{AxisDirection, BindingPartData, BindingPartOf, MouseScrollDirection};
+
+    pub fn key(key: KeyCode) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Key {:?}", key)),
+            BindingPartData::default(),
+            crate::binding_parts::Key(key),
+        ))
     }
 
-    pub fn left_shift() -> Self {
-        Self::Key(KeyCode::ShiftLeft)
+    pub fn key_axis(key_pos: KeyCode, key_neg: KeyCode) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Key Axis {:?} / {:?}", key_pos, key_neg)),
+            BindingPartData::default(),
+            crate::binding_parts::KeyAxis(key_pos, key_neg),
+        ))
     }
 
-    pub fn left_ctrl() -> Self {
-        Self::Key(KeyCode::ControlLeft)
+    pub fn gamepad_axis(axis: GamepadAxis) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Gamepad Axis {:?}", axis)),
+            BindingPartData::default(),
+            crate::binding_parts::GamepadAxis(axis),
+        ))
     }
 
-    pub fn left_click() -> Self {
-        Self::MouseButton(MouseButton::Left)
+    pub fn mouse_button(button: MouseButton) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Mouse Button {:?}", button)),
+            BindingPartData::default(),
+            crate::binding_parts::MouseButton(button),
+        ))
     }
 
-    pub fn right_click() -> Self {
-        Self::MouseButton(MouseButton::Right)
+    pub fn mouse_move_axis(axis: AxisDirection) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Mouse Move Axis {:?}", axis)),
+            BindingPartData::default(),
+            crate::binding_parts::MouseMoveAxis(axis),
+        ))
     }
 
-    pub fn middle_click() -> Self {
-        Self::MouseButton(MouseButton::Middle)
+    pub fn mouse_scroll(direction: MouseScrollDirection) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Mouse Scroll {:?}", direction)),
+            BindingPartData::default(),
+            crate::binding_parts::MouseScroll(direction),
+        ))
     }
 
-    pub fn scroll_up() -> Self {
-        Self::MouseScroll(MouseScrollDirection::Up)
+    pub fn mouse_scroll_axis(axis: AxisDirection) -> impl SpawnableList<BindingPartOf> {
+        Spawn((
+            Name::new(format!("Mouse Scroll Axis {:?}", axis)),
+            BindingPartData::default(),
+            crate::binding_parts::MouseScrollAxis(axis),
+        ))
     }
 
-    pub fn scroll_down() -> Self {
-        Self::MouseScroll(MouseScrollDirection::Down)
-    }
-}
-
-impl Binding for Binding1D {
-    fn update_key(
-        &self,
-        keyboard: &KeyboardInput,
-        _prev: Option<&ActionData>,
-    ) -> Option<ActionData> {
-        if let Binding1D::Key(key) = self
-            && *key == keyboard.key_code
-            && !keyboard.repeat
-        {
-            Some(ActionData::Axis1D(keyboard.state.is_pressed() as u8 as f32))
-        } else {
-            None
-        }
+    pub fn space() -> impl SpawnableList<BindingPartOf> {
+        key(KeyCode::Space)
     }
 
-    fn update_mouse_move(
-        &self,
-        mouse: &MouseMotion,
-        _prev: Option<&ActionData>,
-    ) -> Option<ActionData> {
-        if let Binding1D::MouseMove(axis) = self {
-            let value = match axis {
-                AxisDirection::X => mouse.delta.x,
-                AxisDirection::Y => mouse.delta.y,
-            };
-            Some(ActionData::Axis1D(value))
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Component, Debug)]
-pub struct Binding2D {
-    pub x: Binding1D,
-    pub y: Binding1D,
-}
-
-impl Binding2D {
-    pub fn wasd() -> Self {
-        Self {
-            x: Binding1D::KeyAxis(KeyCode::KeyD, KeyCode::KeyA),
-            y: Binding1D::KeyAxis(KeyCode::KeyW, KeyCode::KeyS),
-        }
+    pub fn left_shift() -> impl SpawnableList<BindingPartOf> {
+        key(KeyCode::ShiftLeft)
     }
 
-    pub fn arrow_keys() -> Self {
-        Self {
-            x: Binding1D::KeyAxis(KeyCode::ArrowRight, KeyCode::ArrowLeft),
-            y: Binding1D::KeyAxis(KeyCode::ArrowUp, KeyCode::ArrowDown),
-        }
+    pub fn left_ctrl() -> impl SpawnableList<BindingPartOf> {
+        key(KeyCode::ControlLeft)
     }
 
-    pub fn mouse_move() -> Self {
-        Self {
-            x: Binding1D::MouseMove(AxisDirection::X),
-            y: Binding1D::MouseMove(AxisDirection::Y),
-        }
+    pub fn left_click() -> impl SpawnableList<BindingPartOf> {
+        mouse_button(MouseButton::Left)
+    }
+
+    pub fn right_click() -> impl SpawnableList<BindingPartOf> {
+        mouse_button(MouseButton::Right)
+    }
+
+    pub fn middle_click() -> impl SpawnableList<BindingPartOf> {
+        mouse_button(MouseButton::Middle)
+    }
+
+    pub fn scroll_up() -> impl SpawnableList<BindingPartOf> {
+        mouse_scroll(MouseScrollDirection::Up)
+    }
+
+    pub fn scroll_down() -> impl SpawnableList<BindingPartOf> {
+        mouse_scroll(MouseScrollDirection::Down)
     }
 }
 
-macro_rules! impl_binding_update {
-    ($update: ident, $message: ident, $as_fn: ident, $( $axis: ident ),+) => {
-        paste::paste! {
-            fn $update(&self, input: &$message, prev: Option<&ActionData>) -> Option<ActionData> {
-                $(let [<prev_ $axis>] = prev.and_then(ActionData::[<$as_fn _ $axis>]);)+
+pub mod binding2d {
+    use bevy::ecs::spawn::SpawnableList;
+    use bevy::prelude::*;
 
-                $(let $axis = self.$axis.$update(input, [<prev_ $axis>].as_ref());)+
+    use crate::{AxisDirection, BindingPartOf, binding1d::*};
 
-                if $($axis.is_none()) &&+ {
-                    return None;
-                };
+    pub fn wasd() -> impl SpawnableList<BindingPartOf> {
+        (
+            key_axis(KeyCode::KeyD, KeyCode::KeyA),
+            key_axis(KeyCode::KeyW, KeyCode::KeyS),
+        )
+    }
 
-                $(let $axis = $axis
-                    .or([<prev_ $axis>])
-                    .as_ref()
-                    .and_then(ActionData::as_1d)
-                    .unwrap_or_default();)+
+    pub fn arrow_keys() -> impl SpawnableList<BindingPartOf> {
+        (
+            key_axis(KeyCode::ArrowRight, KeyCode::ArrowLeft),
+            key_axis(KeyCode::ArrowUp, KeyCode::ArrowDown),
+        )
+    }
 
-                Some(ActionData::[<$($axis)+>]($($axis),+))
-            }
-        }
-    };
-}
-
-impl Binding for Binding2D {
-    impl_binding_update!(update_key, KeyboardInput, as_2d, x, y);
-    impl_binding_update!(update_mouse_move, MouseMotion, as_2d, x, y);
-}
-
-#[derive(Component, Debug)]
-pub struct Binding3D {
-    pub x: Binding1D,
-    pub y: Binding1D,
-    pub z: Binding1D,
-}
-
-impl Binding for Binding3D {
-    impl_binding_update!(update_key, KeyboardInput, as_3d, x, y, z);
-    impl_binding_update!(update_mouse_move, MouseMotion, as_3d, x, y, z);
+    pub fn mouse_move() -> impl SpawnableList<BindingPartOf> {
+        (
+            mouse_move_axis(AxisDirection::X),
+            mouse_move_axis(AxisDirection::Y),
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -318,36 +341,10 @@ impl ActionData {
 #[derive(Component, Debug)]
 pub struct PrevActionData(pub Option<ActionData>);
 
+#[derive(Component, Default, Debug)]
+pub struct BindingPartData(pub f32);
+
 pub trait Action: Send + Sync + 'static {}
-
-#[macro_export]
-macro_rules! input {
-    ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {
-        ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
-			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
-				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				::bevy_pretty_nice_input::PrevActionData(None),
-				$binding
-			))*]),
-
-			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
-			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
-			$( $condition ),*
-		)])
-    };
-    ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
-			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
-				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				::bevy_pretty_nice_input::PrevActionData(None),
-				$binding
-			))*]),
-
-			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
-			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
-		)])
-    };
-}
 
 #[derive(Component)]
 pub struct Cooldown {
@@ -381,6 +378,14 @@ pub struct Bindings(#[relationship] Vec<Entity>);
 #[derive(Component, Debug)]
 #[relationship(relationship_target = Bindings)]
 pub struct BindingOf(#[relationship] Entity);
+
+#[derive(Component, Debug)]
+#[relationship_target(relationship = BindingPartOf)]
+pub struct BindingParts(#[relationship] Vec<Entity>);
+
+#[derive(Component, Debug)]
+#[relationship(relationship_target = BindingParts)]
+pub struct BindingPartOf(#[relationship] Entity);
 
 #[derive(Component)]
 pub struct InputDisabled;
@@ -457,55 +462,103 @@ pub struct PrettyNiceInputPlugin;
 
 impl Plugin for PrettyNiceInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            (
-                binding::<Binding1D>,
-                binding::<Binding2D>,
-                binding::<Binding3D>,
-            ),
-        );
+        app.add_systems(PreUpdate, (binding_part_key, binding_part_mouse_move));
     }
 }
 
 #[derive(EntityEvent, Debug)]
 pub struct BindingUpdate {
-    // this thing is kinda upside down, deal with it
     #[event_target]
     pub action: Entity,
     pub data: ActionData,
 }
 
-fn binding<T: Binding + Component>(
-    mut bindings: Query<(&T, &BindingOf, &mut PrevActionData)>,
+#[derive(EntityEvent, Debug)]
+pub struct BindingPartUpdate {
+    #[event_target]
+    pub action: Entity,
+    pub value: f32,
+}
+
+fn binding_part_key(
+    mut binding_parts: Query<(&binding_parts::Key, &BindingPartOf, &mut BindingPartData)>,
     mut commands: Commands,
     mut key: MessageReader<KeyboardInput>,
-    mut mouse_move: MessageReader<MouseMotion>,
 ) {
     for message in key.read() {
-        for (binding, binding_of, mut prev) in bindings.iter_mut() {
-            if let Some(data) = binding.update_key(message, prev.0.as_ref()) {
-                // TODO: this doesn't quite work for KeyAxis since it would call twice, same for B2D and B3D. yet mousemove needs adding up
-                commands.trigger(BindingUpdate {
-                    action: binding_of.0,
-                    data,
+        for (key, binding_part_of, mut data) in binding_parts.iter_mut() {
+            let value = message.state.is_pressed() as u8 as f32;
+            if key.0 == message.key_code && !message.repeat && data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    action: binding_part_of.0,
+                    value,
                 });
-                prev.0 = Some(data);
             }
         }
     }
+}
 
-    for message in mouse_move.read() {
-        for (binding, binding_of, mut prev) in bindings.iter_mut() {
-            if let Some(data) = binding.update_mouse_move(message, prev.0.as_ref()) {
-                commands.trigger(BindingUpdate {
-                    action: binding_of.0,
-                    data,
+fn binding_part_mouse_move(
+    mut binding_parts: Query<(
+        &binding_parts::MouseMoveAxis,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
+    mut commands: Commands,
+    mut mouse: MessageReader<MouseMotion>,
+) {
+    for message in mouse.read() {
+        for (mouse_move, binding_part_of, mut data) in binding_parts.iter_mut() {
+            let value = match mouse_move.0 {
+                AxisDirection::X => message.delta.x,
+                AxisDirection::Y => message.delta.y,
+            };
+            if data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    action: binding_part_of.0,
+                    value,
                 });
-                prev.0 = Some(data);
             }
         }
     }
+}
+
+pub fn binding(
+    update: On<BindingPartUpdate>,
+    bindings: Query<(&BindingOf, &BindingParts)>,
+    binding_parts: Query<&BindingPartData>,
+    mut commands: Commands,
+) -> Result {
+    let (binding_of, binding_parts_rel) = bindings.get(update.action)?;
+
+    let data = if binding_parts_rel.0.len() == 1 {
+        ActionData::Axis1D(binding_parts.get(binding_parts_rel.0[0])?.0)
+    } else if binding_parts_rel.0.len() == 2 {
+        ActionData::Axis2D(Vec2::new(
+            binding_parts.get(binding_parts_rel.0[0])?.0,
+            binding_parts.get(binding_parts_rel.0[1])?.0,
+        ))
+    } else if binding_parts_rel.0.len() == 3 {
+        ActionData::Axis3D(Vec3::new(
+            binding_parts.get(binding_parts_rel.0[0])?.0,
+            binding_parts.get(binding_parts_rel.0[1])?.0,
+            binding_parts.get(binding_parts_rel.0[2])?.0,
+        ))
+    } else {
+        return Err(BevyError::from(format!(
+            "Binding has invalid number of parts: {}",
+            binding_parts_rel.0.len()
+        )));
+    };
+
+    commands.trigger(BindingUpdate {
+        action: binding_of.0,
+        data,
+    });
+
+    Ok(())
 }
 
 pub fn action<T: Action>(
@@ -516,12 +569,14 @@ pub fn action<T: Action>(
 ) -> Result {
     let input = actions.get(binding_update.action)?.0;
 
-    commands.trigger(Pressed::<T> {
-        input,
-        data: binding_update.data,
-        _marker: PhantomData,
-    });
-
     *prev_data = Some(binding_update.data);
+    if !binding_update.data.is_zero() {
+        commands.trigger(Pressed::<T> {
+            input,
+            data: binding_update.data,
+            _marker: PhantomData,
+        });
+    }
+
     Ok(())
 }

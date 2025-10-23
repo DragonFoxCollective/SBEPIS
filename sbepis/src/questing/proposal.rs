@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Binding1D, input};
+use bevy_pretty_nice_input::{binding1d, input};
 use bevy_pretty_nice_menus::MenuStack;
 
 use crate::dialogue::{PickDialogueOption, spawn_dialogue};
@@ -46,7 +46,7 @@ fn propose_quest_if_none(
     dialogue.add_option(
         &mut commands,
         "Accept [E]".to_owned(),
-        input!(PickDialogueOption, [Binding1D::Key(KeyCode::KeyE)]),
+        input!(PickDialogueOption, [binding1d::key(KeyCode::KeyE)]),
         AcceptQuest {
             quest_proposal: dialogue.root,
             quest_id,
@@ -55,7 +55,7 @@ fn propose_quest_if_none(
     dialogue.add_option(
         &mut commands,
         "Decline [Space]".to_owned(),
-        input!(PickDialogueOption, [Binding1D::Key(KeyCode::Space)]),
+        input!(PickDialogueOption, [binding1d::key(KeyCode::Space)]),
         DeclineQuest {
             quest_proposal: dialogue.root,
             quest_id,

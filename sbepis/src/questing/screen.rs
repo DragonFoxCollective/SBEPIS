@@ -1,7 +1,7 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Binding1D, input};
+use bevy_pretty_nice_input::{binding1d, input};
 use bevy_pretty_nice_menus::{
     CloseMenuAction, Menu, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse,
 };
@@ -44,7 +44,7 @@ fn spawn_quest_screen(mut commands: Commands) {
             },
             BackgroundColor(bevy::color::palettes::css::GRAY.with_alpha(0.5).into()),
             Visibility::Hidden,
-            input!(CloseMenuAction, [Binding1D::Key(KeyCode::KeyV)]),
+            input!(CloseMenuAction, [binding1d::key(KeyCode::KeyV)]),
             PlayerCameraNode,
             Menu,
             MenuWithMouse,

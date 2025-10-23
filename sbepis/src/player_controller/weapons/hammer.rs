@@ -5,7 +5,7 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Binding1D, input};
+use bevy_pretty_nice_input::{binding1d, input};
 use bevy_pretty_nice_menus::MenuInputOf;
 
 use crate::fray::FrayMusic;
@@ -120,9 +120,9 @@ pub fn spawn_hammer(
             WeaponOf(body),
             (
                 MenuInputOf(body),
-                input!(Attack, [Binding1D::left_click()]),
-                input!(NextWeapon, [Binding1D::scroll_up()]),
-                input!(PrevWeapon, [Binding1D::scroll_down()]),
+                input!(Attack, [binding1d::left_click()]),
+                input!(NextWeapon, [binding1d::scroll_up()]),
+                input!(PrevWeapon, [binding1d::scroll_down()]),
             ),
         ))
         .add_child(hammer_head)
