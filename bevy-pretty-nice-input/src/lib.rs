@@ -19,6 +19,7 @@ macro_rules! input {
 
 			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
 			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
+			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action_2::<$action>),
 
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Conditions[$((
 				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
@@ -366,24 +367,18 @@ pub struct ConditionOf(#[relationship] Entity);
 pub struct InputDisabled;
 
 pub trait Condition {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()>;
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()>;
 }
 
-fn condition_pass(update: On<BindingUpdate>, mut commands: Commands) -> Result {
-    let movement = update
-        .movement
-        .as_ref()
-        .ok_or(BevyError::from("No movement"))?;
-    commands.trigger(BindingUpdate {
-        target: movement.entities[movement.index + 1],
+fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) {
+    commands.trigger(ConditionedBindingUpdate {
+        target: update.entities[update.index + 1],
+        input: update.input,
         action: update.action,
         data: update.data,
-        movement: Some(BindingUpdateMovement {
-            entities: movement.entities.clone(),
-            index: movement.index + 1,
-        }),
+        entities: update.entities.clone(),
+        index: update.index + 1,
     });
-    Ok(())
 }
 
 #[derive(Component)]
@@ -398,7 +393,7 @@ impl Cooldown {
 }
 
 impl Condition for Cooldown {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
         IntoSystem::into_system(condition_pass)
     }
 }
@@ -418,9 +413,22 @@ impl<T: QueryFilter> Default for Filter<T> {
     }
 }
 
-impl<T: QueryFilter> Condition for Filter<T> {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
-        IntoSystem::into_system(condition_pass)
+impl<T: QueryFilter + 'static> Condition for Filter<T> {
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
+        IntoSystem::into_system(
+            |update: On<ConditionedBindingUpdate>, inputs: Query<(), T>, mut commands: Commands| {
+                if inputs.get(update.input).is_ok() {
+                    commands.trigger(ConditionedBindingUpdate {
+                        target: update.entities[update.index + 1],
+                        input: update.input,
+                        action: update.action,
+                        data: update.data,
+                        entities: update.entities.clone(),
+                        index: update.index + 1,
+                    });
+                }
+            },
+        )
     }
 }
 
@@ -442,7 +450,7 @@ impl Default for ButtonPress {
 }
 
 impl Condition for ButtonPress {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
         IntoSystem::into_system(condition_pass)
     }
 }
@@ -465,7 +473,7 @@ impl Default for ButtonRelease {
 }
 
 impl Condition for ButtonRelease {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
         IntoSystem::into_system(condition_pass)
     }
 }
@@ -486,7 +494,7 @@ impl InputBuffer {
 }
 
 impl Condition for InputBuffer {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
         IntoSystem::into_system(condition_pass)
     }
 }
@@ -495,7 +503,7 @@ impl Condition for InputBuffer {
 pub struct ResetBuffer;
 
 impl Condition for ResetBuffer {
-    fn system(&self) -> impl ObserverSystem<BindingUpdate, ()> {
+    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
         IntoSystem::into_system(condition_pass)
     }
 }
@@ -519,14 +527,17 @@ impl Plugin for PrettyNiceInputPlugin {
 #[derive(EntityEvent, Debug, Clone)]
 pub struct BindingUpdate {
     #[event_target]
-    pub target: Entity,
     pub action: Entity,
     pub data: ActionData,
-    pub movement: Option<BindingUpdateMovement>,
 }
 
-#[derive(Debug, Clone)]
-pub struct BindingUpdateMovement {
+#[derive(EntityEvent, Debug, Clone)]
+pub struct ConditionedBindingUpdate {
+    #[event_target]
+    pub target: Entity,
+    pub input: Entity,
+    pub action: Entity,
+    pub data: ActionData,
     pub entities: Vec<Entity>,
     pub index: usize,
 }
@@ -647,10 +658,8 @@ pub fn binding(
     };
 
     commands.trigger(BindingUpdate {
-        target: binding_of.0,
         action: binding_of.0,
         data,
-        movement: None,
     });
 
     Ok(())
@@ -659,25 +668,33 @@ pub fn binding(
 pub fn action<T: Action>(
     binding_update: On<BindingUpdate>,
     actions: Query<(&ActionOf<T>, &Conditions)>,
-    inputs: Query<Has<InputDisabled>>,
     mut commands: Commands,
-    mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
     let (action_of, conditions) = actions.get(binding_update.action)?;
     let input = action_of.0;
 
-    if binding_update.movement.is_none() {
-        // send it off to the condition roulette instead
-        let mut entities = conditions.0.clone();
-        entities.push(binding_update.action);
-        commands.trigger(BindingUpdate {
-            target: entities[0],
-            action: binding_update.action,
-            data: binding_update.data,
-            movement: Some(BindingUpdateMovement { entities, index: 0 }),
-        });
-        return Ok(());
-    }
+    let mut entities = conditions.0.clone();
+    entities.push(binding_update.action);
+    commands.trigger(ConditionedBindingUpdate {
+        target: entities[0],
+        input,
+        action: binding_update.action,
+        data: binding_update.data,
+        entities,
+        index: 0,
+    });
+    Ok(())
+}
+
+pub fn action_2<T: Action>(
+    binding_update: On<ConditionedBindingUpdate>,
+    actions: Query<&ActionOf<T>>,
+    inputs: Query<Has<InputDisabled>>,
+    mut commands: Commands,
+    mut prev_data: Local<Option<ActionData>>,
+) -> Result {
+    let action_of = actions.get(binding_update.action)?;
+    let input = action_of.0;
 
     let input_disabled = inputs.get(input)?;
     let data_is_zero = binding_update.data.is_zero() || input_disabled;
