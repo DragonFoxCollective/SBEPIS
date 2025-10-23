@@ -7,7 +7,7 @@ use bevy_pretty_nice_input::{
     Action, ButtonPress, ButtonRelease, ComponentBuffer, Cooldown, Filter, InputBuffer,
     ResetBuffer, binding1d, binding2d, input,
 };
-use bevy_pretty_nice_menus::{Menu, MenuStack, MenuWithInput, MenuWithoutMouse};
+use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
 use movement::MovementControlSystems;
 use movement::di::DirectionalInput;
@@ -78,138 +78,136 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
-    let input =
-        commands
-            .spawn((
-                (
-                    input!(
-                        Walk,
-                        [binding2d::wasd()],
-                        [Filter::<With<Standing>>::default()]
-                    ),
-                    input!(
-                        Jump,                 // The Action to trigger
-                        [binding1d::space()], // The trigger
-                        [
-                            ButtonPress::default(), // If the trigger gets this far, if it was just pressed, continue. Otherwise, stop it
-                            InputBuffer::new(0.2), // If the trigger gets this far, start firing the trigger repeatedly for a certain amount of time
-                            Filter::<With<ComponentBuffer<Grounded>>>::default(), // If the trigger gets this far, only let it pass if the entity has this component
-                            Cooldown::new(0.5), // If the trigger gets this far, don't let it pass again for a certain amount of time
-                        ],
-                        // Examples:
-                        // Space not pressed:					blocked by bindings
-                        // Space just pressed, not grounded:	start in bindings,	pass Press,			start InputBuffer,		blocked by Filter
-                        // Space held:							start in bindings,	blocked by Press
-                        // Space just pressed, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		pass Cooldown
-                        // Space just pressed x2, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		blocked by Cooldown // don't do the multi jump bug
-                        // InputBuffer active, not grounded:											start in InputBuffer,	blocked by Filter
-                        // InputBuffer active, grounded: 												start in InputBuffer,	pass Filter,		pass Cooldown
-                        // InputBuffer active x2, grounded:												start in InputBuffer,	pass Filter,		blocked by Cooldown
+    let input_bundle = (
+        input!(
+            Walk,
+            [binding2d::wasd()],
+            [Filter::<With<Standing>>::default()]
+        ),
+        input!(
+            Jump,                 // The Action to trigger
+            [binding1d::space()], // The trigger
+            [
+                ButtonPress::default(), // If the trigger gets this far, if it was just pressed, continue. Otherwise, stop it
+                InputBuffer::new(0.2), // If the trigger gets this far, start firing the trigger repeatedly for a certain amount of time
+                Filter::<With<ComponentBuffer<Grounded>>>::default(), // If the trigger gets this far, only let it pass if the entity has this component
+                Cooldown::new(0.5), // If the trigger gets this far, don't let it pass again for a certain amount of time
+            ],
+            // Examples:
+            // Space not pressed:					blocked by bindings
+            // Space just pressed, not grounded:	start in bindings,	pass Press,			start InputBuffer,		blocked by Filter
+            // Space held:							start in bindings,	blocked by Press
+            // Space just pressed, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		pass Cooldown
+            // Space just pressed x2, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		blocked by Cooldown // don't do the multi jump bug
+            // InputBuffer active, not grounded:											start in InputBuffer,	blocked by Filter
+            // InputBuffer active, grounded: 												start in InputBuffer,	pass Filter,		pass Cooldown
+            // InputBuffer active x2, grounded:												start in InputBuffer,	pass Filter,		blocked by Cooldown
 
-                        // Cons:
-                        // Unless the cooldown continuously resets the input buffer, the player will automatically jump again.
-                        // This is especially apparent if the cooldown is shorter than the input buffer.
-                    ),
-                    input!(Look, [binding2d::mouse_move()]),
-                    (
-                        input!(
-                            Sprint,
-                            [binding1d::left_shift()],
-                            [Filter::<With<Walking>>::default()],
-                        ),
-                        input!(
-                            Dash,
-                            [binding1d::left_shift()],
-                            [
-                                ButtonPress::default(),
-                                InputBuffer::new(0.2),
-                                Filter::<With<ComponentBuffer<Grounded>>>::default(),
-                                ResetBuffer,
-                            ],
-                        ),
-                        input!(
-                            Crouch,
-                            [binding1d::left_ctrl()],
-                            [Filter::<With<Standing>>::default()],
-                        ),
-                        input!(
-                            Sneak,
-                            [binding2d::wasd()],
-                            [Filter::<With<Crouching>>::default()]
-                        ),
-                        input!(
-                            Slide,
-                            [binding1d::left_ctrl()],
-                            [Filter::<With<Walking>>::default()],
-                        ),
-                        input!(
-							RollCrouching,
-							[binding1d::left_shift()],
-							[Filter::<Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>::default()],
-						),
-                        input!(
-                            RollSprinting,
-                            [binding1d::left_ctrl()],
-                            [Filter::<With<Sprinting>>::default()],
-                        ),
-                    ),
-                    (
-                        input!(
-                            Charge,
-                            [binding1d::left_shift()],
-                            [Filter::<With<Standing>>::default()],
-                        ),
-                        input!(
-                            ChargeCrouch,
-                            [binding1d::left_shift()],
-                            [Filter::<With<Crouching>>::default()],
-                        ),
-                        input!(
-                            ChargeDash,
-                            [binding1d::left_shift()],
-                            [
-                                ButtonRelease::default(),
-                                Filter::<With<ChargeWalking>>::default()
-                            ],
-                        ),
-                    ),
-                    (
-                        input!(
-                            Trip,
-                            [binding1d::left_shift()],
-                            [
-                                ButtonRelease::default(),
-                                Filter::<With<ChargeCrouching>>::default(),
-                            ],
-                        ),
-                        input!(
-                            GroundParry,
-                            [binding1d::left_ctrl()],
-                            [
-                                ButtonPress::default(),
-                                InputBuffer::new(0.2),
-                                Filter::<(
-                                    With<ComponentBuffer<Grounded>>,
-                                    With<ComponentBuffer<TripRecover>>
-                                )>::default(),
-                                ResetBuffer,
-                            ],
-                        ),
-                    ),
-                    input!(Interact, [binding1d::key(KeyCode::KeyE)]),
-                    // TODO: move these
-                    input!(OpenQuestScreen, [binding1d::key(KeyCode::KeyJ)]),
-                    input!(OpenInventory, [binding1d::key(KeyCode::KeyV)]),
-                    input!(OpenStaff, [binding1d::key(KeyCode::Backquote)]),
-                ),
-                (
-                    Menu,
-                    MenuWithInput,
-                    MenuWithoutMouse,
-                    DespawnOnExit(GameState::InGame),
-                ),
-            ))
-            .id();
+            // Cons:
+            // Unless the cooldown continuously resets the input buffer, the player will automatically jump again.
+            // This is especially apparent if the cooldown is shorter than the input buffer.
+        ),
+        input!(Look, [binding2d::mouse_move()]),
+        (
+            input!(
+                Sprint,
+                [binding1d::left_shift()],
+                [Filter::<With<Walking>>::default()],
+            ),
+            input!(
+                Dash,
+                [binding1d::left_shift()],
+                [
+                    ButtonPress::default(),
+                    InputBuffer::new(0.2),
+                    Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                    ResetBuffer,
+                ],
+            ),
+            input!(
+                Crouch,
+                [binding1d::left_ctrl()],
+                [Filter::<With<Standing>>::default()],
+            ),
+            input!(
+                Sneak,
+                [binding2d::wasd()],
+                [Filter::<With<Crouching>>::default()]
+            ),
+            input!(
+                Slide,
+                [binding1d::left_ctrl()],
+                [Filter::<With<Walking>>::default()],
+            ),
+            input!(
+                RollCrouching,
+                [binding1d::left_shift()],
+                [Filter::<Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>::default()],
+            ),
+            input!(
+                RollSprinting,
+                [binding1d::left_ctrl()],
+                [Filter::<With<Sprinting>>::default()],
+            ),
+        ),
+        (
+            input!(
+                Charge,
+                [binding1d::left_shift()],
+                [Filter::<With<Standing>>::default()],
+            ),
+            input!(
+                ChargeCrouch,
+                [binding1d::left_shift()],
+                [Filter::<With<Crouching>>::default()],
+            ),
+            input!(
+                ChargeDash,
+                [binding1d::left_shift()],
+                [
+                    ButtonRelease::default(),
+                    Filter::<With<ChargeWalking>>::default()
+                ],
+            ),
+        ),
+        (
+            input!(
+                Trip,
+                [binding1d::left_shift()],
+                [
+                    ButtonRelease::default(),
+                    Filter::<With<ChargeCrouching>>::default(),
+                ],
+            ),
+            input!(
+                GroundParry,
+                [binding1d::left_ctrl()],
+                [
+                    ButtonPress::default(),
+                    InputBuffer::new(0.2),
+                    Filter::<(
+                        With<ComponentBuffer<Grounded>>,
+                        With<ComponentBuffer<TripRecover>>
+                    )>::default(),
+                    ResetBuffer,
+                ],
+            ),
+        ),
+        input!(Interact, [binding1d::key(KeyCode::KeyE)]),
+        // TODO: move these
+        input!(OpenQuestScreen, [binding1d::key(KeyCode::KeyJ)]),
+        input!(OpenInventory, [binding1d::key(KeyCode::KeyV)]),
+        input!(OpenStaff, [binding1d::key(KeyCode::Backquote)]),
+    );
+
+    let input = commands
+        .spawn((
+            Menu,
+            MenuWithInput,
+            MenuWithoutMouse,
+            DespawnOnExit(GameState::InGame),
+        ))
+        .id();
     menu_stack.push(input);
 
     let collider = commands
@@ -273,6 +271,8 @@ fn setup(
             Ccd::enabled(),
             DespawnOnExit(GameState::InGame),
             UninitializedWeaponSet,
+            input_bundle,
+            MenuInputOf(input),
         ))
         .add_children(&[camera, collider, mesh])
         .id();

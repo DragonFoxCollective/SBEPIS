@@ -140,32 +140,30 @@ fn hide_mouse(
 
 fn enable_input_managers(
     activate: On<ActivateMenu>,
-    menus: Query<Option<&MenuInputs>, With<MenuWithInput>>,
+    menus_with_inputs: Query<(), With<MenuWithInput>>,
+    menu_inputs: Query<&MenuInputs>,
     mut commands: Commands,
 ) {
-    if let Ok(menu_inputs) = menus.get(activate.menu) {
+    if menus_with_inputs.get(activate.menu).is_ok() {
         commands.entity(activate.menu).remove::<InputDisabled>();
 
-        if let Some(menu_inputs) = menu_inputs {
-            for input_manager in &menu_inputs.0 {
-                commands.entity(*input_manager).remove::<InputDisabled>();
-            }
+        for input in menu_inputs.iter_descendants(activate.menu) {
+            commands.entity(input).remove::<InputDisabled>();
         }
     }
 }
 
 fn disable_input_managers(
     deactivate: On<DeactivateMenu>,
-    menus: Query<Option<&MenuInputs>, With<MenuWithInput>>,
+    menus_with_inputs: Query<(), With<MenuWithInput>>,
+    menu_inputs: Query<&MenuInputs>,
     mut commands: Commands,
 ) {
-    if let Ok(menu_inputs) = menus.get(deactivate.menu) {
+    if menus_with_inputs.get(deactivate.menu).is_ok() {
         commands.entity(deactivate.menu).insert(InputDisabled);
 
-        if let Some(menu_inputs) = menu_inputs {
-            for input_manager in &menu_inputs.0 {
-                commands.entity(*input_manager).insert(InputDisabled);
-            }
+        for input in menu_inputs.iter_descendants(deactivate.menu) {
+            commands.entity(input).insert(InputDisabled);
         }
     }
 }

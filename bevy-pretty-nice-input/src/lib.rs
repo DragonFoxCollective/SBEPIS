@@ -13,7 +13,6 @@ macro_rules! input {
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
 				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
-				::bevy_pretty_nice_input::PrevActionData(None),
 				::bevy_pretty_nice_input::BindingParts::spawn($binding),
 			))*]),
 
@@ -28,7 +27,6 @@ macro_rules! input {
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
 				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
-				::bevy_pretty_nice_input::PrevActionData(None),
 				::bevy_pretty_nice_input::BindingParts::spawn($binding),
 			))*]),
 
@@ -58,7 +56,6 @@ pub struct Pressed<T: Action> {
 pub struct JustReleased<T: Action> {
     #[event_target]
     pub input: Entity,
-    pub data: ActionData,
     pub _marker: PhantomData<T>,
 }
 
@@ -85,14 +82,19 @@ pub enum MouseScrollDirection {
     Right,
 }
 
-pub mod binding_parts {
+mod binding_parts {
     use bevy::prelude::Component;
 
     #[derive(Component)]
     pub struct Key(pub bevy::prelude::KeyCode);
 
     #[derive(Component)]
-    pub struct KeyAxis(pub bevy::prelude::KeyCode, pub bevy::prelude::KeyCode);
+    pub struct KeyAxis(
+        pub bevy::prelude::KeyCode,
+        pub bevy::prelude::KeyCode,
+        pub bool,
+        pub bool,
+    );
 
     #[derive(Component)]
     pub struct GamepadAxis(pub bevy::prelude::GamepadAxis);
@@ -128,7 +130,7 @@ pub mod binding1d {
         Spawn((
             Name::new(format!("Key Axis {:?} / {:?}", key_pos, key_neg)),
             BindingPartData::default(),
-            crate::binding_parts::KeyAxis(key_pos, key_neg),
+            crate::binding_parts::KeyAxis(key_pos, key_neg, false, false),
         ))
     }
 
@@ -338,9 +340,6 @@ impl ActionData {
     }
 }
 
-#[derive(Component, Debug)]
-pub struct PrevActionData(pub Option<ActionData>);
-
 #[derive(Component, Default, Debug)]
 pub struct BindingPartData(pub f32);
 
@@ -462,7 +461,14 @@ pub struct PrettyNiceInputPlugin;
 
 impl Plugin for PrettyNiceInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, (binding_part_key, binding_part_mouse_move));
+        app.add_systems(
+            PreUpdate,
+            (
+                binding_part_key,
+                binding_part_key_axis,
+                binding_part_mouse_move,
+            ),
+        );
     }
 }
 
@@ -489,6 +495,41 @@ fn binding_part_key(
         for (key, binding_part_of, mut data) in binding_parts.iter_mut() {
             let value = message.state.is_pressed() as u8 as f32;
             if key.0 == message.key_code && !message.repeat && data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    action: binding_part_of.0,
+                    value,
+                });
+            }
+        }
+    }
+}
+
+fn binding_part_key_axis(
+    mut binding_parts: Query<(
+        &mut binding_parts::KeyAxis,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
+    mut commands: Commands,
+    mut key_axis: MessageReader<KeyboardInput>,
+) {
+    for message in key_axis.read() {
+        for (mut key_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
+            if message.repeat {
+                continue;
+            }
+
+            if key_axis.0 == message.key_code {
+                key_axis.2 = message.state.is_pressed();
+            } else if key_axis.1 == message.key_code {
+                key_axis.3 = message.state.is_pressed();
+            } else {
+                continue;
+            };
+
+            let value = key_axis.2 as u8 as f32 - key_axis.3 as u8 as f32;
+            if data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     action: binding_part_of.0,
@@ -569,14 +610,30 @@ pub fn action<T: Action>(
 ) -> Result {
     let input = actions.get(binding_update.action)?.0;
 
-    *prev_data = Some(binding_update.data);
-    if !binding_update.data.is_zero() {
+    let data_is_zero = binding_update.data.is_zero();
+    let prev_is_zero = prev_data.as_ref().is_none_or(ActionData::is_zero);
+
+    if !data_is_zero && prev_is_zero {
+        commands.trigger(JustPressed::<T> {
+            input,
+            data: binding_update.data,
+            _marker: PhantomData,
+        });
+    }
+    if !data_is_zero {
         commands.trigger(Pressed::<T> {
             input,
             data: binding_update.data,
             _marker: PhantomData,
         });
     }
+    if data_is_zero && !prev_is_zero {
+        commands.trigger(JustReleased::<T> {
+            input,
+            _marker: PhantomData,
+        });
+    }
 
+    *prev_data = Some(binding_update.data);
     Ok(())
 }

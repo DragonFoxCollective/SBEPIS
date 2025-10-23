@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::Pressed;
+use bevy_pretty_nice_input::{JustReleased, Pressed};
 
 use crate::camera::PlayerCamera;
 use crate::player_controller::movement::walk::Walk;
 use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct DirectionalInput {
     pub input: Vec2,
     pub local_space: Vec3,
@@ -30,6 +30,29 @@ fn update_di(
         * Vec2::new(1.0, -1.0);
     di.local_space = Vec3::new(di.input.x, 0.0, di.input.y);
     di.world_space = transform.rotation() * di.local_space;
-    di.forward = transform.rotation() * -Vec3::Z;
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn update_di_stop(
+    walk: On<JustReleased<Walk>>,
+    mut players: Query<&mut DirectionalInput>,
+) -> Result {
+    let mut di = players.get_mut(walk.input)?;
+    di.input = Vec2::ZERO;
+    di.local_space = Vec3::ZERO;
+    di.world_space = Vec3::ZERO;
+    Ok(())
+}
+
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+fn update_di_forward(
+    mut players: Query<(&mut DirectionalInput, &PlayerBody)>,
+    player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
+) -> Result {
+    for (mut di, body) in players.iter_mut() {
+        let transform = player_cameras.get(body.camera)?;
+        di.forward = transform.rotation() * -Vec3::Z;
+    }
     Ok(())
 }
