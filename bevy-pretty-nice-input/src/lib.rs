@@ -605,12 +605,14 @@ pub fn binding(
 pub fn action<T: Action>(
     binding_update: On<BindingUpdate>,
     actions: Query<&ActionOf<T>>,
+    inputs: Query<Has<InputDisabled>>,
     mut commands: Commands,
     mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
     let input = actions.get(binding_update.action)?.0;
+    let input_disabled = inputs.get(input)?;
 
-    let data_is_zero = binding_update.data.is_zero();
+    let data_is_zero = binding_update.data.is_zero() || input_disabled;
     let prev_is_zero = prev_data.as_ref().is_none_or(ActionData::is_zero);
 
     if !data_is_zero && prev_is_zero {

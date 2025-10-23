@@ -18,7 +18,9 @@ impl Plugin for PrettyNiceMenusPlugin {
             .add_observer(hide_menus)
             .add_observer(despawn_menus)
             .add_observer(enable_input_managers)
-            .add_observer(disable_input_managers);
+            .add_observer(disable_input_managers)
+            .add_observer(disable_input_managers_on_add_menu_with_input)
+            .add_observer(disable_input_managers_on_add_menu_input_of);
 
         app.add_observer(close_menu_on_action::<CloseMenuAction>);
     }
@@ -166,6 +168,17 @@ fn disable_input_managers(
             commands.entity(input).insert(InputDisabled);
         }
     }
+}
+
+fn disable_input_managers_on_add_menu_with_input(
+    add: On<Add, MenuWithInput>,
+    mut commands: Commands,
+) {
+    commands.entity(add.entity).insert(InputDisabled);
+}
+
+fn disable_input_managers_on_add_menu_input_of(add: On<Add, MenuInputOf>, mut commands: Commands) {
+    commands.entity(add.entity).insert(InputDisabled);
 }
 
 #[derive(Component)]
