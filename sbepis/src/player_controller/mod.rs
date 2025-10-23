@@ -82,7 +82,7 @@ fn setup(
         input!(
             Walk,
             [binding2d::wasd()],
-            [Filter::<With<Standing>>::default()]
+            [Filter::<Or<(With<Standing>, With<Walking>)>>::default()]
         ),
         input!(
             Jump,                 // The Action to trigger
