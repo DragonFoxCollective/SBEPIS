@@ -4,8 +4,11 @@ use bevy::ecs::query::QueryFilter;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-use bevy::ui_widgets::observe;
 pub use bevy_pretty_nice_input_derive::Action;
+
+use crate::bundles::observe;
+
+pub mod bundles;
 
 #[macro_export]
 macro_rules! input {
@@ -13,15 +16,15 @@ macro_rules! input {
         ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
 				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				::bevy::ui_widgets::observe(::bevy_pretty_nice_input::binding),
+				::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::binding),
 				::bevy_pretty_nice_input::BindingParts::spawn($binding),
 			)),*]),
 
 			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
 			::bevy_pretty_nice_input::PrevActionData::default(),
-			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
-			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action_2::<$action>),
-			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action_prev_set::<$action>),
+			::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::action::<$action>),
+			::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::action_2::<$action>),
+			::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::action_prev_set::<$action>),
 
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Conditions[$((
 				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
@@ -36,6 +39,13 @@ macro_rules! input {
 
     ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
         $crate::input!($action, [$($binding),*], [])
+    };
+}
+
+#[macro_export]
+macro_rules! input_transition {
+    ( $action:ty: $from:ty [<=>] $to:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {
+        ()
     };
 }
 
@@ -333,7 +343,7 @@ pub trait Action: Send + Sync + 'static {}
 #[derive(Component)]
 pub struct ComponentBuffer<T: Component> {
     timer: Timer,
-    marker: std::marker::PhantomData<T>,
+    marker: PhantomData<T>,
 }
 
 #[derive(Component, Debug)]

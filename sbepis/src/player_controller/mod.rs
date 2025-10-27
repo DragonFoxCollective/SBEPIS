@@ -5,7 +5,7 @@ use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
     Action, ButtonPress, ButtonRelease, ComponentBuffer, Cooldown, Filter, InputBuffer,
-    ResetBuffer, binding1d, binding2d, input,
+    ResetBuffer, binding1d, binding2d, input, input_transition,
 };
 use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
@@ -119,6 +119,7 @@ fn setup(
                 [binding1d::left_shift()],
                 [Filter::<With<Sprinting>>::default()],
             ),
+            input_transition!(Sprint: Walking [<=>] Sprinting, [binding1d::left_shift()], []),
             input!(
                 Dash,
                 [binding1d::left_shift()],
