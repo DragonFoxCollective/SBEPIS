@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
+use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::Velocity;
 use return_ok::some_or_return_ok;
 
@@ -15,7 +15,6 @@ use crate::util::MapRange;
 
 use super::di::DirectionalInput;
 use super::grounded::GroundedContact;
-use super::walk::Walking;
 
 #[derive(Action)]
 pub struct Slide;
@@ -92,22 +91,6 @@ fn remove_sliding_sound(
     let sliding = slidings.get(remove.entity)?;
     commands.entity(some_or_return_ok!(sliding.sound)).despawn();
     Ok(())
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn walking_to_sliding(slide: On<JustPressed<Slide>>, mut commands: Commands) {
-    commands
-        .entity(slide.input)
-        .remove::<Walking>()
-        .insert(Sliding::default());
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn sliding_to_walking(slide: On<JustReleased<Slide>>, mut commands: Commands) {
-    commands
-        .entity(slide.input)
-        .remove::<Sliding>()
-        .insert(Walking);
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]

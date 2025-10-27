@@ -13,23 +13,23 @@ pub mod bundles;
 #[macro_export]
 macro_rules! input {
     ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {(
-        ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
-			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
+        ::bevy::prelude::related!($crate::Actions<$action>[(
+			::bevy::prelude::related!($crate::Bindings[$((
 				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::binding),
-				::bevy_pretty_nice_input::BindingParts::spawn($binding),
+				$crate::bundles::observe($crate::binding),
+				$crate::BindingParts::spawn($binding),
 			)),*]),
 
 			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
-			::bevy_pretty_nice_input::PrevActionData::default(),
-			::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::action::<$action>),
-			::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::action_2::<$action>),
-			::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::action_prev_set::<$action>),
+			$crate::PrevActionData::default(),
+			$crate::bundles::observe($crate::action::<$action>),
+			$crate::bundles::observe($crate::action_2::<$action>),
+			$crate::bundles::observe($crate::action_prev_set::<$action>),
 
-			::bevy::prelude::related!(::bevy_pretty_nice_input::Conditions[$((
+			::bevy::prelude::related!($crate::Conditions[$((
 				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				{
-					use ::bevy_pretty_nice_input::Condition;
+					use $crate::Condition;
 					let condition = $condition;
 					(condition.bundle::<$action>(), condition)
 				}
@@ -44,20 +44,65 @@ macro_rules! input {
 
 #[macro_export]
 macro_rules! input_transition {
-    ( $action:ty: $from:ty [<=>] $to:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {
-        ()
+    ( $action:ty: ($($from:ty),+) [->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input!($action, [$($binding),*], [Filter::<Or<($(With<$from>,)+)>>::default()]),
+			$($crate::bundles::observe($crate::transition::<$action, $from, $to>)),+
+		)
+    };
+
+    ( $action:ty: (<- $from_back:ty, $($from:ty),+) [->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input_transition!($action: ($($from),+) [->] $to, [$($binding),*]),
+			$crate::input_transition!($action: $from_back [<-] $to, [$($binding),*]),
+		)
+    };
+
+    ( $action:ty: $from:ty [<-] ($($to:ty),+), [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input!($crate::Off<$action>, [$($binding),*], [Filter::<Or<($(With<$to>,)+)>>::default()]),
+			$($crate::bundles::observe($crate::transition::<$crate::Off<$action>, $to, $from>)),+
+		)
+    };
+
+    ( $action:ty: $from:ty [<-] ($($to:ty,)+ $to_back:ty), [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input_transition!($action: $from [->] $to, [$($binding),*]),
+			$crate::input_transition!($action: $from_back [<-] ($($to),+), [$($binding),*]),
+		)
+    };
+
+    ( $action:ty: $from:ty [->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input!($action, [$($binding),*], [Filter::<With<$from>>::default()]),
+			$crate::bundles::observe($crate::transition::<$action, $from, $to>),
+		)
+    };
+
+    ( $action:ty: $from:ty [<-] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input!($crate::Off<$action>, [$($binding),*], [Filter::<With<$to>>::default()]),
+			$crate::bundles::observe($crate::transition::<$crate::Off<$action>, $to, $from>),
+		)
+    };
+
+    ( $action:ty: $from:ty [<->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        (
+			$crate::input_transition!($action: $from [->] $to, [$($binding),*]),
+			$crate::input_transition!($action: $from [<-] $to, [$($binding),*]),
+		)
     };
 }
 
 #[derive(EntityEvent)]
-pub struct JustPressed<T: Action> {
+pub struct JustPressed<A: Action> {
     #[event_target]
     pub input: Entity,
     pub data: ActionData,
-    pub _marker: PhantomData<T>,
+    pub _marker: PhantomData<A>,
 }
 
-impl<T: Action> Clone for JustPressed<T> {
+impl<A: Action> Clone for JustPressed<A> {
     fn clone(&self) -> Self {
         Self {
             input: self.input,
@@ -68,14 +113,14 @@ impl<T: Action> Clone for JustPressed<T> {
 }
 
 #[derive(EntityEvent)]
-pub struct Pressed<T: Action> {
+pub struct Pressed<A: Action> {
     #[event_target]
     pub input: Entity,
     pub data: ActionData,
-    pub _marker: PhantomData<T>,
+    pub _marker: PhantomData<A>,
 }
 
-impl<T: Action> Clone for Pressed<T> {
+impl<A: Action> Clone for Pressed<A> {
     fn clone(&self) -> Self {
         Self {
             input: self.input,
@@ -86,13 +131,13 @@ impl<T: Action> Clone for Pressed<T> {
 }
 
 #[derive(EntityEvent)]
-pub struct JustReleased<T: Action> {
+pub struct JustReleased<A: Action> {
     #[event_target]
     pub input: Entity,
-    pub _marker: PhantomData<T>,
+    pub _marker: PhantomData<A>,
 }
 
-impl<T: Action> Clone for JustReleased<T> {
+impl<A: Action> Clone for JustReleased<A> {
     fn clone(&self) -> Self {
         Self {
             input: self.input,
@@ -347,12 +392,12 @@ pub struct ComponentBuffer<T: Component> {
 }
 
 #[derive(Component, Debug)]
-#[relationship_target(relationship = ActionOf<T>)]
-pub struct Actions<T: Action>(#[relationship] Vec<Entity>, PhantomData<T>);
+#[relationship_target(relationship = ActionOf<A>)]
+pub struct Actions<A: Action>(#[relationship] Vec<Entity>, PhantomData<A>);
 
 #[derive(Component, Debug)]
-#[relationship(relationship_target = Actions<T>)]
-pub struct ActionOf<T: Action>(#[relationship] Entity, PhantomData<T>);
+#[relationship(relationship_target = Actions<A>)]
+pub struct ActionOf<A: Action>(#[relationship] Entity, PhantomData<A>);
 
 #[derive(Component, Debug)]
 #[relationship_target(relationship = BindingOf)]
@@ -382,7 +427,7 @@ pub struct ConditionOf(#[relationship] Entity);
 pub struct InputDisabled;
 
 pub trait Condition {
-    fn bundle<T: Action>(&self) -> impl Bundle;
+    fn bundle<A: Action>(&self) -> impl Bundle;
 }
 
 fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) {
@@ -408,7 +453,7 @@ impl Cooldown {
 }
 
 impl Condition for Cooldown {
-    fn bundle<T: Action>(&self) -> impl Bundle {
+    fn bundle<A: Action>(&self) -> impl Bundle {
         observe(condition_pass)
     }
 }
@@ -429,7 +474,7 @@ impl<F: QueryFilter> Default for Filter<F> {
 }
 
 impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
-    fn bundle<T: Action>(&self) -> impl Bundle {
+    fn bundle<A: Action>(&self) -> impl Bundle {
         (
             observe(
                 |update: On<ConditionedBindingUpdate>,
@@ -447,7 +492,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                     }
                 },
             ),
-            observe(filter_add_systems::<T, F>),
+            observe(filter_add_systems::<A, F>),
         )
     }
 }
@@ -470,7 +515,7 @@ impl Default for ButtonPress {
 }
 
 impl Condition for ButtonPress {
-    fn bundle<T: Action>(&self) -> impl Bundle {
+    fn bundle<A: Action>(&self) -> impl Bundle {
         observe(condition_pass)
     }
 }
@@ -493,7 +538,7 @@ impl Default for ButtonRelease {
 }
 
 impl Condition for ButtonRelease {
-    fn bundle<T: Action>(&self) -> impl Bundle {
+    fn bundle<A: Action>(&self) -> impl Bundle {
         observe(condition_pass)
     }
 }
@@ -514,7 +559,7 @@ impl InputBuffer {
 }
 
 impl Condition for InputBuffer {
-    fn bundle<T: Action>(&self) -> impl Bundle {
+    fn bundle<A: Action>(&self) -> impl Bundle {
         observe(condition_pass)
     }
 }
@@ -523,7 +568,7 @@ impl Condition for InputBuffer {
 pub struct ResetBuffer;
 
 impl Condition for ResetBuffer {
-    fn bundle<T: Action>(&self) -> impl Bundle {
+    fn bundle<A: Action>(&self) -> impl Bundle {
         observe(condition_pass)
     }
 }
@@ -685,9 +730,9 @@ pub fn binding(
     Ok(())
 }
 
-pub fn action<T: Action>(
+pub fn action<A: Action>(
     binding_update: On<BindingUpdate>,
-    actions: Query<(&ActionOf<T>, &Conditions)>,
+    actions: Query<(&ActionOf<A>, &Conditions)>,
     mut commands: Commands,
 ) -> Result {
     let (action_of, conditions) = actions.get(binding_update.action)?;
@@ -706,9 +751,9 @@ pub fn action<T: Action>(
     Ok(())
 }
 
-pub fn action_2<T: Action>(
+pub fn action_2<A: Action>(
     binding_update: On<ConditionedBindingUpdate>,
-    actions: Query<&ActionOf<T>>,
+    actions: Query<&ActionOf<A>>,
     inputs: Query<Has<InputDisabled>>,
     mut commands: Commands,
     mut prev_data: Local<Option<ActionData>>,
@@ -721,21 +766,21 @@ pub fn action_2<T: Action>(
     let prev_is_zero = prev_data.as_ref().is_none_or(ActionData::is_zero);
 
     if !data_is_zero && prev_is_zero {
-        commands.trigger(JustPressed::<T> {
+        commands.trigger(JustPressed::<A> {
             input,
             data: binding_update.data,
             _marker: PhantomData,
         });
     }
     if !data_is_zero {
-        commands.trigger(Pressed::<T> {
+        commands.trigger(Pressed::<A> {
             input,
             data: binding_update.data,
             _marker: PhantomData,
         });
     }
     if data_is_zero && !prev_is_zero {
-        commands.trigger(JustReleased::<T> {
+        commands.trigger(JustReleased::<A> {
             input,
             _marker: PhantomData,
         });
@@ -745,7 +790,7 @@ pub fn action_2<T: Action>(
     Ok(())
 }
 
-pub fn action_prev_set<T: Action>(
+pub fn action_prev_set<A: Action>(
     binding_update: On<BindingUpdate>,
     mut actions: Query<&mut PrevActionData>,
 ) -> Result {
@@ -753,7 +798,7 @@ pub fn action_prev_set<T: Action>(
     Ok(())
 }
 
-pub fn filter_add_systems<T: Action, F: QueryFilter + Send + Sync + 'static>(
+pub fn filter_add_systems<A: Action, F: QueryFilter + Send + Sync + 'static>(
     _add: On<ConditionedBindingUpdate>,
     mut commands: Commands,
     mut done: Local<bool>,
@@ -763,15 +808,15 @@ pub fn filter_add_systems<T: Action, F: QueryFilter + Send + Sync + 'static>(
     }
     commands.queue(|world: &mut World| {
         world.schedule_scope(Update, |_world, schedule| {
-            schedule.add_systems(action_prev_filter::<T, F>);
+            schedule.add_systems(action_prev_filter::<A, F>);
         });
     });
     *done = true;
 }
 
-fn action_prev_filter<T: Action, F: QueryFilter + Send + Sync + 'static>(
+fn action_prev_filter<A: Action, F: QueryFilter + Send + Sync + 'static>(
     inputs: Query<(), F>,
-    actions: Query<(&PrevActionData, &ActionOf<T>)>,
+    actions: Query<(&PrevActionData, &ActionOf<A>)>,
     mut filters: Query<(&mut Filter<F>, &ConditionOf)>,
     mut commands: Commands,
 ) -> Result {
@@ -793,3 +838,16 @@ fn action_prev_filter<T: Action, F: QueryFilter + Send + Sync + 'static>(
     }
     Ok(())
 }
+
+pub fn transition<A: Action, F: Component, T: Component + Default>(
+    sprint: On<JustPressed<A>>,
+    mut commands: Commands,
+) {
+    commands
+        .entity(sprint.input)
+        .remove::<F>()
+        .insert(T::default());
+}
+
+pub struct Off<A>(PhantomData<A>);
+impl<A: Action> Action for Off<A> {}

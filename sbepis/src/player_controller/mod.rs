@@ -22,13 +22,13 @@ use crate::player_controller::movement::charge::{
     Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeWalking,
 };
 use crate::player_controller::movement::crouch::{Crouch, Crouching};
-use crate::player_controller::movement::dash::Dash;
+use crate::player_controller::movement::dash::{Dash, Dashing};
 use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::movement::jump::Jump;
-use crate::player_controller::movement::roll::{RollCrouching, RollSprinting};
+use crate::player_controller::movement::roll::{CrouchRoll, Rolling, SprintRoll};
 use crate::player_controller::movement::slide::{Slide, Sliding};
-use crate::player_controller::movement::sneak::{Sneak, Sneaking};
-use crate::player_controller::movement::sprint::{Sprint, Sprinting, UnSprint};
+use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
+use crate::player_controller::movement::sprint::{Sprint, Sprinting};
 use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover};
 use crate::player_controller::movement::walk::{Walk, Walking};
 use crate::prelude::*;
@@ -110,17 +110,6 @@ fn setup(
         input!(Look, [binding2d::mouse_move()]),
         (
             input!(
-                Sprint,
-                [binding1d::left_shift()],
-                [Filter::<With<Walking>>::default()],
-            ),
-            input!(
-                UnSprint,
-                [binding1d::left_shift()],
-                [Filter::<With<Sprinting>>::default()],
-            ),
-            input_transition!(Sprint: Walking [<=>] Sprinting, [binding1d::left_shift()], []),
-            input!(
                 Dash,
                 [binding1d::left_shift()],
                 [
@@ -130,31 +119,13 @@ fn setup(
                     ResetBuffer,
                 ],
             ),
-            input!(
-                Crouch,
-                [binding1d::left_ctrl()],
-                [Filter::<With<Standing>>::default()],
-            ),
-            input!(
-                Sneak,
-                [binding2d::wasd()],
-                [Filter::<With<Crouching>>::default()]
-            ),
-            input!(
-                Slide,
-                [binding1d::left_ctrl()],
-                [Filter::<With<Walking>>::default()],
-            ),
-            input!(
-                RollCrouching,
-                [binding1d::left_shift()],
-                [Filter::<Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>::default()],
-            ),
-            input!(
-                RollSprinting,
-                [binding1d::left_ctrl()],
-                [Filter::<With<Sprinting>>::default()],
-            ),
+            input_transition!(Sprint: Walking [<->] Sprinting, [binding1d::left_shift()]),
+            input_transition!(Crouch: Standing [<->] Crouching, [binding1d::left_ctrl()]),
+            input_transition!(CrouchSneak: Crouching [<->] Sneaking, [binding2d::wasd()]),
+            input_transition!(WalkSneak: Walking [<-] Sneaking, [binding1d::left_ctrl()]),
+            input_transition!(Slide: Walking [<->] Sliding, [binding1d::left_ctrl()]),
+            input_transition!(CrouchRoll: (<- Sliding, Sneaking, Crouching) [->] Rolling, [binding1d::left_shift()]),
+            input_transition!(SprintRoll: (<- Sprinting, Dashing) [->] Rolling, [binding1d::left_ctrl()]),
         ),
         (
             input!(

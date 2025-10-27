@@ -1,7 +1,7 @@
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
+use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
@@ -10,7 +10,6 @@ use crate::prelude::PlayerBody;
 
 use super::charge::ChargeCrouching;
 use super::slide::Sliding;
-use super::stand::Standing;
 
 #[derive(Action)]
 pub struct Crouch;
@@ -69,19 +68,3 @@ fn to_crouching_assets(
 
 #[derive(Component, Default)]
 pub struct Crouching;
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn standing_to_crouching(crouch: On<JustPressed<Crouch>>, mut commands: Commands) {
-    commands
-        .entity(crouch.input)
-        .remove::<Standing>()
-        .insert(Crouching);
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn crouching_to_standing(crouch: On<JustReleased<Crouch>>, mut commands: Commands) {
-    commands
-        .entity(crouch.input)
-        .remove::<Crouching>()
-        .insert(Standing);
-}

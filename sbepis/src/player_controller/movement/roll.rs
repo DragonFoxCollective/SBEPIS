@@ -15,10 +15,10 @@ use super::sneak::Sneaking;
 use super::sprint::Sprinting;
 
 #[derive(Action)]
-pub struct RollCrouching;
+pub struct CrouchRoll;
 
 #[derive(Action)]
-pub struct RollSprinting;
+pub struct SprintRoll;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin)]
@@ -83,43 +83,5 @@ fn readd_movement(
     Ok(())
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Rolling;
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn sliding_or_sneaking_or_crouching_to_rolling(
-    roll: On<JustPressed<RollCrouching>>,
-    mut commands: Commands,
-) {
-    commands
-        .entity(roll.input)
-        .remove::<Sliding>()
-        .remove::<Sneaking>()
-        .remove::<Crouching>()
-        .insert(Rolling);
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn sprinting_to_rolling(roll: On<JustPressed<RollSprinting>>, mut commands: Commands) {
-    commands
-        .entity(roll.input)
-        .remove::<Sprinting>()
-        .remove::<Dashing>()
-        .insert(Rolling);
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn rolling_to_sliding(roll: On<JustReleased<RollSprinting>>, mut commands: Commands) {
-    commands
-        .entity(roll.input)
-        .remove::<Rolling>()
-        .insert(Sliding::default());
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn rolling_to_sprinting_or_standing(roll: On<JustReleased<RollSprinting>>, mut commands: Commands) {
-    commands
-        .entity(roll.input)
-        .remove::<Rolling>()
-        .insert(Sprinting);
-}
