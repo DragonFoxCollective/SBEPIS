@@ -9,6 +9,7 @@ use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::charge::{ChargingTime, PlayerChargeSettings};
 use crate::player_controller::stamina::Stamina;
 use crate::util::MapRangeBetween;
 
@@ -72,11 +73,12 @@ fn walking_to_dashing(
             &Velocity,
             &DirectionalInput,
             &mut Stamina,
-            Option<&ChargeWalking>,
+            Option<&ChargingTime>,
             Option<&ChargingSound>,
         ),
         Or<(With<Walking>, With<Sprinting>, With<ChargeWalking>)>, // TODO: replace this with event input
     >,
+    charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerDashSettings>,
     mut commands: Commands,
     assets: Res<DashAssets>,
@@ -88,6 +90,7 @@ fn walking_to_dashing(
             settings.charge_min_stamina_cost,
             charging
                 .power_and_stamina_cost_from_stamina(
+                    &charge_settings,
                     stamina.current,
                     settings.charge_min_stamina_cost,
                     settings.charge_max_stamina_cost,

@@ -19,7 +19,7 @@ use crate::gridbox_material;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::player_controller::movement::charge::{
-    Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeWalking,
+    Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeStanding, ChargeWalk, ChargeWalking,
 };
 use crate::player_controller::movement::crouch::{Crouch, Crouching};
 use crate::player_controller::movement::dash::{Dash, Dashing};
@@ -79,11 +79,7 @@ fn setup(
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
     let input_bundle = (
-        input!(
-            Walk,
-            [binding2d::wasd()],
-            [Filter::<Or<(With<Standing>, With<Walking>)>>::default()]
-        ),
+        input_transition!(Walk: Standing [<->] Walking, [binding2d::wasd()]),
         input!(
             Jump,                 // The Action to trigger
             [binding1d::space()], // The trigger
@@ -128,16 +124,9 @@ fn setup(
             input_transition!(SprintRoll: (<- Sprinting, Dashing) [->] Rolling, [binding1d::left_ctrl()]),
         ),
         (
-            input!(
-                Charge,
-                [binding1d::left_shift()],
-                [Filter::<With<Standing>>::default()],
-            ),
-            input!(
-                ChargeCrouch,
-                [binding1d::left_shift()],
-                [Filter::<With<Crouching>>::default()],
-            ),
+            input_transition!(Charge: Standing [<->] ChargeStanding, [binding1d::left_shift()]),
+            input_transition!(ChargeCrouch: ChargeStanding [<->] ChargeCrouching, [binding1d::left_ctrl()]),
+            input_transition!(ChargeWalk: ChargeStanding [<->] ChargeWalking, [binding2d::wasd()]),
             input!(
                 ChargeDash,
                 [binding1d::left_shift()],

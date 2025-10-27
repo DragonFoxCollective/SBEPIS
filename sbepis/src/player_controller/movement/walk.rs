@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
+use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
@@ -43,22 +43,6 @@ pub struct PlayerWalkSettings {
 
 #[derive(Component, Default)]
 pub struct Walking;
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn standing_to_walking(walk: On<JustPressed<Walk>>, mut commands: Commands) {
-    commands
-        .entity(walk.input)
-        .remove::<Standing>()
-        .insert(Walking);
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn walking_to_standing(walk: On<JustReleased<Walk>>, mut commands: Commands) {
-    commands
-        .entity(walk.input)
-        .remove::<Walking>()
-        .insert(Standing);
-}
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,

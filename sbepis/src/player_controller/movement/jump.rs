@@ -5,6 +5,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::charge::{ChargingTime, PlayerChargeSettings};
 use crate::player_controller::movement::stand::Standing;
 use crate::player_controller::movement::walk::Walking;
 use crate::player_controller::stamina::Stamina;
@@ -76,8 +77,8 @@ fn jump(
             &Transform,
             &mut Stamina,
             Has<Crouching>,
-            Option<&ChargeStanding>,
-            Option<&ChargeCrouching>,
+            Option<&ChargingTime>,
+            Has<ChargeCrouching>,
             Has<ChargeWalking>,
             Option<&ChargingSound>,
         ),
@@ -92,6 +93,7 @@ fn jump(
             With<Rolling>,
         )>,
     >,
+    charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerJumpSettings>,
     assets: Res<JumpAssets>,
     mut commands: Commands,
@@ -101,7 +103,7 @@ fn jump(
         transform,
         mut stamina,
         crouching,
-        charge_standing,
+        charging,
         charge_crouching,
         charge_walking,
         charging_sound,
@@ -116,40 +118,33 @@ fn jump(
                 None
             },
         )
-    } else if let Some(charging) = charge_standing {
+    } else if let Some(charging) = charging {
+        let (min_stamina_cost, max_stamina_cost, min_speed, max_speed) = if charge_crouching {
+            (
+                settings.unreal_air_jump_min_stamina_cost,
+                settings.unreal_air_jump_max_stamina_cost,
+                settings.unreal_air_jump_min_speed,
+                settings.unreal_air_jump_max_speed,
+            )
+        } else {
+            (
+                settings.charge_jump_min_stamina_cost,
+                settings.charge_jump_max_stamina_cost,
+                settings.charge_jump_min_speed,
+                settings.charge_jump_max_speed,
+            )
+        };
         (
-            settings.charge_jump_min_stamina_cost,
+            min_stamina_cost,
             charging
                 .power_and_stamina_cost_from_stamina(
+                    &charge_settings,
                     stamina.current,
-                    settings.charge_jump_min_stamina_cost,
-                    settings.charge_jump_max_stamina_cost,
+                    min_stamina_cost,
+                    max_stamina_cost,
                 )
                 .map(|(power, stamina_cost)| {
-                    (
-                        power.map_from_01(
-                            settings.charge_jump_min_speed..settings.charge_jump_max_speed,
-                        ),
-                        stamina_cost,
-                    )
-                }),
-        )
-    } else if let Some(charge_crouching) = charge_crouching {
-        (
-            settings.unreal_air_jump_min_stamina_cost,
-            charge_crouching
-                .power_and_stamina_cost_from_stamina(
-                    stamina.current,
-                    settings.unreal_air_jump_min_stamina_cost,
-                    settings.unreal_air_jump_max_stamina_cost,
-                )
-                .map(|(power, stamina_cost)| {
-                    (
-                        power.map_from_01(
-                            settings.unreal_air_jump_min_speed..settings.unreal_air_jump_max_speed,
-                        ),
-                        stamina_cost,
-                    )
+                    (power.map_from_01(min_speed..max_speed), stamina_cost)
                 }),
         )
     } else {
@@ -198,7 +193,7 @@ fn jump(
             sound.despawn();
         }
 
-        if charge_crouching.is_some() {
+        if charge_crouching {
             commands.entity(jump.input).insert(Crouching);
         } else if charge_walking {
             commands.entity(jump.input).insert(Walking);

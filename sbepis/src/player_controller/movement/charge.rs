@@ -1,16 +1,15 @@
 use std::marker::PhantomData;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
+use bevy_pretty_nice_input::{Action, JustPressed, Off};
 
 use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::dash::Dash;
 use crate::player_controller::movement::trip::Trip;
 
-use super::stand::Standing;
 use super::trip::{PlayerTripSettings, Tripping};
 
 #[derive(Action)]
@@ -45,26 +44,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-#[derive(Clone, Debug)]
-pub struct ChargingInternal {
-    pub start_time: Instant,
-    pub max_time: Duration,
+#[derive(Component, Debug, Default)]
+pub struct ChargingTime {
+    pub charge_time: Duration,
 }
 
-impl ChargingInternal {
-    pub fn new(settings: &PlayerChargeSettings) -> Self {
-        Self {
-            start_time: Instant::now(),
-            max_time: settings.max_time,
-        }
-    }
-
-    pub fn power(&self) -> f32 {
-        (self.start_time.elapsed().as_secs_f32() / self.max_time.as_secs_f32()).min(1.0)
+impl ChargingTime {
+    pub fn power(&self, settings: &PlayerChargeSettings) -> f32 {
+        (self.charge_time.as_secs_f32() / settings.max_time.as_secs_f32()).min(1.0)
     }
 
     pub fn power_and_stamina_cost_from_stamina(
         &self,
+        settings: &PlayerChargeSettings,
         current_stamina: f32,
         min_stamina_cost: f32,
         max_stamina_cost: f32,
@@ -73,12 +65,12 @@ impl ChargingInternal {
         if stamina_cost < min_stamina_cost {
             return None;
         }
-        let power = self.power() * (stamina_cost - min_stamina_cost)
+        let power = self.power(settings) * (stamina_cost - min_stamina_cost)
             / (max_stamina_cost - min_stamina_cost);
         debug!(
             "Given stamina {}, power {}, min/max_stamina_cost {} {}, resulted in power {} and stamina_cost {}",
             current_stamina,
-            self.power(),
+            self.power(settings),
             min_stamina_cost,
             max_stamina_cost,
             power,
@@ -88,97 +80,23 @@ impl ChargingInternal {
     }
 }
 
-#[derive(Component, Clone, Debug)]
-pub struct ChargeStanding(pub ChargingInternal);
+#[derive(Component, Default)]
+pub struct ChargeStanding;
 
-impl ChargeStanding {
-    pub fn new(settings: &PlayerChargeSettings) -> Self {
-        Self(ChargingInternal::new(settings))
-    }
+#[derive(Component, Default)]
+pub struct ChargeCrouching;
 
-    pub fn power_and_stamina_cost_from_stamina(
-        &self,
-        current_stamina: f32,
-        min_stamina_cost: f32,
-        max_stamina_cost: f32,
-    ) -> Option<(f32, f32)> {
-        self.0.power_and_stamina_cost_from_stamina(
-            current_stamina,
-            min_stamina_cost,
-            max_stamina_cost,
-        )
-    }
-}
-
-impl From<ChargeCrouching> for ChargeStanding {
-    fn from(charge_crouching: ChargeCrouching) -> Self {
-        Self(charge_crouching.0)
-    }
-}
-
-impl From<ChargeWalking> for ChargeStanding {
-    fn from(charge_walking: ChargeWalking) -> Self {
-        Self(charge_walking.0)
-    }
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct ChargeCrouching(pub ChargingInternal);
-
-impl ChargeCrouching {
-    pub fn power_and_stamina_cost_from_stamina(
-        &self,
-        current_stamina: f32,
-        min_stamina_cost: f32,
-        max_stamina_cost: f32,
-    ) -> Option<(f32, f32)> {
-        self.0.power_and_stamina_cost_from_stamina(
-            current_stamina,
-            min_stamina_cost,
-            max_stamina_cost,
-        )
-    }
-}
-
-impl From<ChargeStanding> for ChargeCrouching {
-    fn from(charging: ChargeStanding) -> Self {
-        Self(charging.0)
-    }
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct ChargeWalking(pub ChargingInternal);
-
-impl ChargeWalking {
-    pub fn power_and_stamina_cost_from_stamina(
-        &self,
-        current_stamina: f32,
-        min_stamina_cost: f32,
-        max_stamina_cost: f32,
-    ) -> Option<(f32, f32)> {
-        self.0.power_and_stamina_cost_from_stamina(
-            current_stamina,
-            min_stamina_cost,
-            max_stamina_cost,
-        )
-    }
-}
-
-impl From<ChargeStanding> for ChargeWalking {
-    fn from(charging: ChargeStanding) -> Self {
-        Self(charging.0)
-    }
-}
+#[derive(Component, Default)]
+pub struct ChargeWalking;
 
 #[derive(Component)]
 pub struct ChargingSound(pub Entity);
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn standing_to_charging(
+fn spawn_charging_sound(
     charge: On<JustPressed<Charge>>,
     mut commands: Commands,
     assets: Res<ChargeAssets>,
-    settings: Res<PlayerChargeSettings>,
 ) {
     debug!("Charging!");
 
@@ -186,86 +104,22 @@ fn standing_to_charging(
         .spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN))
         .id();
 
-    commands
-        .entity(charge.input)
-        .insert(ChargeStanding::new(&settings))
-        .insert(ChargingSound(sound))
-        .remove::<Standing>();
+    commands.entity(charge.input).insert(ChargingSound(sound));
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn charging_to_standing(
-    charge: On<JustReleased<Charge>>,
+fn despawn_charging_sound(
+    charge: On<JustPressed<Off<Charge>>>,
     sounds: Query<&ChargingSound>,
     mut commands: Commands,
 ) {
-    commands
-        .entity(charge.input)
-        .remove::<ChargeStanding>()
-        .remove::<ChargingSound>()
-        .insert(Standing);
-
     if let Ok(charging_sound) = sounds.get(charge.input)
         && let Ok(mut sound) = commands.get_entity(charging_sound.0)
     {
         sound.despawn();
     }
-}
 
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn charging_to_charge_crouching(
-    crouch: On<JustPressed<ChargeCrouch>>,
-    players: Query<&ChargeStanding>,
-    mut commands: Commands,
-) -> Result {
-    let charging = players.get(crouch.input)?;
-    commands
-        .entity(crouch.input)
-        .remove::<ChargeStanding>()
-        .insert(ChargeCrouching::from(charging.clone()));
-    Ok(())
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn charge_crouching_to_charging(
-    crouch: On<JustReleased<ChargeCrouch>>,
-    players: Query<&ChargeCrouching>,
-    mut commands: Commands,
-) -> Result {
-    let charging = players.get(crouch.input)?;
-    commands
-        .entity(crouch.input)
-        .remove::<ChargeCrouching>()
-        .insert(ChargeStanding::from(charging.clone()));
-    Ok(())
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn charging_to_charge_walking(
-    walk: On<JustPressed<ChargeWalk>>,
-    players: Query<&ChargeStanding>,
-    mut commands: Commands,
-) -> Result {
-    let charging = players.get(walk.input)?;
-    commands
-        .entity(walk.input)
-        .remove::<ChargeStanding>()
-        .insert(ChargeWalking::from(charging.clone()));
-    Ok(())
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn charge_walking_to_charging(
-    walk: On<JustReleased<ChargeWalk>>,
-    players: Query<&ChargeWalking>,
-    mut commands: Commands,
-) -> Result {
-    let charging = players.get(walk.input)?;
-    commands
-        .entity(walk.input)
-        .remove::<ChargeWalking>()
-        .insert(ChargeStanding::from(charging.clone()));
-    Ok(())
+    commands.entity(charge.input).remove::<ChargingSound>();
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
@@ -302,4 +156,11 @@ pub fn charge_crouching_to_tripping(
     }
 
     Ok(())
+}
+
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+fn update_charge_time(mut players: Query<&mut ChargingTime>, time: Res<Time>) {
+    for mut charging_time in players.iter_mut() {
+        charging_time.charge_time += time.delta();
+    }
 }
