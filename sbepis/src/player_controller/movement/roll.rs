@@ -1,18 +1,12 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
+use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::PlayerBody;
-
-use super::crouch::Crouching;
-use super::dash::Dashing;
-use super::slide::Sliding;
-use super::sneak::Sneaking;
-use super::sprint::Sprinting;
 
 #[derive(Action)]
 pub struct CrouchRoll;
