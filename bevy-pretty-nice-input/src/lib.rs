@@ -1,15 +1,15 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::query::QueryFilter;
-use bevy::ecs::system::ObserverSystem;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
+use bevy::ui_widgets::observe;
 pub use bevy_pretty_nice_input_derive::Action;
 
 #[macro_export]
 macro_rules! input {
-    ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {
+    ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {(
         ::bevy::prelude::related!(::bevy_pretty_nice_input::Actions<$action>[(
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Bindings[$((
 				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
@@ -18,19 +18,21 @@ macro_rules! input {
 			)),*]),
 
 			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
+			::bevy_pretty_nice_input::PrevActionData::default(),
 			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action::<$action>),
 			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action_2::<$action>),
+			::bevy::ui_widgets::observe(::bevy_pretty_nice_input::action_prev_set::<$action>),
 
 			::bevy::prelude::related!(::bevy_pretty_nice_input::Conditions[$((
 				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				{
 					use ::bevy_pretty_nice_input::Condition;
 					let condition = $condition;
-					(::bevy::ui_widgets::observe(condition.system()), condition)
+					(condition.bundle::<$action>(), condition)
 				}
 			)),*]),
-		)])
-    };
+		)]),
+    )};
 
     ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
         $crate::input!($action, [$($binding),*], [])
@@ -323,6 +325,9 @@ impl ActionData {
 #[derive(Component, Default, Debug)]
 pub struct BindingPartData(pub f32);
 
+#[derive(Component, Default, Debug)]
+pub struct PrevActionData(pub Option<ActionData>);
+
 pub trait Action: Send + Sync + 'static {}
 
 #[derive(Component)]
@@ -367,7 +372,7 @@ pub struct ConditionOf(#[relationship] Entity);
 pub struct InputDisabled;
 
 pub trait Condition {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()>;
+    fn bundle<T: Action>(&self) -> impl Bundle;
 }
 
 fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) {
@@ -393,41 +398,46 @@ impl Cooldown {
 }
 
 impl Condition for Cooldown {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
-        IntoSystem::into_system(condition_pass)
+    fn bundle<T: Action>(&self) -> impl Bundle {
+        observe(condition_pass)
     }
 }
 
 #[derive(Component)]
-pub struct Filter<T: QueryFilter>(PhantomData<T>);
-
-impl<T: QueryFilter> Filter<T> {
-    pub fn new() -> Self {
-        Self(PhantomData)
-    }
+pub struct Filter<F: QueryFilter> {
+    pub prev_passed: bool,
+    _marker: PhantomData<F>,
 }
 
-impl<T: QueryFilter> Default for Filter<T> {
+impl<F: QueryFilter> Default for Filter<F> {
     fn default() -> Self {
-        Self(PhantomData)
+        Self {
+            prev_passed: false,
+            _marker: PhantomData,
+        }
     }
 }
 
-impl<T: QueryFilter + 'static> Condition for Filter<T> {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
-        IntoSystem::into_system(
-            |update: On<ConditionedBindingUpdate>, inputs: Query<(), T>, mut commands: Commands| {
-                if inputs.get(update.input).is_ok() {
-                    commands.trigger(ConditionedBindingUpdate {
-                        target: update.entities[update.index + 1],
-                        input: update.input,
-                        action: update.action,
-                        data: update.data,
-                        entities: update.entities.clone(),
-                        index: update.index + 1,
-                    });
-                }
-            },
+impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
+    fn bundle<T: Action>(&self) -> impl Bundle {
+        (
+            observe(
+                |update: On<ConditionedBindingUpdate>,
+                 inputs: Query<(), F>,
+                 mut commands: Commands| {
+                    if inputs.get(update.input).is_ok() {
+                        commands.trigger(ConditionedBindingUpdate {
+                            target: update.entities[update.index + 1],
+                            input: update.input,
+                            action: update.action,
+                            data: update.data,
+                            entities: update.entities.clone(),
+                            index: update.index + 1,
+                        });
+                    }
+                },
+            ),
+            observe(filter_add_systems::<T, F>),
         )
     }
 }
@@ -450,8 +460,8 @@ impl Default for ButtonPress {
 }
 
 impl Condition for ButtonPress {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
-        IntoSystem::into_system(condition_pass)
+    fn bundle<T: Action>(&self) -> impl Bundle {
+        observe(condition_pass)
     }
 }
 
@@ -473,8 +483,8 @@ impl Default for ButtonRelease {
 }
 
 impl Condition for ButtonRelease {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
-        IntoSystem::into_system(condition_pass)
+    fn bundle<T: Action>(&self) -> impl Bundle {
+        observe(condition_pass)
     }
 }
 
@@ -494,8 +504,8 @@ impl InputBuffer {
 }
 
 impl Condition for InputBuffer {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
-        IntoSystem::into_system(condition_pass)
+    fn bundle<T: Action>(&self) -> impl Bundle {
+        observe(condition_pass)
     }
 }
 
@@ -503,8 +513,8 @@ impl Condition for InputBuffer {
 pub struct ResetBuffer;
 
 impl Condition for ResetBuffer {
-    fn system(&self) -> impl ObserverSystem<ConditionedBindingUpdate, ()> {
-        IntoSystem::into_system(condition_pass)
+    fn bundle<T: Action>(&self) -> impl Bundle {
+        observe(condition_pass)
     }
 }
 
@@ -722,5 +732,54 @@ pub fn action_2<T: Action>(
     }
 
     *prev_data = Some(binding_update.data);
+    Ok(())
+}
+
+pub fn action_prev_set<T: Action>(
+    binding_update: On<BindingUpdate>,
+    mut actions: Query<&mut PrevActionData>,
+) -> Result {
+    actions.get_mut(binding_update.action)?.0 = Some(binding_update.data);
+    Ok(())
+}
+
+pub fn filter_add_systems<T: Action, F: QueryFilter + Send + Sync + 'static>(
+    _add: On<ConditionedBindingUpdate>,
+    mut commands: Commands,
+    mut done: Local<bool>,
+) {
+    if *done {
+        return;
+    }
+    commands.queue(|world: &mut World| {
+        world.schedule_scope(Update, |_world, schedule| {
+            schedule.add_systems(action_prev_filter::<T, F>);
+        });
+    });
+    *done = true;
+}
+
+fn action_prev_filter<T: Action, F: QueryFilter + Send + Sync + 'static>(
+    inputs: Query<(), F>,
+    actions: Query<(&PrevActionData, &ActionOf<T>)>,
+    mut filters: Query<(&mut Filter<F>, &ConditionOf)>,
+    mut commands: Commands,
+) -> Result {
+    for (mut filter, condition_of) in filters.iter_mut() {
+        let Ok((prev_data, action_of)) = actions.get(condition_of.0) else {
+            continue;
+        };
+        let passed = inputs.get(action_of.0).is_ok();
+        if let Some(prev_data) = prev_data.0
+            && passed
+            && !filter.prev_passed
+        {
+            commands.trigger(BindingUpdate {
+                action: condition_of.0,
+                data: prev_data,
+            });
+        }
+        filter.prev_passed = passed;
+    }
     Ok(())
 }

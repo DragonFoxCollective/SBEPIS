@@ -28,7 +28,7 @@ use crate::player_controller::movement::jump::Jump;
 use crate::player_controller::movement::roll::{RollCrouching, RollSprinting};
 use crate::player_controller::movement::slide::{Slide, Sliding};
 use crate::player_controller::movement::sneak::{Sneak, Sneaking};
-use crate::player_controller::movement::sprint::{Sprint, Sprinting};
+use crate::player_controller::movement::sprint::{Sprint, Sprinting, UnSprint};
 use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover};
 use crate::player_controller::movement::walk::{Walk, Walking};
 use crate::prelude::*;
@@ -113,6 +113,11 @@ fn setup(
                 Sprint,
                 [binding1d::left_shift()],
                 [Filter::<With<Walking>>::default()],
+            ),
+            input!(
+                UnSprint,
+                [binding1d::left_shift()],
+                [Filter::<With<Sprinting>>::default()],
             ),
             input!(
                 Dash,

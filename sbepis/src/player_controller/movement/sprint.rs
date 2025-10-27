@@ -9,6 +9,9 @@ use super::walk::Walking;
 #[derive(Action)]
 pub struct Sprint;
 
+#[derive(Action)]
+pub struct UnSprint;
+
 #[derive(Component, Default)]
 pub struct Sprinting;
 
@@ -21,7 +24,7 @@ fn walking_to_sprinting(sprint: On<JustPressed<Sprint>>, mut commands: Commands)
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn sprinting_to_walking(sprint: On<JustReleased<Sprint>>, mut commands: Commands) {
+fn sprinting_to_walking(sprint: On<JustReleased<UnSprint>>, mut commands: Commands) {
     commands
         .entity(sprint.input)
         .remove::<Sprinting>()
