@@ -40,6 +40,10 @@ pub struct PlayerTripSettings {
     pub ground_parry_stamina_gain: f32,
 }
 
+/// Marker component to insert the real Tripping component
+#[derive(Component, Default)]
+pub struct StartTripping;
+
 #[derive(Component)]
 pub struct Tripping {
     pub duration: Duration,
@@ -189,6 +193,24 @@ fn walking_too_fast_to_tripping(
                 gravity.up * trip_settings.upward_speed,
             ));
     }
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn start_tripping(
+    add: On<Add, StartTripping>,
+    mut players: Query<(Entity, &ComputedGravity)>,
+    mut commands: Commands,
+    settings: Res<PlayerTripSettings>,
+) -> Result {
+    let (player, gravity) = players.get_mut(add.entity)?;
+    commands
+        .entity(player)
+        .remove::<StartTripping>()
+        .insert(Tripping::new(
+            gravity.up,
+            gravity.up * settings.upward_speed,
+        ));
+    Ok(())
 }
 
 #[derive(Resource)]

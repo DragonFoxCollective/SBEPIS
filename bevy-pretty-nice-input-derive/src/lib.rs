@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 
+mod input_transition;
+
 // #[proc_macro_derive(Actionlike, attributes(control_kind))]
 // pub fn derive_actionlike(input: TokenStream) -> TokenStream {
 //     let input = syn::parse_macro_input!(input as syn::DeriveInput);
@@ -42,4 +44,9 @@ pub fn derive_action(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+#[proc_macro]
+pub fn input_transition(input: TokenStream) -> TokenStream {
+    input_transition::input_transition_impl(input)
 }

@@ -50,10 +50,8 @@ pub struct ChargingTime {
 }
 
 impl ChargingTime {
-    pub fn power(&self, settings: &PlayerChargeSettings) -> f32 {
-        (self.charge_time.as_secs_f32() / settings.max_time.as_secs_f32()).min(1.0)
-    }
-
+    /// Gets the maximum power and stamina cost possible from this charge and stamina.
+    /// Returns None if not enough stamina to perform the charge.
     pub fn power_and_stamina_cost_from_stamina(
         &self,
         settings: &PlayerChargeSettings,
@@ -61,16 +59,26 @@ impl ChargingTime {
         min_stamina_cost: f32,
         max_stamina_cost: f32,
     ) -> Option<(f32, f32)> {
-        let stamina_cost = max_stamina_cost.min(current_stamina);
-        if stamina_cost < min_stamina_cost {
+        if current_stamina < min_stamina_cost {
             return None;
         }
-        let power = self.power(settings) * (stamina_cost - min_stamina_cost)
-            / (max_stamina_cost - min_stamina_cost);
+
+        let spendable_stamina = current_stamina - min_stamina_cost;
+        let stamina_per_charge_second =
+            (max_stamina_cost - min_stamina_cost) / settings.max_time.as_secs_f32();
+        let available_charge_time = spendable_stamina / stamina_per_charge_second;
+        let charge_time = self
+            .charge_time
+            .as_secs_f32()
+            .min(available_charge_time)
+            .min(settings.max_time.as_secs_f32());
+        let power = (charge_time / settings.max_time.as_secs_f32()).min(1.0);
+        let stamina_cost = min_stamina_cost + stamina_per_charge_second * charge_time;
+
         debug!(
-            "Given stamina {}, power {}, min/max_stamina_cost {} {}, resulted in power {} and stamina_cost {}",
+            "Given max stamina {}, max power {}, min/max_stamina_cost {} {}, resulted in power {} and stamina_cost {}",
             current_stamina,
-            self.power(settings),
+            (self.charge_time.as_secs_f32() / settings.max_time.as_secs_f32()).min(1.0),
             min_stamina_cost,
             max_stamina_cost,
             power,
@@ -90,7 +98,7 @@ pub struct ChargeCrouching;
 pub struct ChargeWalking;
 
 #[derive(Component)]
-pub struct ChargingSound(pub Entity);
+struct ChargingSound(pub Entity);
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn spawn_charging_sound(
@@ -123,7 +131,7 @@ fn despawn_charging_sound(
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-pub fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut commands: Commands) {
+fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut commands: Commands) {
     // TODO: replace this with another event with params
     commands.trigger(JustPressed::<Dash> {
         input: dash.input,
@@ -133,8 +141,8 @@ pub fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut c
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-pub fn charge_crouching_to_tripping(
-    sprint: On<JustPressed<Trip>>, // TODO: equivalent to ButtonRelease of ChargeDash
+fn charge_crouching_to_tripping(
+    sprint: On<JustPressed<Trip>>, // TODO: equivalent to ButtonRelease of ChargeCrouch
     players: Query<(Option<&ChargingSound>, &ComputedGravity)>,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,

@@ -604,6 +604,7 @@ name = "bevy-pretty-nice-input-derive"
 version = "0.1.0"
 dependencies = [
  "bevy_reflect",
+ "proc-macro2",
  "quote",
  "syn",
 ]

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
-    Action, ButtonPress, ButtonRelease, ComponentBuffer, Cooldown, Filter, InputBuffer,
+    Action, ButtonPress, ComponentBuffer, Cooldown, Filter, FilterBuffered, InputBuffer,
     ResetBuffer, binding1d, binding2d, input, input_transition,
 };
 use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
@@ -22,9 +22,12 @@ use crate::player_controller::movement::charge::{
     Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeStanding, ChargeWalk, ChargeWalking,
 };
 use crate::player_controller::movement::crouch::{Crouch, Crouching};
-use crate::player_controller::movement::dash::{Dash, Dashing};
+use crate::player_controller::movement::dash::{Dash, Dashing, HasEnoughStaminaToDash};
 use crate::player_controller::movement::grounded::Grounded;
-use crate::player_controller::movement::jump::Jump;
+use crate::player_controller::movement::jump::{
+    ChargeCrouchJump, ChargeJump, CrouchJump, HasEnoughStaminaToChargeCrouchJump,
+    HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump, Jump,
+};
 use crate::player_controller::movement::roll::{CrouchRoll, Rolling, SprintRoll};
 use crate::player_controller::movement::slide::{Slide, Sliding};
 use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
@@ -79,82 +82,64 @@ fn setup(
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
     let input_bundle = (
-        input_transition!(Walk: Standing [<->] Walking, [binding2d::wasd()]),
-        input!(
-            Jump,                 // The Action to trigger
-            [binding1d::space()], // The trigger
-            [
-                ButtonPress::default(), // If the trigger gets this far, if it was just pressed, continue. Otherwise, stop it
-                InputBuffer::new(0.2), // If the trigger gets this far, start firing the trigger repeatedly for a certain amount of time
-                Filter::<With<ComponentBuffer<Grounded>>>::default(), // If the trigger gets this far, only let it pass if the entity has this component
-                Cooldown::new(0.5), // If the trigger gets this far, don't let it pass again for a certain amount of time
-            ],
-            // Examples:
-            // Space not pressed:					blocked by bindings
-            // Space just pressed, not grounded:	start in bindings,	pass Press,			start InputBuffer,		blocked by Filter
-            // Space held:							start in bindings,	blocked by Press
-            // Space just pressed, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		pass Cooldown
-            // Space just pressed x2, grounded:		start in bindings,	pass Press,			start InputBuffer,		pass Filter,		blocked by Cooldown // don't do the multi jump bug
-            // InputBuffer active, not grounded:											start in InputBuffer,	blocked by Filter
-            // InputBuffer active, grounded: 												start in InputBuffer,	pass Filter,		pass Cooldown
-            // InputBuffer active x2, grounded:												start in InputBuffer,	pass Filter,		blocked by Cooldown
-
-            // Cons:
-            // Unless the cooldown continuously resets the input buffer, the player will automatically jump again.
-            // This is especially apparent if the cooldown is shorter than the input buffer.
-        ),
+        input_transition!(Walk: Standing <=> Walking, [binding2d::wasd()]),
+        input_transition!(Jump: (Standing, Walking) => *, [binding1d::space()], [
+            ButtonPress::default(),
+            InputBuffer::new(0.2),
+            Filter::<With<ComponentBuffer<Grounded>>>::default(),
+            HasEnoughStaminaToJump,
+            Cooldown::new(0.5),
+        ]),
         input!(Look, [binding2d::mouse_move()]),
         (
-            input!(
-                Dash,
-                [binding1d::left_shift()],
-                [
-                    ButtonPress::default(),
-                    InputBuffer::new(0.2),
-                    Filter::<With<ComponentBuffer<Grounded>>>::default(),
-                    ResetBuffer,
-                ],
-            ),
-            input_transition!(Sprint: Walking [<->] Sprinting, [binding1d::left_shift()]),
-            input_transition!(Crouch: Standing [<->] Crouching, [binding1d::left_ctrl()]),
-            input_transition!(CrouchSneak: Crouching [<->] Sneaking, [binding2d::wasd()]),
-            input_transition!(WalkSneak: Walking [<-] Sneaking, [binding1d::left_ctrl()]),
-            input_transition!(Slide: Walking [<->] Sliding, [binding1d::left_ctrl()]),
-            input_transition!(CrouchRoll: (<- Sliding, Sneaking, Crouching) [->] Rolling, [binding1d::left_shift()]),
-            input_transition!(SprintRoll: (<- Sprinting, Dashing) [->] Rolling, [binding1d::left_ctrl()]),
+            input_transition!(Dash: Walking => *, [binding1d::left_shift()], [
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToDash,
+            ]),
+            input_transition!(Sprint: Walking <=> Sprinting, [binding1d::left_shift()]),
+            input_transition!(Crouch: Standing <=> Crouching, [binding1d::left_ctrl()]),
+            input_transition!(CrouchJump: (Crouching, Sneaking, Sliding, Rolling) => *, [binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                HasEnoughStaminaToCrouchJump,
+                Cooldown::new(0.5),
+            ]),
+            input_transition!(CrouchSneak: Crouching <=> Sneaking, [binding2d::wasd()]),
+            input_transition!(WalkSneak: Walking <= Sneaking, [binding1d::left_ctrl()]),
+            input_transition!(Slide: Walking <=> Sliding, [binding1d::left_ctrl()]),
+            input_transition!(CrouchRoll: (Sliding <=, Sneaking, Crouching) => Rolling, [binding1d::left_shift()]),
+            input_transition!(SprintRoll: (Sprinting <=, Dashing) => Rolling, [binding1d::left_ctrl()]),
         ),
         (
-            input_transition!(Charge: Standing [<->] ChargeStanding, [binding1d::left_shift()]),
-            input_transition!(ChargeCrouch: ChargeStanding [<->] ChargeCrouching, [binding1d::left_ctrl()]),
-            input_transition!(ChargeWalk: ChargeStanding [<->] ChargeWalking, [binding2d::wasd()]),
-            input!(
-                ChargeDash,
-                [binding1d::left_shift()],
-                [
-                    ButtonRelease::default(),
-                    Filter::<With<ChargeWalking>>::default()
-                ],
-            ),
-        ),
-        (
-            input!(
-                Trip,
-                [binding1d::left_shift()],
-                [
-                    ButtonRelease::default(),
-                    Filter::<With<ChargeCrouching>>::default(),
-                ],
-            ),
+            input_transition!(Charge: Standing <=> ChargeStanding, [binding1d::left_shift()]),
+            input_transition!(ChargeJump: ChargeStanding => Standing, [binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                HasEnoughStaminaToChargeJump,
+                Cooldown::new(0.5),
+            ]),
+            input_transition!(ChargeCrouch: ChargeStanding <=> ChargeCrouching, [binding1d::left_ctrl()]),
+            input_transition!(ChargeCrouchJump: ChargeCrouching => Crouching, [binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                HasEnoughStaminaToChargeCrouchJump,
+                Cooldown::new(0.5),
+            ]),
+            input_transition!(ChargeWalk: ChargeStanding <=> ChargeWalking, [binding2d::wasd()]),
+            input_transition!(ChargeDash: * <= ChargeWalking, [binding1d::left_shift()]),
+            input_transition!(Trip: * <= ChargeCrouching, [binding1d::left_shift()]),
             input!(
                 GroundParry,
                 [binding1d::left_ctrl()],
                 [
                     ButtonPress::default(),
                     InputBuffer::new(0.2),
-                    Filter::<(
-                        With<ComponentBuffer<Grounded>>,
-                        With<ComponentBuffer<TripRecover>>
-                    )>::default(),
+                    FilterBuffered::<Grounded>::default(),
+                    FilterBuffered::<TripRecover>::default(),
                     ResetBuffer,
                 ],
             ),

@@ -2,7 +2,8 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed};
+use bevy_pretty_nice_input::bundles::observe;
+use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
@@ -13,7 +14,7 @@ use crate::player_controller::movement::charge::{ChargingTime, PlayerChargeSetti
 use crate::player_controller::stamina::Stamina;
 use crate::util::MapRangeBetween;
 
-use super::charge::{ChargeWalking, ChargingSound};
+use super::charge::ChargeWalking;
 use super::di::DirectionalInput;
 use super::sprint::Sprinting;
 use super::walk::{PlayerWalkSettings, Walking};
@@ -74,7 +75,6 @@ fn walking_to_dashing(
             &DirectionalInput,
             &mut Stamina,
             Option<&ChargingTime>,
-            Option<&ChargingSound>,
         ),
         Or<(With<Walking>, With<Sprinting>, With<ChargeWalking>)>, // TODO: replace this with event input
     >,
@@ -83,76 +83,46 @@ fn walking_to_dashing(
     mut commands: Commands,
     assets: Res<DashAssets>,
 ) -> Result {
-    let (velocity, di, mut stamina, charging, charging_sound) = players.get_mut(dash.input)?;
+    let (velocity, di, mut stamina, charging) = players.get_mut(dash.input)?;
 
-    let (min_stamina_cost, result) = if let Some(charging) = charging {
+    let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
+        let (power, stamina_cost) = charging
+            .power_and_stamina_cost_from_stamina(
+                &charge_settings,
+                stamina.current,
+                settings.charge_min_stamina_cost,
+                settings.charge_max_stamina_cost,
+            )
+            .ok_or(BevyError::from(
+                "Don't have enough stamina to charge dash, despite being in dash transition",
+            ))?;
         (
-            settings.charge_min_stamina_cost,
-            charging
-                .power_and_stamina_cost_from_stamina(
-                    &charge_settings,
-                    stamina.current,
-                    settings.charge_min_stamina_cost,
-                    settings.charge_max_stamina_cost,
-                )
-                .map(|(power, charge_stamina_cost)| {
-                    (
-                        power.map_from_01(
-                            settings.charge_min_speed_addon..settings.charge_max_speed_addon,
-                        ),
-                        settings.charge_dash_time,
-                        charge_stamina_cost,
-                    )
-                }),
+            power.map_from_01(settings.charge_min_speed_addon..settings.charge_max_speed_addon),
+            settings.charge_dash_time,
+            stamina_cost,
         )
     } else {
         (
+            settings.speed_addon,
+            settings.dash_time,
             settings.stamina_cost,
-            if stamina.current > settings.stamina_cost {
-                Some((
-                    settings.speed_addon,
-                    settings.dash_time,
-                    settings.stamina_cost,
-                ))
-            } else {
-                None
-            },
         )
     };
 
-    if let Some((speed_addon, dash_time, stamina_cost)) = result {
-        debug!("Dashing!");
+    stamina.current -= stamina_cost;
 
-        stamina.current -= stamina_cost;
+    commands
+        .entity(dash.input)
+        .insert(Dashing {
+            duration: Duration::ZERO,
+            max_duration: dash_time,
+            velocity: di.world_space.normalize_or(di.forward)
+                * (velocity.linvel.length() + speed_addon),
+            speed_addon,
+        })
+        .remove::<AffectedByGravity>();
 
-        commands
-            .entity(dash.input)
-            .insert(Dashing {
-                duration: Duration::ZERO,
-                max_duration: dash_time,
-                velocity: di.world_space.normalize_or(di.forward)
-                    * (velocity.linvel.length() + speed_addon),
-                speed_addon,
-            })
-            .remove::<ChargeWalking>()
-            .remove::<ChargingSound>()
-            .remove::<AffectedByGravity>();
-
-        commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
-
-        if let Some(charging_sound) = charging_sound {
-            if let Ok(mut sound) = commands.get_entity(charging_sound.0) {
-                sound.despawn();
-            }
-
-            commands.entity(dash.input).insert(Walking);
-        }
-    } else {
-        debug!(
-            "Not enough stamina to dash! Have {}, need {}",
-            stamina.current, min_stamina_cost
-        );
-    }
+    commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
 
     Ok(())
 }
@@ -192,5 +162,31 @@ fn update_dash_velocity(mut movement: Query<(&mut Movement, &mut Velocity, &Dash
     for (mut movement, mut velocity, dashing) in movement.iter_mut() {
         velocity.linvel = dashing.velocity;
         movement.0 = dashing.velocity;
+    }
+}
+
+#[derive(Component)]
+pub struct HasEnoughStaminaToDash;
+
+impl Condition for HasEnoughStaminaToDash {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<(&Stamina, Has<ChargingTime>)>,
+             settings: Res<PlayerDashSettings>|
+             -> Result {
+                let (stamina, is_charging) = players.get(update.input)?;
+                let required_stamina = if is_charging {
+                    settings.charge_min_stamina_cost
+                } else {
+                    settings.stamina_cost
+                };
+                if stamina.current >= required_stamina {
+                    commands.trigger(update.next());
+                }
+                Ok(())
+            },
+        )
     }
 }

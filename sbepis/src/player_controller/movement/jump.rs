@@ -1,24 +1,35 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed};
+use bevy_pretty_nice_input::bundles::observe;
+use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
 use bevy_rapier3d::prelude::*;
 
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::charge::{ChargingTime, PlayerChargeSettings};
-use crate::player_controller::movement::stand::Standing;
-use crate::player_controller::movement::walk::Walking;
 use crate::player_controller::stamina::Stamina;
 use crate::util::MapRangeBetween;
 
-use super::charge::{ChargeCrouching, ChargeStanding, ChargeWalking, ChargingSound};
-use super::crouch::Crouching;
 use super::dash::Dashing;
-use super::roll::Rolling;
-use super::slide::Sliding;
 
 #[derive(Action)]
 pub struct Jump;
+
+#[derive(Action)]
+pub struct CrouchJump;
+
+#[derive(Action)]
+pub struct ChargeJump;
+
+#[derive(Action)]
+pub struct ChargeCrouchJump;
+
+#[derive(EntityEvent)]
+pub struct DoJump {
+    pub entity: Entity,
+    pub speed: f32,
+    pub stamina_cost: f32,
+}
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerJumpSettings {
@@ -69,138 +80,199 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn jump(
-    jump: On<JustPressed<Jump>>,
-    mut player_bodies: Query<
-        (
-            &mut Velocity,
-            &Transform,
-            &mut Stamina,
-            Has<Crouching>,
-            Option<&ChargingTime>,
-            Has<ChargeCrouching>,
-            Has<ChargeWalking>,
-            Option<&ChargingSound>,
-        ),
-        Or<(
-            // TODO: replace these with event input
-            With<Standing>,
-            With<Walking>,
-            With<Sliding>,
-            With<ChargeStanding>,
-            With<ChargeWalking>,
-            With<ChargeCrouching>,
-            With<Rolling>,
-        )>,
-    >,
+fn jump(jump: On<JustPressed<Jump>>, mut commands: Commands, settings: Res<PlayerJumpSettings>) {
+    commands.trigger(DoJump {
+        entity: jump.input,
+        speed: settings.jump_speed,
+        stamina_cost: settings.jump_stamina_cost,
+    });
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn crouch_jump(
+    jump: On<JustPressed<CrouchJump>>,
+    mut commands: Commands,
+    settings: Res<PlayerJumpSettings>,
+) {
+    commands.trigger(DoJump {
+        entity: jump.input,
+        speed: settings.high_jump_speed,
+        stamina_cost: settings.high_jump_stamina_cost,
+    });
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn charge_jump(
+    jump: On<JustPressed<ChargeJump>>,
+    mut commands: Commands,
+    players: Query<(&Stamina, &ChargingTime)>,
     charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerJumpSettings>,
     assets: Res<JumpAssets>,
-    mut commands: Commands,
 ) -> Result {
-    let (
-        mut velocity,
-        transform,
-        mut stamina,
-        crouching,
-        charging,
-        charge_crouching,
-        charge_walking,
-        charging_sound,
-    ) = player_bodies.get_mut(jump.input)?;
-
-    let (min_stamina_cost, result) = if crouching {
-        (
-            settings.high_jump_stamina_cost,
-            if stamina.current > settings.high_jump_stamina_cost {
-                Some((settings.high_jump_speed, settings.high_jump_stamina_cost))
-            } else {
-                None
-            },
+    let (stamina, charging) = players.get(jump.input)?;
+    let (power, stamina_cost) = charging
+        .power_and_stamina_cost_from_stamina(
+            &charge_settings,
+            stamina.current,
+            settings.charge_jump_min_stamina_cost,
+            settings.charge_jump_max_stamina_cost,
         )
-    } else if let Some(charging) = charging {
-        let (min_stamina_cost, max_stamina_cost, min_speed, max_speed) = if charge_crouching {
-            (
-                settings.unreal_air_jump_min_stamina_cost,
-                settings.unreal_air_jump_max_stamina_cost,
-                settings.unreal_air_jump_min_speed,
-                settings.unreal_air_jump_max_speed,
-            )
-        } else {
-            (
-                settings.charge_jump_min_stamina_cost,
-                settings.charge_jump_max_stamina_cost,
-                settings.charge_jump_min_speed,
-                settings.charge_jump_max_speed,
-            )
-        };
-        (
-            min_stamina_cost,
-            charging
-                .power_and_stamina_cost_from_stamina(
-                    &charge_settings,
-                    stamina.current,
-                    min_stamina_cost,
-                    max_stamina_cost,
-                )
-                .map(|(power, stamina_cost)| {
-                    (power.map_from_01(min_speed..max_speed), stamina_cost)
-                }),
-        )
-    } else {
-        (
-            settings.jump_stamina_cost,
-            if stamina.current > settings.jump_stamina_cost {
-                Some((settings.jump_speed, settings.jump_stamina_cost))
-            } else {
-                None
-            },
-        )
-    };
+        .ok_or(BevyError::from(
+            "Don't have enough stamina to charge jump, despite being in jump transition",
+        ))?;
+    commands.trigger(DoJump {
+        entity: jump.input,
+        speed: power.map_from_01(settings.charge_jump_min_speed..settings.charge_jump_max_speed),
+        stamina_cost,
+    });
 
-    if let Some((speed, stamina_cost)) = result {
-        debug!("Jumping!");
-
-        stamina.current -= stamina_cost;
-
-        if transform.up().dot(velocity.linvel) < 0.0 {
-            velocity.linvel = velocity.linvel.reject_from(transform.up().into());
-        }
-        velocity.linvel += transform.up() * speed;
-    } else {
-        debug!(
-            "Not enough stamina to jump! Have {}, need {}",
-            stamina.current, min_stamina_cost
-        );
-    }
-
-    commands
-        .entity(jump.input)
-        .remove::<Dashing>()
-        .remove::<ChargeStanding>()
-        .remove::<ChargeCrouching>()
-        .remove::<ChargeWalking>()
-        .remove::<ChargingSound>()
-        .insert(AffectedByGravity);
-
-    if let Some(charging_sound) = charging_sound {
-        commands.spawn((
-            AudioPlayer(assets.charge_jump_sound.clone()),
-            PlaybackSettings::DESPAWN,
-        ));
-
-        if let Ok(mut sound) = commands.get_entity(charging_sound.0) {
-            sound.despawn();
-        }
-
-        if charge_crouching {
-            commands.entity(jump.input).insert(Crouching);
-        } else if charge_walking {
-            commands.entity(jump.input).insert(Walking);
-        } else {
-            commands.entity(jump.input).insert(Standing);
-        }
-    }
+    commands.spawn((
+        AudioPlayer(assets.charge_jump_sound.clone()),
+        PlaybackSettings::DESPAWN,
+    ));
 
     Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn charge_crouch_jump(
+    jump: On<JustPressed<ChargeCrouchJump>>,
+    mut commands: Commands,
+    players: Query<(&Stamina, &ChargingTime)>,
+    charge_settings: Res<PlayerChargeSettings>,
+    settings: Res<PlayerJumpSettings>,
+    assets: Res<JumpAssets>,
+) -> Result {
+    let (stamina, charging) = players.get(jump.input)?;
+    let (power, stamina_cost) = charging
+        .power_and_stamina_cost_from_stamina(
+            &charge_settings,
+            stamina.current,
+            settings.unreal_air_jump_min_stamina_cost,
+            settings.unreal_air_jump_max_stamina_cost,
+        )
+        .ok_or(BevyError::from(
+            "Don't have enough stamina to unreal air, despite being in jump transition",
+        ))?;
+    commands.trigger(DoJump {
+        entity: jump.input,
+        speed: power
+            .map_from_01(settings.unreal_air_jump_min_speed..settings.unreal_air_jump_max_speed),
+        stamina_cost,
+    });
+
+    commands.spawn((
+        AudioPlayer(assets.charge_jump_sound.clone()),
+        PlaybackSettings::DESPAWN,
+    ));
+
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn do_jump(
+    jump: On<DoJump>,
+    mut player_bodies: Query<(&mut Velocity, &Transform, &mut Stamina)>,
+    mut commands: Commands,
+) -> Result {
+    let (mut velocity, transform, mut stamina) = player_bodies.get_mut(jump.entity)?;
+
+    stamina.current -= jump.stamina_cost;
+
+    if transform.up().dot(velocity.linvel) < 0.0 {
+        velocity.linvel = velocity.linvel.reject_from(transform.up().into());
+    }
+    velocity.linvel += transform.up() * jump.speed;
+
+    commands
+        .entity(jump.entity)
+        .remove::<Dashing>()
+        .insert(AffectedByGravity);
+
+    Ok(())
+}
+
+#[derive(Component)]
+pub struct HasEnoughStaminaToJump;
+
+impl Condition for HasEnoughStaminaToJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if stamina.current >= settings.jump_stamina_cost {
+                    commands.trigger(update.next());
+                }
+                Ok(())
+            },
+        )
+    }
+}
+
+#[derive(Component)]
+pub struct HasEnoughStaminaToCrouchJump;
+
+impl Condition for HasEnoughStaminaToCrouchJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if stamina.current >= settings.high_jump_stamina_cost {
+                    commands.trigger(update.next());
+                }
+                Ok(())
+            },
+        )
+    }
+}
+
+#[derive(Component)]
+pub struct HasEnoughStaminaToChargeJump;
+
+impl Condition for HasEnoughStaminaToChargeJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if stamina.current >= settings.charge_jump_min_stamina_cost {
+                    commands.trigger(update.next());
+                }
+                Ok(())
+            },
+        )
+    }
+}
+
+#[derive(Component)]
+pub struct HasEnoughStaminaToChargeCrouchJump;
+
+impl Condition for HasEnoughStaminaToChargeCrouchJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if stamina.current >= settings.unreal_air_jump_min_stamina_cost {
+                    commands.trigger(update.next());
+                }
+                Ok(())
+            },
+        )
+    }
 }

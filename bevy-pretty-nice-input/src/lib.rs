@@ -4,7 +4,7 @@ use bevy::ecs::query::QueryFilter;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-pub use bevy_pretty_nice_input_derive::Action;
+pub use bevy_pretty_nice_input_derive::{Action, input_transition};
 
 use crate::bundles::observe;
 
@@ -15,19 +15,19 @@ macro_rules! input {
     ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {(
         ::bevy::prelude::related!($crate::Actions<$action>[(
 			::bevy::prelude::related!($crate::Bindings[$((
-				Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
+				::bevy::prelude::Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				$crate::bundles::observe($crate::binding),
 				$crate::BindingParts::spawn($binding),
 			)),*]),
 
-			Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
+			::bevy::prelude::Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
 			$crate::PrevActionData::default(),
 			$crate::bundles::observe($crate::action::<$action>),
 			$crate::bundles::observe($crate::action_2::<$action>),
 			$crate::bundles::observe($crate::action_prev_set::<$action>),
 
 			::bevy::prelude::related!($crate::Conditions[$((
-				Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
+				::bevy::prelude::Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				{
 					use $crate::Condition;
 					let condition = $condition;
@@ -39,58 +39,6 @@ macro_rules! input {
 
     ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
         $crate::input!($action, [$($binding),*], [])
-    };
-}
-
-#[macro_export]
-macro_rules! input_transition {
-    ( $action:ty: ($($from:ty),+) [->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input!($action, [$($binding),*], [Filter::<Or<($(With<$from>,)+)>>::default()]),
-			$($crate::bundles::observe($crate::transition::<$action, $from, $to>)),+
-		)
-    };
-
-    ( $action:ty: (<- $from_back:ty, $($from:ty),+) [->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input_transition!($action: ($($from),+) [->] $to, [$($binding),*]),
-			$crate::input_transition!($action: $from_back [<-] $to, [$($binding),*]),
-		)
-    };
-
-    ( $action:ty: $from:ty [<-] ($($to:ty),+), [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input!($crate::Off<$action>, [$($binding),*], [Filter::<Or<($(With<$to>,)+)>>::default()]),
-			$($crate::bundles::observe($crate::transition::<$crate::Off<$action>, $to, $from>)),+
-		)
-    };
-
-    ( $action:ty: $from:ty [<-] ($($to:ty,)+ $to_back:ty), [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input_transition!($action: $from [->] $to, [$($binding),*]),
-			$crate::input_transition!($action: $from_back [<-] ($($to),+), [$($binding),*]),
-		)
-    };
-
-    ( $action:ty: $from:ty [->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input!($action, [$($binding),*], [Filter::<With<$from>>::default()]),
-			$crate::bundles::observe($crate::transition::<$action, $from, $to>),
-		)
-    };
-
-    ( $action:ty: $from:ty [<-] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input!($crate::Off<$action>, [$($binding),*], [Filter::<With<$to>>::default()]),
-			$crate::bundles::observe($crate::transition::<$crate::Off<$action>, $to, $from>),
-		)
-    };
-
-    ( $action:ty: $from:ty [<->] $to:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        (
-			$crate::input_transition!($action: $from [->] $to, [$($binding),*]),
-			$crate::input_transition!($action: $from [<-] $to, [$($binding),*]),
-		)
     };
 }
 
@@ -375,6 +323,14 @@ impl ActionData {
             ActionData::Axis3D(value) => *value == Vec3::ZERO,
         }
     }
+
+    pub fn zeroed(&self) -> Self {
+        match self {
+            ActionData::Axis1D(_) => ActionData::Axis1D(0.0),
+            ActionData::Axis2D(_) => ActionData::Axis2D(Vec2::ZERO),
+            ActionData::Axis3D(_) => ActionData::Axis3D(Vec3::ZERO),
+        }
+    }
 }
 
 #[derive(Component, Default, Debug)]
@@ -431,16 +387,10 @@ pub trait Condition {
 }
 
 fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) {
-    commands.trigger(ConditionedBindingUpdate {
-        target: update.entities[update.index + 1],
-        input: update.input,
-        action: update.action,
-        data: update.data,
-        entities: update.entities.clone(),
-        index: update.index + 1,
-    });
+    commands.trigger(update.next());
 }
 
+/// Only lets one valid input pass every duration
 #[derive(Component)]
 pub struct Cooldown {
     pub duration: f32,
@@ -458,11 +408,14 @@ impl Condition for Cooldown {
     }
 }
 
+/// Only lets the input pass if the query filter matches
 #[derive(Component)]
 pub struct Filter<F: QueryFilter> {
     pub prev_passed: bool,
     _marker: PhantomData<F>,
 }
+
+pub type FilterBuffered<F> = Filter<With<ComponentBuffer<F>>>;
 
 impl<F: QueryFilter> Default for Filter<F> {
     fn default() -> Self {
@@ -481,14 +434,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                  inputs: Query<(), F>,
                  mut commands: Commands| {
                     if inputs.get(update.input).is_ok() {
-                        commands.trigger(ConditionedBindingUpdate {
-                            target: update.entities[update.index + 1],
-                            input: update.input,
-                            action: update.action,
-                            data: update.data,
-                            entities: update.entities.clone(),
-                            index: update.index + 1,
-                        });
+                        commands.trigger(update.next());
                     }
                 },
             ),
@@ -497,6 +443,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
     }
 }
 
+/// Rising edge filter
 #[derive(Component)]
 pub struct ButtonPress {
     pub threshold: f32,
@@ -520,6 +467,7 @@ impl Condition for ButtonPress {
     }
 }
 
+/// Falling edge filter
 #[derive(Component)]
 pub struct ButtonRelease {
     pub threshold: f32,
@@ -543,6 +491,32 @@ impl Condition for ButtonRelease {
     }
 }
 
+/// Inverts the update, using the last good update when the current one fails.
+#[derive(Component, Default)]
+pub struct Invert;
+
+impl Condition for Invert {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             mut prev_good: Local<Option<ActionData>>| {
+                if update.data.is_zero() {
+                    if let Some(prev) = *prev_good {
+                        commands.trigger(update.next().with_data(prev));
+                    } else {
+                        // No idea what to do if there's no previous good input. Perhaps a Binding::inverted_default()?
+                    }
+                } else {
+                    *prev_good = Some(update.data);
+                    commands.trigger(update.next().with_data(update.data.zeroed()));
+                }
+            },
+        )
+    }
+}
+
+/// Continues sending valid updates for a duration after the input stops being valid
 #[derive(Component)]
 pub struct InputBuffer {
     pub duration: f32,
@@ -564,6 +538,7 @@ impl Condition for InputBuffer {
     }
 }
 
+/// Stops any previous input buffers
 #[derive(Component)]
 pub struct ResetBuffer;
 
@@ -607,10 +582,35 @@ pub struct ConditionedBindingUpdate {
     pub index: usize,
 }
 
+impl ConditionedBindingUpdate {
+    /// Guarunteed when used in conditions, not in the final action event
+    pub fn next(&self) -> Self {
+        Self {
+            target: self.entities[self.index + 1],
+            input: self.input,
+            action: self.action,
+            data: self.data,
+            entities: self.entities.clone(),
+            index: self.index + 1,
+        }
+    }
+
+    pub fn with_data(&self, data: ActionData) -> Self {
+        Self {
+            target: self.target,
+            input: self.input,
+            action: self.action,
+            data,
+            entities: self.entities.clone(),
+            index: self.index,
+        }
+    }
+}
+
 #[derive(EntityEvent, Debug)]
 pub struct BindingPartUpdate {
     #[event_target]
-    pub action: Entity,
+    pub binding: Entity,
     pub value: f32,
 }
 
@@ -625,7 +625,7 @@ fn binding_part_key(
             if key.0 == message.key_code && !message.repeat && data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
-                    action: binding_part_of.0,
+                    binding: binding_part_of.0,
                     value,
                 });
             }
@@ -660,7 +660,7 @@ fn binding_part_key_axis(
             if data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
-                    action: binding_part_of.0,
+                    binding: binding_part_of.0,
                     value,
                 });
             }
@@ -686,7 +686,7 @@ fn binding_part_mouse_move(
             if data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
-                    action: binding_part_of.0,
+                    binding: binding_part_of.0,
                     value,
                 });
             }
@@ -700,7 +700,7 @@ pub fn binding(
     binding_parts: Query<&BindingPartData>,
     mut commands: Commands,
 ) -> Result {
-    let (binding_of, binding_parts_rel) = bindings.get(update.action)?;
+    let (binding_of, binding_parts_rel) = bindings.get(update.binding)?;
 
     let data = if binding_parts_rel.0.len() == 1 {
         ActionData::Axis1D(binding_parts.get(binding_parts_rel.0[0])?.0)
@@ -722,6 +722,8 @@ pub fn binding(
         )));
     };
 
+    info!("Binding update received {:?}, {:?}", update.value, data);
+
     commands.trigger(BindingUpdate {
         action: binding_of.0,
         data,
@@ -735,6 +737,12 @@ pub fn action<A: Action>(
     actions: Query<(&ActionOf<A>, &Conditions)>,
     mut commands: Commands,
 ) -> Result {
+    info!(
+        "Action update received {} {:?}",
+        ShortName::of::<A>(),
+        binding_update.data
+    );
+
     let (action_of, conditions) = actions.get(binding_update.action)?;
     let input = action_of.0;
 
@@ -758,6 +766,12 @@ pub fn action_2<A: Action>(
     mut commands: Commands,
     mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
+    info!(
+        "Action 2 update received {} {:?}",
+        ShortName::of::<A>(),
+        binding_update.data
+    );
+
     let action_of = actions.get(binding_update.action)?;
     let input = action_of.0;
 
