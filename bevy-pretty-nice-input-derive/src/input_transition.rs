@@ -275,11 +275,18 @@ fn build_transition(
 ) -> syn::Result<TransitionOutput> {
     let filters = from.iter().chain(to).cloned().collect::<Vec<_>>();
     conditions.insert(0, build_filter(&filters));
-    let observers = if let Some(to) = to {
-        build_observers(action, from, to, direction)?
-    } else {
-        Vec::new()
-    };
+    let observers =
+        if let Some(to) = to {
+            build_observers(action, from, to, direction)?
+        } else {
+            #[cfg(feature = "debug_graph")]
+        let empty = from.iter().map(|f| parse_quote! {
+            ::bevy_pretty_nice_input::debug_graph::add_graph_edge::<#f, #action, #action>()
+        }).collect::<Vec<_>>();
+            #[cfg(not(feature = "debug_graph"))]
+            let empty = vec![];
+            empty
+        };
     Ok(TransitionOutput {
         action: action.clone(),
         conditions,
