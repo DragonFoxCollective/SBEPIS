@@ -7,7 +7,7 @@ use bevy::input::mouse::{MouseButtonInput, MouseMotion, MouseWheel};
 use bevy::prelude::*;
 pub use bevy_pretty_nice_input_derive::{Action, input_transition};
 
-use crate::bundles::{add_system, observe};
+use crate::bundles::{add_systems, observe};
 
 pub mod bundles;
 
@@ -457,7 +457,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                     }
                 },
             ),
-            add_system(Update, action_prev_filter::<A, F>),
+            add_systems(Update, action_prev_filter::<A, F>),
         )
     }
 }

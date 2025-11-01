@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use bevy::ecs::bundle::DynamicBundle;
 use bevy::ecs::component::{ComponentId, Components, ComponentsRegistrator, StorageType};
 use bevy::ecs::schedule::ScheduleLabel;
-use bevy::ecs::system::IntoObserverSystem;
+use bevy::ecs::system::{IntoObserverSystem, ScheduleSystem};
 use bevy::prelude::*;
 use bevy::ptr::{MovingPtr, OwningPtr};
 
@@ -72,9 +72,9 @@ pub fn observe<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
 }
 
 /// Helper struct that adds an [`Update`] system when inserted as a [`Bundle`].
-pub struct AddSystem<M, I: IntoSystem<(), (), M>, S: ScheduleLabel> {
+pub struct AddSystems<M, I: IntoScheduleConfigs<ScheduleSystem, M>, S: ScheduleLabel> {
     schedule: S,
-    system: I,
+    systems: I,
     marker: PhantomData<M>,
 }
 
@@ -83,7 +83,7 @@ unsafe impl<
     M: Send + Sync + 'static,
     I: IntoSystem<(), (), M> + Send + Sync + 'static,
     S: ScheduleLabel,
-> Bundle for AddSystem<M, I, S>
+> Bundle for AddSystems<M, I, S>
 {
     #[inline]
     fn component_ids(_components: &mut ComponentsRegistrator, _ids: &mut impl FnMut(ComponentId)) {
@@ -97,7 +97,7 @@ unsafe impl<
 }
 
 impl<M: Send + Sync + 'static, I: IntoSystem<(), (), M>, S: ScheduleLabel> DynamicBundle
-    for AddSystem<M, I, S>
+    for AddSystems<M, I, S>
 {
     type Effect = Self;
 
@@ -119,20 +119,20 @@ impl<M: Send + Sync + 'static, I: IntoSystem<(), (), M>, S: ScheduleLabel> Dynam
         let add_system = add_system.read();
         entity.world_scope(|world| {
             world.schedule_scope(add_system.schedule, |_world, schedule| {
-                schedule.add_systems(IntoSystem::into_system(add_system.system));
+                schedule.add_systems(add_system.systems);
             })
         });
     }
 }
 
 /// Adds an observer as a bundle effect.
-pub fn add_system<M, I: IntoSystem<(), (), M>, S: ScheduleLabel>(
+pub fn add_systems<M, I: IntoScheduleConfigs<ScheduleSystem, M>, S: ScheduleLabel>(
     schedule: S,
-    system: I,
-) -> AddSystem<M, I, S> {
-    AddSystem {
+    systems: I,
+) -> AddSystems<M, I, S> {
+    AddSystems {
         schedule,
-        system,
+        systems,
         marker: PhantomData,
     }
 }
