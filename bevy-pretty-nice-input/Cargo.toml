@@ -3,6 +3,10 @@ name = "bevy-pretty-nice-input"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+debug_graph = ["bevy-pretty-nice-input-derive/debug_graph"]
+default = []
+
 [dependencies]
 bevy = { version = "0.17", default-features = false }
 bevy-pretty-nice-input-derive = { path = "../bevy-pretty-nice-input-derive" }

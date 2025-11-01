@@ -43,10 +43,11 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
 
     #[inline]
     unsafe fn get_components(
-        _ptr: MovingPtr<'_, Self>,
+        ptr: MovingPtr<'_, Self>,
         _func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) {
-        // SAFETY: Empty function body
+        // Forget the pointer so that the value is available in `apply_effect`.
+        std::mem::forget(ptr);
     }
 
     #[inline]
@@ -54,7 +55,6 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
         ptr: MovingPtr<'_, core::mem::MaybeUninit<Self>>,
         entity: &mut EntityWorldMut,
     ) {
-        // SAFETY: `get_components` does nothing, value was not moved.
         let add_observer = unsafe { ptr.assume_init() };
         let add_observer = add_observer.read();
         entity.observe(add_observer.observer);
@@ -103,10 +103,11 @@ impl<M: Send + Sync + 'static, I: IntoSystem<(), (), M>, S: ScheduleLabel> Dynam
 
     #[inline]
     unsafe fn get_components(
-        _ptr: MovingPtr<'_, Self>,
+        ptr: MovingPtr<'_, Self>,
         _func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) {
-        // SAFETY: Empty function body
+        // Forget the pointer so that the value is available in `apply_effect`.
+        std::mem::forget(ptr);
     }
 
     #[inline]
@@ -114,7 +115,6 @@ impl<M: Send + Sync + 'static, I: IntoSystem<(), (), M>, S: ScheduleLabel> Dynam
         ptr: MovingPtr<'_, core::mem::MaybeUninit<Self>>,
         entity: &mut EntityWorldMut,
     ) {
-        // SAFETY: `get_components` does nothing, value was not moved.
         let add_system = unsafe { ptr.assume_init() };
         let add_system = add_system.read();
         entity.world_scope(|world| {

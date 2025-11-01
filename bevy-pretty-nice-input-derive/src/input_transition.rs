@@ -227,14 +227,29 @@ fn build_observers(
         }
     };
 
-    Ok(from
+    #[cfg(not(feature = "debug_graph"))]
+    return Ok(from
         .iter()
         .map(|f| {
             parse_quote! {
                 ::bevy_pretty_nice_input::bundles::observe(#transition::<#action, #f, #to>)
             }
         })
-        .collect())
+        .collect());
+    #[cfg(feature = "debug_graph")]
+    return Ok(from
+        .iter()
+        .flat_map(|f| {
+            [
+                parse_quote! {
+                    ::bevy_pretty_nice_input::bundles::observe(#transition::<#action, #f, #to>)
+                },
+                parse_quote! {
+                    ::bevy_pretty_nice_input::debug_graph::add_graph_edge::<#f, #to, #action>()
+                },
+            ]
+        })
+        .collect());
 }
 
 #[derive(Clone)]

@@ -10,6 +10,8 @@ pub use bevy_pretty_nice_input_derive::{Action, input_transition};
 use crate::bundles::{add_systems, observe};
 
 pub mod bundles;
+#[cfg(feature = "debug_graph")]
+pub mod debug_graph;
 
 #[macro_export]
 macro_rules! input {
@@ -584,6 +586,8 @@ impl Plugin for PrettyNiceInputPlugin {
                 binding_part_mouse_scroll_axis,
             ),
         );
+        #[cfg(feature = "debug_graph")]
+        app.init_resource::<debug_graph::DebugGraph>();
     }
 }
 

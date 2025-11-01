@@ -76,7 +76,6 @@ impl Plugin for PlayerControllerPlugin {
 }
 
 // TODO: figure out how to UNIT TEST this stuff
-
 #[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
     mut commands: Commands,
@@ -293,6 +292,22 @@ fn setup(
     ));
 
     Ok(())
+}
+
+#[cfg(feature = "debug_movement_graph")]
+#[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame), after = setup)]
+fn debug_graph(graph: Res<bevy_pretty_nice_input::debug_graph::DebugGraph>) {
+    use itertools::Itertools;
+    let output = format!(
+        "{}\n{}",
+        graph.nodes.iter().join("\n"),
+        graph
+            .edges
+            .iter()
+            .map(|e| format!("{} {} {}", e.0, e.1, e.2))
+            .join("\n")
+    );
+    println!("{output}");
 }
 
 #[derive(Component)]

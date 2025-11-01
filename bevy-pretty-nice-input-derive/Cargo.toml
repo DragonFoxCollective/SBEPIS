@@ -6,6 +6,10 @@ edition = "2024"
 [lib]
 proc-macro = true
 
+[features]
+debug_graph = []
+default = []
+
 [dependencies]
 proc-macro2 = "1.0.103"
 quote = "1.0.41"
