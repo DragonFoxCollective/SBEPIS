@@ -31,7 +31,9 @@ use crate::player_controller::movement::jump::{
 use crate::player_controller::movement::roll::{
     CrouchRoll, NeutralCrouchRoll, NeutralRolling, RollNeutral, Rolling, SprintRoll,
 };
-use crate::player_controller::movement::slide::{NeutralSliding, Slide, SlideNeutral, Sliding};
+use crate::player_controller::movement::slide::{
+    NeutralSliding, Slide, SlideNeutral, SlideStand, Sliding,
+};
 use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
 use crate::player_controller::movement::sprint::{
     Sprint, SprintStanding, SprintWalk, Sprinting, UnSprintWalk,
@@ -118,6 +120,7 @@ fn setup(
         (
             input_transition!(Slide: Walking <=> Sliding, [binding1d::left_ctrl()]),
             input_transition!(SlideNeutral: NeutralSliding <=> Sliding, [binding2d::wasd()]),
+            input_transition!(SlideStand: Standing <= NeutralSliding, [binding1d::left_ctrl()]),
             input_transition!(CrouchRoll: (Sliding <=, Sneaking) => Rolling, [binding1d::left_shift()]),
             input_transition!(RollNeutral: NeutralRolling <=> Rolling, [binding2d::wasd()]),
             input_transition!(NeutralCrouchRoll: (NeutralSliding <=, Crouching) => NeutralRolling, [binding1d::left_shift()]),

@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::Velocity;
-use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
@@ -18,6 +17,9 @@ pub struct Slide;
 
 #[derive(Action)]
 pub struct SlideNeutral;
+
+#[derive(Action)]
+pub struct SlideStand;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerSlideSettings {
@@ -62,7 +64,7 @@ pub struct Sliding {
 #[derive(Component, Default)]
 pub struct NeutralSliding;
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct SlidingSound {
     entity: Entity,
 }
@@ -106,14 +108,15 @@ fn update_sliding_sound(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn remove_sliding_sound(
-    remove: On<Remove, (Sliding, NeutralSliding)>,
-    slidings: Query<&SlidingSound, (Without<Sliding>, Without<NeutralSliding>)>,
+    slidings: Query<(Entity, &SlidingSound), (Without<Sliding>, Without<NeutralSliding>)>,
     mut commands: Commands,
 ) {
-    let sound = ok_or_return!(slidings.get(remove.entity));
-    commands.entity(sound.entity).despawn();
+    for (entity, sound) in slidings {
+        commands.entity(sound.entity).despawn();
+        commands.entity(entity).remove::<SlidingSound>();
+    }
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
