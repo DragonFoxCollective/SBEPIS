@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
-    Action, ButtonPress, ComponentBuffer, Cooldown, Filter, FilterBuffered, InputBuffer,
-    ResetBuffer, binding1d, binding2d, input, input_transition,
+    Action, ButtonPress, Cooldown, FilterBuffered, InputBuffer, ResetBuffer, binding1d, binding2d,
+    input, input_transition,
 };
 use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
@@ -88,7 +88,7 @@ fn setup(
         input_transition!(Jump: (Standing, Walking) => *, [binding1d::space()], [
             ButtonPress::default(),
             InputBuffer::new(0.2),
-            Filter::<With<ComponentBuffer<Grounded>>>::default(),
+            FilterBuffered::<Grounded>::default(),
             HasEnoughStaminaToJump,
             Cooldown::new(0.5),
         ]),
@@ -106,7 +106,7 @@ fn setup(
             input_transition!(CrouchJump: (Crouching, Sneaking, Sliding, Rolling) => *, [binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
-                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToCrouchJump,
                 Cooldown::new(0.5),
             ]),
@@ -121,7 +121,7 @@ fn setup(
             input_transition!(ChargeJump: ChargeStanding => Standing, [binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
-                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToChargeJump,
                 Cooldown::new(0.5),
             ]),
@@ -129,7 +129,7 @@ fn setup(
             input_transition!(ChargeCrouchJump: ChargeCrouching => Crouching, [binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
-                Filter::<With<ComponentBuffer<Grounded>>>::default(),
+                FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToChargeCrouchJump,
                 Cooldown::new(0.5),
             ]),
