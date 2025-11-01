@@ -95,6 +95,24 @@ impl<A: Action> Clone for JustReleased<A> {
     }
 }
 
+#[derive(EntityEvent)]
+pub struct Updated<A: Action> {
+    #[event_target]
+    pub input: Entity,
+    pub data: ActionData,
+    pub _marker: PhantomData<A>,
+}
+
+impl<A: Action> Clone for Updated<A> {
+    fn clone(&self) -> Self {
+        Self {
+            input: self.input,
+            data: self.data,
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum AxisDirection {
     X,
@@ -959,6 +977,11 @@ pub fn action_2<A: Action>(
             _marker: PhantomData,
         });
     }
+    commands.trigger(Updated::<A> {
+        input,
+        data: binding_update.data,
+        _marker: PhantomData,
+    });
     if data_is_zero && !prev_is_zero {
         commands.trigger(JustReleased::<A> {
             input,

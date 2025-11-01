@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{JustReleased, Pressed};
 
 use crate::camera::PlayerCamera;
-use crate::player_controller::movement::sprint::SprintWalk;
-use crate::player_controller::movement::walk::Walk;
 use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
 #[derive(Component, Default, Debug)]
@@ -16,33 +13,10 @@ pub struct DirectionalInput {
 }
 
 #[derive(EntityEvent)]
-struct DIUpdate {
+pub struct DIUpdate {
     pub entity: Entity,
     pub value: Vec2,
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn update_di_walk(walk: On<Pressed<Walk>>, mut commands: Commands) -> Result {
-    commands.trigger(DIUpdate {
-        entity: walk.input,
-        value: walk
-            .data
-            .as_2d()
-            .ok_or::<BevyError>("Walk didn't have 2D data".into())?,
-    });
-    Ok(())
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn update_di_sprintwalk(walk: On<Pressed<SprintWalk>>, mut commands: Commands) -> Result {
-    commands.trigger(DIUpdate {
-        entity: walk.input,
-        value: walk
-            .data
-            .as_2d()
-            .ok_or::<BevyError>("SprintWalk didn't have 2D data".into())?,
-    });
-    Ok(())
+    pub speed: f32,
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
@@ -53,21 +27,9 @@ fn update_di(
 ) -> Result {
     let (mut di, body) = players.get_mut(walk.entity)?;
     let transform = player_cameras.get(body.camera)?;
-    di.input = walk.value.clamp_length_max(1.0) * Vec2::new(1.0, -1.0);
+    di.input = walk.value.clamp_length_max(1.0) * Vec2::new(1.0, -1.0) * walk.speed;
     di.local_space = Vec3::new(di.input.x, 0.0, di.input.y);
     di.world_space = transform.rotation() * di.local_space;
-    Ok(())
-}
-
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn update_di_stop(
-    walk: On<JustReleased<Walk>>,
-    mut players: Query<&mut DirectionalInput>,
-) -> Result {
-    let mut di = players.get_mut(walk.input)?;
-    di.input = Vec2::ZERO;
-    di.local_space = Vec3::ZERO;
-    di.world_space = Vec3::ZERO;
     Ok(())
 }
 
