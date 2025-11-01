@@ -9,6 +9,7 @@ use return_ok::ok_or_return;
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::sprint::SprintStanding;
 use crate::player_controller::movement::trip::TripRecover;
 use crate::prelude::*;
 
@@ -100,7 +101,7 @@ fn check_states(
         (
             Has<Standing>,
             Has<Walking>,
-            Has<Sprinting>,
+            (Has<SprintStanding>, Has<Sprinting>),
             Has<Crouching>,
             Has<Sneaking>,
             Has<Dashing>,
@@ -127,14 +128,15 @@ fn check_states(
     let mut debug_state = ok_or_return!(debug_states.single_mut());
     for tup in players.iter() {
         let arr = [
-            tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
-            tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12,
+            tup.0, tup.1, tup.2.0, tup.2.1, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2,
+            tup.7.0, tup.7.1, tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12,
         ];
         let has = arr
             .into_iter()
             .zip([
                 ShortName::of::<Standing>(),
                 ShortName::of::<Walking>(),
+                ShortName::of::<SprintStanding>(),
                 ShortName::of::<Sprinting>(),
                 ShortName::of::<Crouching>(),
                 ShortName::of::<Sneaking>(),

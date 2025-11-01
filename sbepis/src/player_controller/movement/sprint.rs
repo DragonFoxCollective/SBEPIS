@@ -4,5 +4,11 @@ use bevy_pretty_nice_input::Action;
 #[derive(Action)]
 pub struct Sprint;
 
+#[derive(Action)]
+pub struct SprintWalk;
+
+#[derive(Component, Default)]
+pub struct SprintStanding;
+
 #[derive(Component, Default)]
 pub struct Sprinting;
