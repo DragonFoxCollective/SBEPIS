@@ -9,7 +9,7 @@ use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::di::DIUpdate;
 
-use super::di::DirectionalInput;
+use super::di::WalkDI;
 use super::grounded::Grounded;
 
 #[derive(Action)]
@@ -63,13 +63,7 @@ fn update_di_walk(
 	before = ExecuteMovementSet,
 )]
 fn update_walk_velocity(
-    mut movement: Query<(
-        &mut Movement,
-        &Velocity,
-        &Transform,
-        &DirectionalInput,
-        Has<Grounded>,
-    )>,
+    mut movement: Query<(&mut Movement, &Velocity, &Transform, &WalkDI, Has<Grounded>)>,
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,
 ) {

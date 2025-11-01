@@ -15,7 +15,7 @@ use crate::player_controller::stamina::Stamina;
 use crate::util::MapRangeBetween;
 
 use super::charge::ChargeWalking;
-use super::di::DirectionalInput;
+use super::di::WalkDI;
 use super::sprint::Sprinting;
 use super::walk::{PlayerWalkSettings, Walking};
 
@@ -72,7 +72,7 @@ fn walking_to_dashing(
     mut players: Query<
         (
             &Velocity,
-            &DirectionalInput,
+            &WalkDI,
             &mut Stamina,
             Option<&ChargingTime>,
         ),

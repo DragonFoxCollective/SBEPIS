@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 
 use bevy::ecs::bundle::DynamicBundle;
 use bevy::ecs::component::{ComponentId, Components, ComponentsRegistrator, StorageType};
+use bevy::ecs::schedule::ScheduleLabel;
 use bevy::ecs::system::IntoObserverSystem;
 use bevy::prelude::*;
 use bevy::ptr::{MovingPtr, OwningPtr};
@@ -66,6 +67,72 @@ pub fn observe<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
 ) -> AddObserver<E, B, M, I> {
     AddObserver {
         observer,
+        marker: PhantomData,
+    }
+}
+
+/// Helper struct that adds an [`Update`] system when inserted as a [`Bundle`].
+pub struct AddSystem<M, I: IntoSystem<(), (), M>, S: ScheduleLabel> {
+    schedule: S,
+    system: I,
+    marker: PhantomData<M>,
+}
+
+// SAFETY: Empty method bodies.
+unsafe impl<
+    M: Send + Sync + 'static,
+    I: IntoSystem<(), (), M> + Send + Sync + 'static,
+    S: ScheduleLabel,
+> Bundle for AddSystem<M, I, S>
+{
+    #[inline]
+    fn component_ids(_components: &mut ComponentsRegistrator, _ids: &mut impl FnMut(ComponentId)) {
+        // SAFETY: Empty function body
+    }
+
+    #[inline]
+    fn get_component_ids(_components: &Components, _ids: &mut impl FnMut(Option<ComponentId>)) {
+        // SAFETY: Empty function body
+    }
+}
+
+impl<M: Send + Sync + 'static, I: IntoSystem<(), (), M>, S: ScheduleLabel> DynamicBundle
+    for AddSystem<M, I, S>
+{
+    type Effect = Self;
+
+    #[inline]
+    unsafe fn get_components(
+        _ptr: MovingPtr<'_, Self>,
+        _func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) {
+        // SAFETY: Empty function body
+    }
+
+    #[inline]
+    unsafe fn apply_effect(
+        ptr: MovingPtr<'_, core::mem::MaybeUninit<Self>>,
+        entity: &mut EntityWorldMut,
+    ) {
+        // SAFETY: `get_components` does nothing, value was not moved.
+        let add_system = unsafe { ptr.assume_init() };
+        let add_system = add_system.read();
+        entity.world_scope(|world| {
+            world.schedule_scope(add_system.schedule, |_world, schedule| {
+                schedule.add_systems(IntoSystem::into_system(add_system.system));
+            })
+        });
+    }
+}
+
+/// Adds an observer as a bundle effect.
+pub fn add_system<M, I: IntoSystem<(), (), M>, S: ScheduleLabel>(
+    schedule: S,
+    system: I,
+) -> AddSystem<M, I, S> {
+    AddSystem {
+        schedule,
+        system,
         marker: PhantomData,
     }
 }

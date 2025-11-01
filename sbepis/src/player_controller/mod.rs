@@ -10,7 +10,7 @@ use bevy_pretty_nice_input::{
 use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
 use movement::MovementControlSystems;
-use movement::di::DirectionalInput;
+use movement::di::WalkDI;
 use movement::stand::Standing;
 use stamina::Stamina;
 
@@ -28,8 +28,10 @@ use crate::player_controller::movement::jump::{
     ChargeCrouchJump, ChargeJump, CrouchJump, HasEnoughStaminaToChargeCrouchJump,
     HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump, Jump,
 };
-use crate::player_controller::movement::roll::{CrouchRoll, Rolling, SprintRoll};
-use crate::player_controller::movement::slide::{Slide, Sliding};
+use crate::player_controller::movement::roll::{
+    CrouchRoll, NeutralCrouchRoll, NeutralRolling, RollNeutral, Rolling, SprintRoll,
+};
+use crate::player_controller::movement::slide::{NeutralSliding, Slide, SlideNeutral, Sliding};
 use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
 use crate::player_controller::movement::sprint::{
     Sprint, SprintStanding, SprintWalk, Sprinting, UnSprintWalk,
@@ -112,8 +114,13 @@ fn setup(
             ]),
             input_transition!(CrouchSneak: Crouching <=> Sneaking, [binding2d::wasd()]),
             input_transition!(WalkSneak: Walking <= Sneaking, [binding1d::left_ctrl()]),
+        ),
+        (
             input_transition!(Slide: Walking <=> Sliding, [binding1d::left_ctrl()]),
-            input_transition!(CrouchRoll: (Sliding <=, Sneaking, Crouching) => Rolling, [binding1d::left_shift()]),
+            input_transition!(SlideNeutral: NeutralSliding <=> Sliding, [binding2d::wasd()]),
+            input_transition!(CrouchRoll: (Sliding <=, Sneaking) => Rolling, [binding1d::left_shift()]),
+            input_transition!(RollNeutral: NeutralRolling <=> Rolling, [binding2d::wasd()]),
+            input_transition!(NeutralCrouchRoll: (NeutralSliding <=, Crouching) => NeutralRolling, [binding1d::left_shift()]),
             input_transition!(SprintRoll: (Sprinting <=, Dashing) => Rolling, [binding1d::left_ctrl()]),
         ),
         (
@@ -210,7 +217,7 @@ fn setup(
             Transform::from_translation(Vec3::new(5.0, 10.0, 0.0)),
             Mob,
             Inventory::default(),
-            DirectionalInput::default(),
+            WalkDI::default(),
             Stamina {
                 current: 1.0,
                 max: 1.0,

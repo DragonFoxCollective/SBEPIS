@@ -7,7 +7,7 @@ use bevy::input::mouse::{MouseButtonInput, MouseMotion, MouseWheel};
 use bevy::prelude::*;
 pub use bevy_pretty_nice_input_derive::{Action, input_transition};
 
-use crate::bundles::observe;
+use crate::bundles::{add_system, observe};
 
 pub mod bundles;
 
@@ -457,7 +457,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                     }
                 },
             ),
-            observe(filter_add_systems::<A, F>),
+            add_system(Update, action_prev_filter::<A, F>),
         )
     }
 }
@@ -906,7 +906,7 @@ pub fn binding(
         )));
     };
 
-    info!("Binding update received {:?}, {:?}", update.value, data);
+    // info!("Binding update received {:?}, {:?}", update.value, data);
 
     commands.trigger(BindingUpdate {
         action: binding_of.0,
@@ -921,11 +921,11 @@ pub fn action<A: Action>(
     actions: Query<(&ActionOf<A>, &Conditions)>,
     mut commands: Commands,
 ) -> Result {
-    info!(
-        "Action update received {} {:?}",
-        ShortName::of::<A>(),
-        binding_update.data
-    );
+    // info!(
+    //     "Action update received {} {:?}",
+    //     ShortName::of::<A>(),
+    //     binding_update.data
+    // );
 
     let (action_of, conditions) = actions.get(binding_update.action)?;
     let input = action_of.0;
@@ -950,11 +950,13 @@ pub fn action_2<A: Action>(
     mut commands: Commands,
     mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
-    info!(
-        "Action 2 update received {} {:?}",
-        ShortName::of::<A>(),
-        binding_update.data
-    );
+    if binding_update.data.as_1d().is_some() {
+        info!(
+            "Action 2 update received {} {:?}",
+            ShortName::of::<A>(),
+            binding_update.data
+        );
+    }
 
     let action_of = actions.get(binding_update.action)?;
     let input = action_of.0;
@@ -999,22 +1001,6 @@ pub fn action_prev_set<A: Action>(
 ) -> Result {
     actions.get_mut(binding_update.action)?.0 = Some(binding_update.data);
     Ok(())
-}
-
-pub fn filter_add_systems<A: Action, F: QueryFilter + Send + Sync + 'static>(
-    _add: On<ConditionedBindingUpdate>,
-    mut commands: Commands,
-    mut done: Local<bool>,
-) {
-    if *done {
-        return;
-    }
-    commands.queue(|world: &mut World| {
-        world.schedule_scope(Update, |_world, schedule| {
-            schedule.add_systems(action_prev_filter::<A, F>);
-        });
-    });
-    *done = true;
 }
 
 fn action_prev_filter<A: Action, F: QueryFilter + Send + Sync + 'static>(

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::Action;
+use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
@@ -13,6 +13,12 @@ pub struct CrouchRoll;
 
 #[derive(Action)]
 pub struct SprintRoll;
+
+#[derive(Action)]
+pub struct NeutralCrouchRoll;
+
+#[derive(Action)]
+pub struct RollNeutral;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin)]
@@ -57,6 +63,18 @@ fn to_rolling_assets(
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
+fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> Result {
+    let mut rolling = players.get_mut(di.input)?;
+    rolling.di = di
+        .data
+        .as_2d()
+        .ok_or::<BevyError>("RollNeutral didn't have 2D data".into())?
+        .clamp_length_max(1.0)
+        * Vec2::new(1.0, -1.0);
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
     commands
         .entity(add.entity)
@@ -78,4 +96,9 @@ fn readd_movement(
 }
 
 #[derive(Component, Default)]
-pub struct Rolling;
+pub struct Rolling {
+    di: Vec2,
+}
+
+#[derive(Component, Default)]
+pub struct NeutralRolling;

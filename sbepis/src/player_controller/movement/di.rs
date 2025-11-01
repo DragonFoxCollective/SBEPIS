@@ -5,7 +5,7 @@ use crate::camera::PlayerCamera;
 use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
 #[derive(Component, Default, Debug)]
-pub struct DirectionalInput {
+pub struct WalkDI {
     pub input: Vec2,
     pub local_space: Vec3,
     pub world_space: Vec3,
@@ -22,7 +22,7 @@ pub struct DIUpdate {
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn update_di(
     walk: On<DIUpdate>,
-    mut players: Query<(&mut DirectionalInput, &PlayerBody)>,
+    mut players: Query<(&mut WalkDI, &PlayerBody)>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
 ) -> Result {
     let (mut di, body) = players.get_mut(walk.entity)?;
@@ -35,7 +35,7 @@ fn update_di(
 
 #[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_di_forward(
-    mut players: Query<(&mut DirectionalInput, &PlayerBody)>,
+    mut players: Query<(&mut WalkDI, &PlayerBody)>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
 ) -> Result {
     for (mut di, body) in players.iter_mut() {

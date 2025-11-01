@@ -3,11 +3,8 @@ use std::f32::consts::PI;
 use bevy::asset::RenderAssetUsages;
 use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
-use bevy::render::render_resource::AsBindGroup;
-use bevy::scene::SceneInstanceReady;
-use bevy::shader::ShaderRef;
+use bevy::scene::SceneInstance;
 use bevy_butler::*;
-use bevy_hanabi::prelude::{Gradient, *};
 use fake::Fake;
 use fake::faker::name::en::FirstName;
 use meshtext::{Face, MeshGenerator, MeshText, TextSection};
@@ -18,8 +15,8 @@ use crate::entity::Kill;
 use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
 
-#[add_plugin(to_plugin = NpcPlugin, generics = <CandyMaterial>, init = MaterialPlugin::<CandyMaterial>::default())]
-use bevy::pbr::MaterialPlugin;
+// #[add_plugin(to_plugin = NpcPlugin, generics = <CandyMaterial>, init = MaterialPlugin::<CandyMaterial>::default())]
+// use bevy::pbr::MaterialPlugin;
 
 #[derive(Resource)]
 pub struct NameTagAssets {
@@ -31,16 +28,15 @@ pub struct NameTagAssets {
     pub captcha_material: Handle<StandardMaterial>,
     pub alchemiter_material: Handle<StandardMaterial>,
     pub denizen_materials: [Handle<StandardMaterial>; 4],
-    pub master_material: Handle<CandyMaterial>,
-
-    #[allow(unused)]
-    pub denizen_particles: Handle<EffectAsset>,
-    #[allow(unused)]
-    pub denizen_particles_trails: Handle<EffectAsset>,
-    #[allow(unused)]
-    pub master_particles: [Handle<EffectAsset>; 2],
-    #[allow(unused)]
-    pub master_particles_trails: [Handle<EffectAsset>; 2],
+    pub master_material: Handle<StandardMaterial>,
+    // #[allow(unused)]
+    // pub denizen_particles: Handle<EffectAsset>,
+    // #[allow(unused)]
+    // pub denizen_particles_trails: Handle<EffectAsset>,
+    // #[allow(unused)]
+    // pub master_particles: [Handle<EffectAsset>; 2],
+    // #[allow(unused)]
+    // pub master_particles_trails: [Handle<EffectAsset>; 2],
 }
 
 #[derive(Resource)]
@@ -155,6 +151,7 @@ impl Default for FontMeshGenerator {
     }
 }
 
+/*
 fn create_particles(color: Color) -> EffectAsset {
     let color: Srgba = color.into();
     let mut color_gradient = Gradient::new();
@@ -273,6 +270,7 @@ fn create_particles_trails(color: Color) -> EffectAsset {
         .render(render_orient)
         .render(render_size)
 }
+        */
 
 #[add_system(
 	plugin = NpcPlugin, schedule = Startup,
@@ -281,8 +279,8 @@ fn load_names(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut particles: ResMut<Assets<EffectAsset>>,
-    mut candy_materials: ResMut<Assets<CandyMaterial>>,
+    // mut particles: ResMut<Assets<EffectAsset>>,
+    // mut candy_materials: ResMut<Assets<CandyMaterial>>,
 ) -> Result {
     commands.insert_resource(NameTagAssets {
         names: asset_server.load("supporters.supporters.ron"),
@@ -305,19 +303,19 @@ fn load_names(
                 ..default()
             })
         }),
-        master_material: candy_materials.add(CandyMaterial::default()),
-
-        denizen_particles: particles.add(create_particles(Color::from(Srgba::hex("efbf04")?))),
-        denizen_particles_trails: particles
-            .add(create_particles_trails(Color::from(Srgba::hex("efbf04")?))),
-        master_particles: [
-            particles.add(create_particles(Color::from(Srgba::hex("ff0000")?))),
-            particles.add(create_particles(Color::from(Srgba::hex("00ff00")?))),
-        ],
-        master_particles_trails: [
-            particles.add(create_particles_trails(Color::from(Srgba::hex("ff0000")?))),
-            particles.add(create_particles_trails(Color::from(Srgba::hex("00ff00")?))),
-        ],
+        // master_material: candy_materials.add(CandyMaterial::default()),
+        master_material: materials.add(Color::from(Srgba::hex("03a9f4")?)),
+        // denizen_particles: particles.add(create_particles(Color::from(Srgba::hex("efbf04")?))),
+        // denizen_particles_trails: particles
+        //     .add(create_particles_trails(Color::from(Srgba::hex("efbf04")?))),
+        // master_particles: [
+        //     particles.add(create_particles(Color::from(Srgba::hex("ff0000")?))),
+        //     particles.add(create_particles(Color::from(Srgba::hex("00ff00")?))),
+        // ],
+        // master_particles_trails: [
+        //     particles.add(create_particles_trails(Color::from(Srgba::hex("ff0000")?))),
+        //     particles.add(create_particles_trails(Color::from(Srgba::hex("00ff00")?))),
+        // ],
     });
 
     Ok(())
@@ -359,7 +357,8 @@ fn spawn_name_tags(
                     .ok_or("No denizen-level materials")?
                     .clone(),
             ),
-            Some(SupporterTier::Master) => NameTagShader::Candy(asset.master_material.clone()),
+            // Some(SupporterTier::Master) => NameTagShader::Candy(asset.master_material.clone()), // FIXME: custom materials broken
+            Some(SupporterTier::Master) => NameTagShader::Standard(asset.master_material.clone()),
         };
         let scale = match name_tag.tier {
             None => 0.2,
@@ -381,14 +380,13 @@ fn spawn_name_tags(
         match material {
             NameTagShader::Standard(material) => {
                 text_entity.insert(MeshMaterial3d(material));
-            }
-            NameTagShader::Candy(material) => {
-                text_entity.insert(MeshMaterial3d(material));
-            }
+            } // NameTagShader::Candy(material) => {
+              //     text_entity.insert(MeshMaterial3d(material));
+              // }
         }
         // let text_entity = text_entity.id();
 
-        // idk why they dont work but it makes a bunch of errors. wait until release?
+        // FIXME: idk why they dont work but it makes a bunch of errors. wait until release?
         // let (particles, particle_trails) = match name_tag.tier {
         //     None => (vec![], vec![]),
         //     Some(ContributorTier::Past) => (vec![], vec![]),
@@ -422,23 +420,7 @@ fn spawn_name_tags(
         // }
 
         if !matches!(name_tag.tier, Some(SupporterTier::Master)) {
-            commands.entity(entity).observe(
-                |scene_instance_ready: On<SceneInstanceReady>,
-                 material_names: Query<&GltfMaterialName>,
-                 mut commands: Commands,
-                 children: Query<&Children>| {
-                    for child in children
-                        .iter_descendants(scene_instance_ready.entity)
-                        .filter(|child| {
-                            material_names
-                                .get(*child)
-                                .is_ok_and(|name| name.0 == "Candy")
-                        })
-                    {
-                        commands.entity(child).insert(Visibility::Hidden);
-                    }
-                },
-            );
+            commands.entity(entity).insert(RemoveCandyMaterials);
         }
 
         commands
@@ -448,6 +430,33 @@ fn spawn_name_tags(
     }
 
     Ok(())
+}
+
+#[derive(Component)]
+struct RemoveCandyMaterials;
+
+#[add_system(plugin = NpcPlugin, schedule = Update, after = spawn_name_tags)]
+fn remove_candy_materials(
+    material_names: Query<&GltfMaterialName>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    entities: Query<(Entity, &SceneInstance), With<RemoveCandyMaterials>>,
+    scene_spawner: Res<SceneSpawner>,
+) {
+    for (entity, scene_instance) in entities.iter() {
+        if !scene_spawner.instance_is_ready(**scene_instance) {
+            continue;
+        }
+
+        for child in children.iter_descendants(entity).filter(|child| {
+            material_names
+                .get(*child)
+                .is_ok_and(|name| name.0 == "Candy")
+        }) {
+            commands.entity(child).insert(Visibility::Hidden);
+        }
+        commands.entity(entity).remove::<RemoveCandyMaterials>();
+    }
 }
 
 fn get_name(available_names: Option<&mut ResMut<AvailableNames>>) -> Option<NameTag> {
@@ -497,16 +506,16 @@ fn add_killed_name_back(
     Ok(())
 }
 
-#[derive(Asset, TypePath, AsBindGroup, Debug, Clone, Default)]
-pub struct CandyMaterial {}
+// #[derive(Asset, TypePath, AsBindGroup, Debug, Clone, Default)]
+// pub struct CandyMaterial {}
 
-impl Material for CandyMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "candy shader.wgsl".into()
-    }
-}
+// impl Material for CandyMaterial {
+//     fn fragment_shader() -> ShaderRef {
+//         "candy shader.wgsl".into()
+//     }
+// }
 
 enum NameTagShader {
     Standard(Handle<StandardMaterial>),
-    Candy(Handle<CandyMaterial>),
+    // Candy(Handle<CandyMaterial>),
 }

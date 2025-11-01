@@ -9,6 +9,8 @@ use return_ok::ok_or_return;
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::roll::NeutralRolling;
+use crate::player_controller::movement::slide::NeutralSliding;
 use crate::player_controller::movement::sprint::SprintStanding;
 use crate::player_controller::movement::trip::TripRecover;
 use crate::prelude::*;
@@ -115,8 +117,8 @@ fn check_states(
                 Has<TripRecover>,
                 Has<ComponentBuffer<TripRecover>>,
             ),
-            Has<Sliding>,
-            Has<Rolling>,
+            (Has<NeutralSliding>, Has<Sliding>),
+            (Has<NeutralRolling>, Has<Rolling>),
             Has<Grounded>,
             Has<ComponentBuffer<Grounded>>,
             Has<Movement>,
@@ -129,7 +131,7 @@ fn check_states(
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2.0, tup.2.1, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2,
-            tup.7.0, tup.7.1, tup.7.2, tup.8, tup.9, tup.10, tup.11, tup.12,
+            tup.7.0, tup.7.1, tup.7.2, tup.8.0, tup.8.1, tup.9.0, tup.9.1, tup.10, tup.11, tup.12,
         ];
         let has = arr
             .into_iter()
@@ -147,7 +149,9 @@ fn check_states(
                 ShortName::of::<Tripping>(),
                 ShortName::of::<TripRecover>(),
                 ShortName::of::<ComponentBuffer<TripRecover>>(),
+                ShortName::of::<NeutralSliding>(),
                 ShortName::of::<Sliding>(),
+                ShortName::of::<NeutralRolling>(),
                 ShortName::of::<Rolling>(),
                 ShortName::of::<Grounded>(),
                 ShortName::of::<ComponentBuffer<Grounded>>(),
