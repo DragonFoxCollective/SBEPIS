@@ -2,7 +2,7 @@ use bevy::color::palettes::css;
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, InputDisabled, JustPressed};
+use bevy_pretty_nice_input::{Action, JustPressed};
 use bevy_rapier3d::na::Vector3;
 use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
@@ -312,6 +312,10 @@ fn switch_weapon_next(
     let new_weapon = weapon_set.weapons[new_weapon_index];
     weapon_set.active_weapon = Some(new_weapon);
     show_weapon(&mut commands, new_weapon);
+    debug!(
+        "Switching to next weapon from index {} to {}",
+        old_weapon_index, new_weapon_index
+    );
     Ok(())
 }
 
@@ -344,16 +348,30 @@ fn hide_weapon(commands: &mut Commands, weapon: Entity) {
     commands
         .entity(weapon)
         .remove::<ActiveWeapon>()
-        .insert(Visibility::Hidden)
-        .insert(InputDisabled);
+        .insert(Visibility::Hidden);
 }
 
 fn show_weapon(commands: &mut Commands, weapon: Entity) {
     commands
         .entity(weapon)
-        .insert(ActiveWeapon)
-        .insert(Visibility::Inherited)
-        .remove::<InputDisabled>();
+        .insert(AddActiveWeaponLater)
+        .insert(Visibility::Inherited);
+}
+
+#[derive(Component)]
+pub struct AddActiveWeaponLater;
+
+#[add_system(plugin = PlayerControllerPlugin, schedule = PostUpdate)]
+fn add_active_weapon_later(
+    mut commands: Commands,
+    weapons: Query<Entity, With<AddActiveWeaponLater>>,
+) {
+    for weapon in weapons.iter() {
+        commands
+            .entity(weapon)
+            .remove::<AddActiveWeaponLater>()
+            .insert(ActiveWeapon);
+    }
 }
 
 #[derive(Action)]

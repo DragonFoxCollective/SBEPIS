@@ -616,21 +616,28 @@ impl ConditionedBindingUpdate {
 pub struct BindingPartUpdate {
     #[event_target]
     pub binding: Entity,
+    pub binding_part: Entity,
     pub value: f32,
 }
 
 fn binding_part_key(
-    mut binding_parts: Query<(&binding_parts::Key, &BindingPartOf, &mut BindingPartData)>,
+    mut binding_parts: Query<(
+        Entity,
+        &binding_parts::Key,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
     mut commands: Commands,
     mut key: MessageReader<KeyboardInput>,
 ) {
     for message in key.read() {
-        for (key, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, key, binding_part_of, mut data) in binding_parts.iter_mut() {
             let value = message.state.is_pressed() as u8 as f32;
             if key.0 == message.key_code && !message.repeat && data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
                 });
             }
@@ -640,6 +647,7 @@ fn binding_part_key(
 
 fn binding_part_key_axis(
     mut binding_parts: Query<(
+        Entity,
         &mut binding_parts::KeyAxis,
         &BindingPartOf,
         &mut BindingPartData,
@@ -648,7 +656,7 @@ fn binding_part_key_axis(
     mut key_axis: MessageReader<KeyboardInput>,
 ) {
     for message in key_axis.read() {
-        for (mut key_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, mut key_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
             if message.repeat {
                 continue;
             }
@@ -666,6 +674,7 @@ fn binding_part_key_axis(
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
                 });
             }
@@ -675,6 +684,7 @@ fn binding_part_key_axis(
 
 fn binding_part_gamepad_axis(
     mut binding_parts: Query<(
+        Entity,
         &binding_parts::GamepadAxis,
         &BindingPartOf,
         &mut BindingPartData,
@@ -683,12 +693,13 @@ fn binding_part_gamepad_axis(
     mut gamepad_axis: MessageReader<GamepadAxisChangedEvent>,
 ) {
     for message in gamepad_axis.read() {
-        for (gamepad_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, gamepad_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
             let value = message.value;
             if gamepad_axis.0 == message.axis && data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
                 });
             }
@@ -698,6 +709,7 @@ fn binding_part_gamepad_axis(
 
 fn binding_part_mouse_button(
     mut binding_parts: Query<(
+        Entity,
         &binding_parts::MouseButton,
         &BindingPartOf,
         &mut BindingPartData,
@@ -706,12 +718,13 @@ fn binding_part_mouse_button(
     mut mouse_button: MessageReader<MouseButtonInput>,
 ) {
     for message in mouse_button.read() {
-        for (mouse_button, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, mouse_button, binding_part_of, mut data) in binding_parts.iter_mut() {
             let value = message.state.is_pressed() as u8 as f32;
             if mouse_button.0 == message.button && data.0 != value {
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
                 });
             }
@@ -721,6 +734,7 @@ fn binding_part_mouse_button(
 
 fn binding_part_mouse_move(
     mut binding_parts: Query<(
+        Entity,
         &binding_parts::MouseMoveAxis,
         &BindingPartOf,
         &mut BindingPartData,
@@ -729,7 +743,7 @@ fn binding_part_mouse_move(
     mut mouse: MessageReader<MouseMotion>,
 ) {
     for message in mouse.read() {
-        for (mouse_move, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, mouse_move, binding_part_of, mut data) in binding_parts.iter_mut() {
             let value = match mouse_move.0 {
                 AxisDirection::X => message.delta.x,
                 AxisDirection::Y => message.delta.y,
@@ -738,6 +752,7 @@ fn binding_part_mouse_move(
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
                 });
             }
@@ -747,6 +762,7 @@ fn binding_part_mouse_move(
 
 fn binding_part_mouse_scroll(
     mut binding_parts: Query<(
+        Entity,
         &binding_parts::MouseScroll,
         &BindingPartOf,
         &mut BindingPartData,
@@ -755,7 +771,8 @@ fn binding_part_mouse_scroll(
     mut mouse: MessageReader<MouseWheel>,
 ) {
     for message in mouse.read() {
-        for (mouse_scroll, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, mouse_scroll, binding_part_of, mut data) in binding_parts.iter_mut() {
+            // Doesn't handle unit :/
             let value = match mouse_scroll.0 {
                 MouseScrollDirection::Up => message.y.max(0.0),
                 MouseScrollDirection::Down => message.y.min(0.0),
@@ -766,7 +783,15 @@ fn binding_part_mouse_scroll(
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
+                });
+                // Reset to 0 after triggering
+                data.0 = 0.0;
+                commands.trigger(BindingPartUpdate {
+                    binding: binding_part_of.0,
+                    binding_part: entity,
+                    value: 0.0,
                 });
             }
         }
@@ -775,6 +800,7 @@ fn binding_part_mouse_scroll(
 
 fn binding_part_mouse_scroll_axis(
     mut binding_parts: Query<(
+        Entity,
         &binding_parts::MouseScrollAxis,
         &BindingPartOf,
         &mut BindingPartData,
@@ -783,9 +809,9 @@ fn binding_part_mouse_scroll_axis(
     mut mouse: MessageReader<MouseWheel>,
 ) {
     for message in mouse.read() {
-        for (mouse_move, binding_part_of, mut data) in binding_parts.iter_mut() {
+        for (entity, mouse_scroll_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
             // Doesn't handle unit :/
-            let value = match mouse_move.0 {
+            let value = match mouse_scroll_axis.0 {
                 AxisDirection::X => message.x,
                 AxisDirection::Y => message.y,
             };
@@ -793,9 +819,34 @@ fn binding_part_mouse_scroll_axis(
                 data.0 = value;
                 commands.trigger(BindingPartUpdate {
                     binding: binding_part_of.0,
+                    binding_part: entity,
                     value,
                 });
+                // Reset to 0 after triggering
+                data.0 = 0.0;
+                commands.trigger(BindingPartUpdate {
+                    binding: binding_part_of.0,
+                    binding_part: entity,
+                    value: 0.0,
+                });
             }
+        }
+    }
+}
+
+struct BindingPartUpdateOrData<'a> {
+    binding_part_index: usize,
+    update_value: f32,
+    binding_parts: Box<dyn Fn(Entity) -> Result<f32> + 'a>,
+    binding_parts_rel: &'a BindingParts,
+}
+
+impl BindingPartUpdateOrData<'_> {
+    fn get(&self, index: usize) -> Result<f32> {
+        if index == self.binding_part_index {
+            Ok(self.update_value)
+        } else {
+            Ok((self.binding_parts)(self.binding_parts_rel.0[index])?)
         }
     }
 }
@@ -808,18 +859,27 @@ pub fn binding(
 ) -> Result {
     let (binding_of, binding_parts_rel) = bindings.get(update.binding)?;
 
+    let binding_part_index = binding_parts_rel
+        .0
+        .iter()
+        .position(|&e| e == update.binding_part)
+        .ok_or(BevyError::from("Cannot find binding part in binding parts"))?;
+    let update_or_data = BindingPartUpdateOrData {
+        binding_part_index,
+        update_value: update.value,
+        binding_parts: Box::new(|entity| Ok(binding_parts.get(entity)?.0)),
+        binding_parts_rel,
+    };
+
     let data = if binding_parts_rel.0.len() == 1 {
-        ActionData::Axis1D(binding_parts.get(binding_parts_rel.0[0])?.0)
+        ActionData::Axis1D(update_or_data.get(0)?)
     } else if binding_parts_rel.0.len() == 2 {
-        ActionData::Axis2D(Vec2::new(
-            binding_parts.get(binding_parts_rel.0[0])?.0,
-            binding_parts.get(binding_parts_rel.0[1])?.0,
-        ))
+        ActionData::Axis2D(Vec2::new(update_or_data.get(0)?, update_or_data.get(1)?))
     } else if binding_parts_rel.0.len() == 3 {
         ActionData::Axis3D(Vec3::new(
-            binding_parts.get(binding_parts_rel.0[0])?.0,
-            binding_parts.get(binding_parts_rel.0[1])?.0,
-            binding_parts.get(binding_parts_rel.0[2])?.0,
+            update_or_data.get(0)?,
+            update_or_data.get(1)?,
+            update_or_data.get(2)?,
         ))
     } else {
         return Err(BevyError::from(format!(

@@ -5,15 +5,15 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{binding1d, input};
+use bevy_pretty_nice_input::{Filter, binding1d, input};
 use bevy_pretty_nice_menus::MenuInputOf;
 
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::weapons::{
-    Attack, DamageSweep, EndDamageSweep, NextWeapon, PrevWeapon, SweepPivot, WeaponAnimation,
-    WeaponOf,
+    ActiveWeapon, Attack, DamageSweep, EndDamageSweep, NextWeapon, PrevWeapon, SweepPivot,
+    WeaponAnimation, WeaponOf,
 };
 use crate::prelude::*;
 
@@ -120,9 +120,21 @@ pub fn spawn_hammer(
             WeaponOf(body),
             (
                 MenuInputOf(body),
-                input!(Attack, [binding1d::left_click()]),
-                input!(NextWeapon, [binding1d::scroll_up()]),
-                input!(PrevWeapon, [binding1d::scroll_down()]),
+                input!(
+                    Attack,
+                    [binding1d::left_click()],
+                    [Filter::<With<ActiveWeapon>>::default()]
+                ),
+                input!(
+                    NextWeapon,
+                    [binding1d::scroll_up()],
+                    [Filter::<With<ActiveWeapon>>::default()]
+                ),
+                input!(
+                    PrevWeapon,
+                    [binding1d::scroll_down()],
+                    [Filter::<With<ActiveWeapon>>::default()]
+                ),
             ),
         ))
         .add_child(hammer_head)

@@ -5,7 +5,7 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{binding1d, input};
+use bevy_pretty_nice_input::{Filter, binding1d, input};
 use bevy_pretty_nice_menus::MenuInputOf;
 use bevy_rapier3d::math::Real;
 use bevy_rapier3d::plugin::ReadRapierContext;
@@ -16,7 +16,7 @@ use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::weapons::{
-    Attack, Hit, NextWeapon, PrevWeapon, WeaponAnimation, WeaponOf,
+    ActiveWeapon, Attack, Hit, NextWeapon, PrevWeapon, WeaponAnimation, WeaponOf,
 };
 use crate::prelude::*;
 
@@ -141,9 +141,21 @@ pub fn spawn_rifle(
             WeaponOf(body),
             (
                 MenuInputOf(body),
-                input!(Attack, [binding1d::left_click()]),
-                input!(NextWeapon, [binding1d::scroll_up()]),
-                input!(PrevWeapon, [binding1d::scroll_down()]),
+                input!(
+                    Attack,
+                    [binding1d::left_click()],
+                    [Filter::<With<ActiveWeapon>>::default()]
+                ),
+                input!(
+                    NextWeapon,
+                    [binding1d::scroll_up()],
+                    [Filter::<With<ActiveWeapon>>::default()]
+                ),
+                input!(
+                    PrevWeapon,
+                    [binding1d::scroll_down()],
+                    [Filter::<With<ActiveWeapon>>::default()]
+                ),
             ),
         ))
         .add_child(rifle_barrel)
