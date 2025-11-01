@@ -31,7 +31,9 @@ use crate::player_controller::movement::jump::{
 use crate::player_controller::movement::roll::{CrouchRoll, Rolling, SprintRoll};
 use crate::player_controller::movement::slide::{Slide, Sliding};
 use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
-use crate::player_controller::movement::sprint::{Sprint, SprintStanding, SprintWalk, Sprinting};
+use crate::player_controller::movement::sprint::{
+    Sprint, SprintStanding, SprintWalk, Sprinting, UnSprintWalk,
+};
 use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover};
 use crate::player_controller::movement::walk::{Walk, Walking};
 use crate::prelude::*;
@@ -99,6 +101,7 @@ fn setup(
             ]),
             input_transition!(Sprint: Walking <=> Sprinting, [binding1d::left_shift()]),
             input_transition!(SprintWalk: SprintStanding <=> Sprinting, [binding2d::wasd()]),
+            input_transition!(UnSprintWalk: Standing <= SprintStanding, [binding1d::left_shift()]),
             input_transition!(Crouch: Standing <=> Crouching, [binding1d::left_ctrl()]),
             input_transition!(CrouchJump: (Crouching, Sneaking, Sliding, Rolling) => *, [binding1d::space()], [
                 ButtonPress::default(),
