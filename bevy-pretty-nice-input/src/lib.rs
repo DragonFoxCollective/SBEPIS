@@ -1,8 +1,9 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::query::QueryFilter;
+use bevy::input::gamepad::GamepadAxisChangedEvent;
 use bevy::input::keyboard::KeyboardInput;
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::{MouseButtonInput, MouseMotion, MouseWheel};
 use bevy::prelude::*;
 pub use bevy_pretty_nice_input_derive::{Action, input_transition};
 
@@ -558,7 +559,11 @@ impl Plugin for PrettyNiceInputPlugin {
             (
                 binding_part_key,
                 binding_part_key_axis,
+                binding_part_gamepad_axis,
+                binding_part_mouse_button,
                 binding_part_mouse_move,
+                binding_part_mouse_scroll,
+                binding_part_mouse_scroll_axis,
             ),
         );
     }
@@ -668,6 +673,52 @@ fn binding_part_key_axis(
     }
 }
 
+fn binding_part_gamepad_axis(
+    mut binding_parts: Query<(
+        &binding_parts::GamepadAxis,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
+    mut commands: Commands,
+    mut gamepad_axis: MessageReader<GamepadAxisChangedEvent>,
+) {
+    for message in gamepad_axis.read() {
+        for (gamepad_axis, binding_part_of, mut data) in binding_parts.iter_mut() {
+            let value = message.value;
+            if gamepad_axis.0 == message.axis && data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    binding: binding_part_of.0,
+                    value,
+                });
+            }
+        }
+    }
+}
+
+fn binding_part_mouse_button(
+    mut binding_parts: Query<(
+        &binding_parts::MouseButton,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
+    mut commands: Commands,
+    mut mouse_button: MessageReader<MouseButtonInput>,
+) {
+    for message in mouse_button.read() {
+        for (mouse_button, binding_part_of, mut data) in binding_parts.iter_mut() {
+            let value = message.state.is_pressed() as u8 as f32;
+            if mouse_button.0 == message.button && data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    binding: binding_part_of.0,
+                    value,
+                });
+            }
+        }
+    }
+}
+
 fn binding_part_mouse_move(
     mut binding_parts: Query<(
         &binding_parts::MouseMoveAxis,
@@ -682,6 +733,61 @@ fn binding_part_mouse_move(
             let value = match mouse_move.0 {
                 AxisDirection::X => message.delta.x,
                 AxisDirection::Y => message.delta.y,
+            };
+            if data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    binding: binding_part_of.0,
+                    value,
+                });
+            }
+        }
+    }
+}
+
+fn binding_part_mouse_scroll(
+    mut binding_parts: Query<(
+        &binding_parts::MouseScroll,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
+    mut commands: Commands,
+    mut mouse: MessageReader<MouseWheel>,
+) {
+    for message in mouse.read() {
+        for (mouse_scroll, binding_part_of, mut data) in binding_parts.iter_mut() {
+            let value = match mouse_scroll.0 {
+                MouseScrollDirection::Up => message.y.max(0.0),
+                MouseScrollDirection::Down => message.y.min(0.0),
+                MouseScrollDirection::Left => message.x.max(0.0),
+                MouseScrollDirection::Right => message.x.min(0.0),
+            };
+            if data.0 != value {
+                data.0 = value;
+                commands.trigger(BindingPartUpdate {
+                    binding: binding_part_of.0,
+                    value,
+                });
+            }
+        }
+    }
+}
+
+fn binding_part_mouse_scroll_axis(
+    mut binding_parts: Query<(
+        &binding_parts::MouseScrollAxis,
+        &BindingPartOf,
+        &mut BindingPartData,
+    )>,
+    mut commands: Commands,
+    mut mouse: MessageReader<MouseWheel>,
+) {
+    for message in mouse.read() {
+        for (mouse_move, binding_part_of, mut data) in binding_parts.iter_mut() {
+            // Doesn't handle unit :/
+            let value = match mouse_move.0 {
+                AxisDirection::X => message.x,
+                AxisDirection::Y => message.y,
             };
             if data.0 != value {
                 data.0 = value;
