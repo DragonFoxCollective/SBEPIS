@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_input::{Action, JustPressed, Off};
+use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 
 use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::player_controller::PlayerControllerPlugin;
@@ -117,7 +117,7 @@ fn spawn_charging_sound(
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn despawn_charging_sound(
-    charge: On<JustPressed<Off<Charge>>>,
+    charge: On<JustReleased<Charge>>,
     sounds: Query<&ChargingSound>,
     mut commands: Commands,
 ) {
@@ -142,7 +142,7 @@ fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut comma
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouching_to_tripping(
-    sprint: On<JustPressed<Trip>>, // TODO: equivalent to ButtonRelease of ChargeCrouch
+    sprint: On<JustReleased<Trip>>,
     players: Query<(Option<&ChargingSound>, &ComputedGravity)>,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,

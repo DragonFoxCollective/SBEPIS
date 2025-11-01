@@ -853,7 +853,7 @@ fn action_prev_filter<A: Action, F: QueryFilter + Send + Sync + 'static>(
     Ok(())
 }
 
-pub fn transition<A: Action, F: Component, T: Component + Default>(
+pub fn transition_on<A: Action, F: Component, T: Component + Default>(
     sprint: On<JustPressed<A>>,
     mut commands: Commands,
 ) {
@@ -863,5 +863,12 @@ pub fn transition<A: Action, F: Component, T: Component + Default>(
         .insert(T::default());
 }
 
-pub struct Off<A>(PhantomData<A>);
-impl<A: Action> Action for Off<A> {}
+pub fn transition_off<A: Action, F: Component, T: Component + Default>(
+    sprint: On<JustReleased<A>>,
+    mut commands: Commands,
+) {
+    commands
+        .entity(sprint.input)
+        .remove::<F>()
+        .insert(T::default());
+}

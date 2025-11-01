@@ -13,34 +13,21 @@ pub fn input_transition_impl(input: TokenStream) -> TokenStream {
 fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
     match input.arrow {
         TransitionArrow::Right => {
-            let left = match input.left {
-                LeftTransitionSide::Multiple(ref types) => types,
-                LeftTransitionSide::MultipleBack(first, rest) => {
+            let (left, direction) = match input.left {
+                LeftTransitionSide::Multiple(ref types) => (types, ObserverArrow::Right),
+                LeftTransitionSide::MultipleBack(ref first, rest) => {
                     if !input.conditions.is_empty() {
                         return Err(syn::Error::new_spanned(
                             &input.conditions[0],
                             "Cannot have conditions with bidirectional transitions",
                         ));
                     }
-                    let left = input_transition(InputTransition {
-                        action: input.action.clone(),
-                        left: LeftTransitionSide::Single(first),
-                        arrow: TransitionArrow::Left,
-                        right: input.right.clone(),
-                        bindings: input.bindings.clone(),
-                        conditions: input.conditions.clone(),
-                    })?;
-                    let right = input_transition(InputTransition {
-                        action: input.action.clone(),
-                        left: LeftTransitionSide::Multiple(rest),
-                        arrow: TransitionArrow::Right,
-                        right: input.right.clone(),
-                        bindings: input.bindings.clone(),
-                        conditions: input.conditions.clone(),
-                    })?;
-                    return Ok(parse_quote! { ( #left, #right ) });
+                    (
+                        &[first.clone()].into_iter().chain(rest).collect::<Vec<_>>(),
+                        ObserverArrow::RightBack(first),
+                    )
                 }
-                LeftTransitionSide::Single(ty) => &vec![ty],
+                LeftTransitionSide::Single(ty) => (&vec![ty], ObserverArrow::Right),
                 LeftTransitionSide::Manual => {
                     return Err(syn::Error::new_spanned(
                         &input.left,
@@ -58,8 +45,13 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
                 }
                 RightTransitionSide::Manual => None,
             };
-            let transition =
-                build_right_transition(&input.action, left, right, input.conditions.clone())?;
+            let transition = build_transition(
+                &input.action,
+                left,
+                right,
+                input.conditions.clone(),
+                direction,
+            )?;
             Ok(build_output(
                 &transition.action,
                 &input.bindings,
@@ -68,34 +60,21 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
             ))
         }
         TransitionArrow::Left => {
-            let right = match input.right {
-                RightTransitionSide::Multiple(ref types) => types,
-                RightTransitionSide::MultipleBack(rest, last) => {
+            let (right, direction) = match input.right {
+                RightTransitionSide::Multiple(ref types) => (types, ObserverArrow::Left),
+                RightTransitionSide::MultipleBack(rest, ref last) => {
                     if !input.conditions.is_empty() {
                         return Err(syn::Error::new_spanned(
                             &input.conditions[0],
                             "Cannot have conditions with bidirectional transitions",
                         ));
                     }
-                    let left = input_transition(InputTransition {
-                        action: input.action.clone(),
-                        left: input.left.clone(),
-                        arrow: TransitionArrow::Left,
-                        right: RightTransitionSide::Multiple(rest),
-                        bindings: input.bindings.clone(),
-                        conditions: input.conditions.clone(),
-                    })?;
-                    let right = input_transition(InputTransition {
-                        action: input.action.clone(),
-                        left: input.left.clone(),
-                        arrow: TransitionArrow::Right,
-                        right: RightTransitionSide::Single(last),
-                        bindings: input.bindings.clone(),
-                        conditions: input.conditions.clone(),
-                    })?;
-                    return Ok(parse_quote! { ( #left, #right ) });
+                    (
+                        &rest.into_iter().chain([last.clone()]).collect::<Vec<_>>(),
+                        ObserverArrow::LeftBack(last),
+                    )
                 }
-                RightTransitionSide::Single(ty) => &vec![ty],
+                RightTransitionSide::Single(ty) => (&vec![ty], ObserverArrow::Left),
                 RightTransitionSide::Manual => {
                     return Err(syn::Error::new_spanned(
                         &input.right,
@@ -113,8 +92,13 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
                 }
                 LeftTransitionSide::Manual => None,
             };
-            let transition =
-                build_left_transition(&input.action, left, right, input.conditions.clone())?;
+            let transition = build_transition(
+                &input.action,
+                right,
+                left,
+                input.conditions.clone(),
+                direction,
+            )?;
             Ok(build_output(
                 &transition.action,
                 &input.bindings,
@@ -129,23 +113,49 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
                     "Cannot have conditions with bidirectional transitions",
                 ));
             }
-            let left = input_transition(InputTransition {
-                action: input.action.clone(),
-                left: input.left.clone(),
-                arrow: TransitionArrow::Left,
-                right: input.right.clone(),
-                bindings: input.bindings.clone(),
-                conditions: input.conditions.clone(),
-            })?;
-            let right = input_transition(InputTransition {
-                action: input.action.clone(),
-                left: input.left.clone(),
-                arrow: TransitionArrow::Right,
-                right: input.right.clone(),
-                bindings: input.bindings.clone(),
-                conditions: input.conditions.clone(),
-            })?;
-            Ok(parse_quote! { ( #left, #right ) })
+            let left = match input.left {
+                LeftTransitionSide::Single(ty) => ty,
+                LeftTransitionSide::Multiple(_) | LeftTransitionSide::MultipleBack(_, _) => {
+                    return Err(syn::Error::new_spanned(
+                        &input.left,
+                        "Cannot transition to multiple states",
+                    ));
+                }
+                LeftTransitionSide::Manual => {
+                    return Err(syn::Error::new_spanned(
+                        &input.left,
+                        "Cannot transition from manual",
+                    ));
+                }
+            };
+            let right = match input.right {
+                RightTransitionSide::Single(ty) => ty,
+                RightTransitionSide::Multiple(_) | RightTransitionSide::MultipleBack(_, _) => {
+                    return Err(syn::Error::new_spanned(
+                        &input.right,
+                        "Cannot transition to multiple states",
+                    ));
+                }
+                RightTransitionSide::Manual => {
+                    return Err(syn::Error::new_spanned(
+                        &input.right,
+                        "Cannot transition from manual",
+                    ));
+                }
+            };
+            let transition = build_transition(
+                &input.action,
+                std::slice::from_ref(&left),
+                Some(&right),
+                input.conditions.clone(),
+                ObserverArrow::RightBack(&left),
+            )?;
+            Ok(build_output(
+                &transition.action,
+                &input.bindings,
+                &transition.conditions,
+                &transition.observers,
+            ))
         }
     }
 }
@@ -185,6 +195,7 @@ fn build_observers(
     action: &syn::Type,
     from: &[syn::Type],
     to: &syn::Type,
+    direction: ObserverArrow,
 ) -> syn::Result<Vec<syn::Expr>> {
     if from.is_empty() {
         return Err(syn::Error::new_spanned(
@@ -193,13 +204,45 @@ fn build_observers(
         ));
     }
 
-    Ok(from.iter()
-		.map(|f| {
-			parse_quote! {
-				::bevy_pretty_nice_input::bundles::observe(::bevy_pretty_nice_input::transition::<#action, #f, #to>)
-			}
-		})
-		.collect())
+    let transition: syn::Expr = match direction {
+        ObserverArrow::Left => parse_quote! { ::bevy_pretty_nice_input::transition_off },
+        ObserverArrow::Right => parse_quote! { ::bevy_pretty_nice_input::transition_on },
+        ObserverArrow::LeftBack(back) => {
+            return Ok([
+                build_observers(action, from, to, ObserverArrow::Left)?,
+                build_observers(action, std::slice::from_ref(to), back, ObserverArrow::Right)?,
+            ]
+            .into_iter()
+            .flatten()
+            .collect());
+        }
+        ObserverArrow::RightBack(back) => {
+            return Ok([
+                build_observers(action, from, to, ObserverArrow::Right)?,
+                build_observers(action, std::slice::from_ref(to), back, ObserverArrow::Left)?,
+            ]
+            .into_iter()
+            .flatten()
+            .collect());
+        }
+    };
+
+    Ok(from
+        .iter()
+        .map(|f| {
+            parse_quote! {
+                ::bevy_pretty_nice_input::bundles::observe(#transition::<#action, #f, #to>)
+            }
+        })
+        .collect())
+}
+
+#[derive(Clone)]
+enum ObserverArrow<'a> {
+    Left,
+    Right,
+    LeftBack(&'a syn::Type),
+    RightBack(&'a syn::Type),
 }
 
 struct TransitionOutput {
@@ -208,41 +251,22 @@ struct TransitionOutput {
     observers: Vec<syn::Expr>,
 }
 
-fn build_right_transition(
+fn build_transition(
     action: &syn::Type,
-    left: &[syn::Type],
-    right: Option<&syn::Type>,
+    from: &[syn::Type],
+    to: Option<&syn::Type>,
     mut conditions: Vec<syn::Expr>,
+    direction: ObserverArrow,
 ) -> syn::Result<TransitionOutput> {
-    conditions.insert(0, build_filter(left));
-    let observers = if let Some(right) = right {
-        build_observers(action, left, right)?
+    let filters = from.iter().chain(to).cloned().collect::<Vec<_>>();
+    conditions.insert(0, build_filter(&filters));
+    let observers = if let Some(to) = to {
+        build_observers(action, from, to, direction)?
     } else {
         Vec::new()
     };
     Ok(TransitionOutput {
         action: action.clone(),
-        conditions,
-        observers,
-    })
-}
-
-fn build_left_transition(
-    action: &syn::Type,
-    left: Option<&syn::Type>,
-    right: &[syn::Type],
-    mut conditions: Vec<syn::Expr>,
-) -> syn::Result<TransitionOutput> {
-    let action = parse_quote! { ::bevy_pretty_nice_input::Off<#action> };
-    conditions.insert(0, build_filter(right));
-    conditions.insert(0, parse_quote! { ::bevy_pretty_nice_input::Invert });
-    let observers = if let Some(left) = left {
-        build_observers(&action, right, left)?
-    } else {
-        Vec::new()
-    };
-    Ok(TransitionOutput {
-        action,
         conditions,
         observers,
     })
@@ -392,8 +416,8 @@ impl ToTokens for LeftArrowType {
 #[derive(Clone)]
 enum TransitionArrow {
     Left,
-    Both,
     Right,
+    Both,
 }
 
 impl Parse for TransitionArrow {
