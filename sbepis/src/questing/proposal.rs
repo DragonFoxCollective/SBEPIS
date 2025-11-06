@@ -5,10 +5,9 @@ use leafwing_input_manager::prelude::*;
 use crate::dialogue::spawn_dialogue;
 use crate::input::{ActionButtonEvent, InputManagerReference};
 use crate::menus::*;
-use crate::player_controller::camera_controls::InteractedWith;
+use crate::player_controller::camera_controls::InteractWith;
 use crate::questing::{
-    InteractedWithQuestGiverSet, Quest, QuestAccepted, QuestAcceptedSet, QuestDeclined,
-    QuestDeclinedSet, QuestGiver, QuestId, QuestingPlugin, Quests,
+    AcceptQuest, DeclineQuest, Quest, QuestGiver, QuestId, QuestingPlugin, Quests,
 };
 
 #[derive(Component)]
@@ -28,7 +27,7 @@ impl InputManagerReference for QuestProposalAccept {
 impl ActionButtonEvent for QuestProposalAccept {
     type Action = QuestProposalAction;
     type Button = Self;
-    type Event = QuestAccepted;
+    type Event = AcceptQuest;
 
     fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> {
         IntoSystem::into_system(
@@ -59,7 +58,7 @@ impl InputManagerReference for QuestProposalDecline {
 impl ActionButtonEvent for QuestProposalDecline {
     type Action = QuestProposalAction;
     type Button = Self;
-    type Event = QuestDeclined;
+    type Event = DeclineQuest;
 
     fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> {
         IntoSystem::into_system(
@@ -78,30 +77,19 @@ impl ActionButtonEvent for QuestProposalDecline {
     }
 }
 
+// TODO: I don't like this
 #[add_system(
 	plugin = QuestingPlugin, schedule = Update,
 	generics = <QuestProposalAccept>,
-	in_set = QuestAcceptedSet,
 )]
 #[add_system(
 	plugin = QuestingPlugin, schedule = Update,
 	generics = <QuestProposalDecline>,
-	in_set = QuestDeclinedSet,
 )]
 use crate::input::fire_action_button_events;
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestDeclined>,
-	after = QuestDeclinedSet,
-	in_set = MenuManipulationSet,
-)]
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestAccepted>,
-	after = QuestAcceptedSet,
-	in_set = MenuManipulationSet,
-)]
+#[add_observer(plugin = QuestingPlugin, generics = <AcceptQuest>)]
+#[add_observer(plugin = QuestingPlugin, generics = <DeclineQuest>)]
 use crate::menus::close_menu_on_event;
 
 #[add_system(
@@ -110,57 +98,53 @@ use crate::menus::close_menu_on_event;
 )]
 use crate::prelude::interact_with;
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = InteractedWithQuestGiverSet::default(),
-)]
+#[add_observer(plugin = QuestingPlugin)]
 fn propose_quest_if_none(
-    mut ev_interact: EventReader<InteractedWith<QuestGiver>>,
+    interact: On<InteractWith<QuestGiver>>,
     mut commands: Commands,
     mut quests: ResMut<Quests>,
     mut quest_givers: Query<&mut QuestGiver>,
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
-    for ev in ev_interact.read() {
-        let mut quest_giver = quest_givers.get_mut(ev.0)?;
-        if quest_giver.given_quest.is_some() {
-            continue;
-        }
-
-        let quest: Quest = rand::random();
-        let quest_id = quest.id;
-        quests.0.insert(quest_id, quest);
-        let quest = quests
-            .0
-            .get(&quest_id)
-            .ok_or("Unknown quest even though we just inserted it")?;
-
-        quest_giver.given_quest = Some(quest_id);
-
-        let mut dialogue = spawn_dialogue(
-            &mut commands,
-            &mut menu_stack,
-            format!("{}\n\n{}", quest.name, quest.description),
-            QuestProposal { quest_id },
-            InputMap::default()
-                .with(QuestProposalAction::Accept, KeyCode::KeyE)
-                .with(QuestProposalAction::Decline, KeyCode::Space),
-        );
-        dialogue.add_option(
-            &mut commands,
-            "Accept [E]".to_owned(),
-            QuestProposalAccept {
-                quest_proposal: dialogue.root,
-            },
-        );
-        dialogue.add_option(
-            &mut commands,
-            "Decline [Space]".to_owned(),
-            QuestProposalDecline {
-                quest_proposal: dialogue.root,
-            },
-        );
+    let mut quest_giver = quest_givers.get_mut(interact.entity)?;
+    if quest_giver.given_quest.is_some() {
+        return Ok(());
     }
+
+    let quest: Quest = rand::random();
+    let quest_id = quest.id;
+    quests.0.insert(quest_id, quest);
+    let quest = quests
+        .0
+        .get(&quest_id)
+        .ok_or("Unknown quest even though we just inserted it")?;
+
+    quest_giver.given_quest = Some(quest_id);
+
+    let mut dialogue = spawn_dialogue(
+        &mut commands,
+        &mut menu_stack,
+        format!("{}\n\n{}", quest.name, quest.description),
+        QuestProposal { quest_id },
+        InputMap::default()
+            .with(QuestProposalAction::Accept, KeyCode::KeyE)
+            .with(QuestProposalAction::Decline, KeyCode::Space),
+    );
+    dialogue.add_option(
+        &mut commands,
+        "Accept [E]".to_owned(),
+        QuestProposalAccept {
+            quest_proposal: dialogue.root,
+        },
+    );
+    dialogue.add_option(
+        &mut commands,
+        "Decline [Space]".to_owned(),
+        QuestProposalDecline {
+            quest_proposal: dialogue.root,
+        },
+    );
+
     Ok(())
 }
 

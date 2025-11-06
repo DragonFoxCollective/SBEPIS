@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkMaterial,
+    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache, ChunkMaterial,
 };
 use bevy_marching_cubes::{
     AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
@@ -10,6 +10,7 @@ use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMesh
 use rand::{Rng, SeedableRng as _};
 
 use crate::gridbox_material;
+use crate::prelude::*;
 
 #[butler_plugin]
 #[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
@@ -18,8 +19,12 @@ pub struct TerrainWorldGenPlugin;
 #[add_plugin(to_plugin = TerrainWorldGenPlugin, generics = <WorldGen, StandardMaterial>)]
 use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
 
-#[insert_resource(plugin = TerrainWorldGenPlugin, generics = <WorldGen>, init = ChunkGenerator::<WorldGen>::new(0.0, 50, 50.0))]
-use bevy_marching_cubes::chunk_generator::ChunkGenerator;
+#[insert_resource(
+	plugin = TerrainWorldGenPlugin, generics = <WorldGen>,
+	init = ChunkGeneratorSettings::<WorldGen>::new(50, 50.0)
+		.with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0))
+)]
+use bevy_marching_cubes::chunk_generator::ChunkGeneratorSettings;
 
 #[derive(TypePath)]
 pub struct WorldGen;
@@ -34,9 +39,9 @@ impl ChunkComputeShader for WorldGen {
         let mut rand = rand::prelude::StdRng::seed_from_u64(159);
         let poi_positions = [Vec3::ZERO; 6].map(|_| {
             Vec3::new(
-                rand.gen_range(-radius..radius),
+                rand.random_range(-radius..radius),
                 0.0,
-                rand.gen_range(-radius..radius),
+                rand.random_range(-radius..radius),
             )
         });
         debug!("Generated POI positions: {:?}", poi_positions);
@@ -70,10 +75,11 @@ fn add_components(
         commands.entity(chunk).insert(FinalizedChunk);
 
         let mesh = meshes.get(mesh).expect("Failed to get mesh");
-        commands.entity(chunk).insert(
+        commands.entity(chunk).insert((
             Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
                 .expect("Failed to create chunk collider"),
-        );
+            DespawnOnExit(GameState::InGame),
+        ));
     }
 }
 
@@ -83,14 +89,15 @@ struct FinalizedChunk;
 #[derive(Component, Debug)]
 struct SleepingFromUnloaded;
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems, run_if = in_state(GameState::InGame))]
 fn sleep_unloaded_entities(
     mut commands: Commands,
     sleeping_entities: Query<(Entity, &GlobalTransform, &RigidBody), Without<SleepingFromUnloaded>>,
-    chunks: Res<ChunkGenerator<WorldGen>>,
+    settings: Res<ChunkGeneratorSettings<WorldGen>>,
+    cache: Res<ChunkGeneratorCache<WorldGen>>,
 ) {
     for (entity, transform, rigidbody) in sleeping_entities.iter() {
-        if !chunks.is_chunk_with_position_generated(transform.translation())
+        if !cache.is_chunk_with_position_generated(&settings, transform.translation())
             && *rigidbody == RigidBody::Dynamic
         {
             commands
@@ -101,14 +108,15 @@ fn sleep_unloaded_entities(
     }
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems, run_if = in_state(GameState::InGame))]
 fn wake_loaded_entities(
     mut commands: Commands,
     sleeping_entities: Query<(Entity, &GlobalTransform), With<SleepingFromUnloaded>>,
-    chunks: Res<ChunkGenerator<WorldGen>>,
+    settings: Res<ChunkGeneratorSettings<WorldGen>>,
+    cache: Res<ChunkGeneratorCache<WorldGen>>,
 ) {
     for (entity, transform) in sleeping_entities.iter() {
-        if chunks.is_chunk_with_position_generated(transform.translation()) {
+        if cache.is_chunk_with_position_generated(&settings, transform.translation()) {
             commands
                 .entity(entity)
                 .insert(RigidBody::Dynamic)
@@ -173,6 +181,17 @@ fn place_poi_structures(
                 Vec3::Y,
                 (*position - Vec3::NEG_Y * 1000.0).normalize(),
             )),
+            DespawnOnExit(GameState::InGame),
         ));
     }
+}
+
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
+fn add_cache(mut commands: Commands) {
+    commands.init_resource::<ChunkGeneratorCache<WorldGen>>();
+}
+
+#[add_system(plugin = TerrainWorldGenPlugin, schedule = OnExit(GameState::InGame))]
+fn remove_cache(mut commands: Commands) {
+    commands.remove_resource::<ChunkGeneratorCache<WorldGen>>();
 }

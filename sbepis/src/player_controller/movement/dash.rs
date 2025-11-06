@@ -97,7 +97,11 @@ fn update_trying_to_dash(
 ) {
     for (player, mut trying_to_dash) in players.iter_mut() {
         trying_to_dash.0 += time.delta();
-        debug!("Trying to dash: {:.2?}", trying_to_dash.0.as_secs_f32());
+        debug!(
+            "Trying to dash: {:.2?} / {:.2?}",
+            trying_to_dash.0.as_secs_f32(),
+            coyote_time_settings.input_buffer_time.as_secs_f32()
+        );
         if trying_to_dash.0 >= coyote_time_settings.input_buffer_time {
             commands.entity(player).remove::<TryingToDash>();
         }

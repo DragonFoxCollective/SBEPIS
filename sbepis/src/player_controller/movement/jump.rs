@@ -91,13 +91,17 @@ fn add_trying_to_jump(players: Query<Entity, With<PlayerBody>>, mut commands: Co
 fn update_trying_to_jump(
     mut players: Query<(Entity, &mut TryingToJump)>,
     time: Res<Time>,
-    cotote_time_settings: Res<CoyoteTimeSettings>,
+    coyote_time_settings: Res<CoyoteTimeSettings>,
     mut commands: Commands,
 ) {
     for (player, mut trying_to_jump) in players.iter_mut() {
         trying_to_jump.0 += time.delta();
-        debug!("Trying to jump: {:.2?}", trying_to_jump.0.as_secs_f32());
-        if trying_to_jump.0 >= cotote_time_settings.input_buffer_time {
+        debug!(
+            "Trying to jump: {:.2?} / {:.2?}",
+            trying_to_jump.0.as_secs_f32(),
+            coyote_time_settings.input_buffer_time.as_secs_f32()
+        );
+        if trying_to_jump.0 >= coyote_time_settings.input_buffer_time {
             commands.entity(player).remove::<TryingToJump>();
         }
     }

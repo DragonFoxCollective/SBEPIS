@@ -1,10 +1,10 @@
-use std::any::type_name;
-
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
+use pretty_type_name::pretty_type_name;
+use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
@@ -33,7 +33,7 @@ pub struct MovementIndicatorsPlugin;
 pub struct SpeedIndicator;
 
 #[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
+	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_speed_indicator(mut commands: Commands) {
     commands
@@ -46,6 +46,7 @@ fn setup_speed_indicator(mut commands: Commands) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            DespawnOnExit(GameState::InGame),
         ))
         .with_child((SpeedIndicator, Text::new("Speed: None")));
 }
@@ -56,28 +57,27 @@ fn setup_speed_indicator(mut commands: Commands) {
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
     player: Query<(&Transform, &Velocity), With<PlayerBody>>,
-) -> Result {
-    let (transform, velocity) = player.single()?;
+) {
+    let (transform, velocity) = ok_or_return!(player.single());
+    let mut indicator = ok_or_return!(indicator.single_mut());
     let speed = velocity.linvel.length();
     let local_speed = (transform.rotation.inverse() * velocity.linvel)
         .xz()
         .length();
-    let mut indicator = indicator.single_mut()?;
     indicator.0 = format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}");
-    Ok(())
 }
 
 #[derive(Component)]
 pub struct DebugState;
 
 #[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
+	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
 )]
 fn setup_debug_state(mut commands: Commands) {
     commands.spawn((
         Name::new("Debug State"),
         Text("State".to_owned()),
-        TextLayout::new_with_justify(JustifyText::Right),
+        TextLayout::new_with_justify(Justify::Right),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
@@ -86,6 +86,7 @@ fn setup_debug_state(mut commands: Commands) {
         },
         DebugState,
         PlayerCameraNode,
+        DespawnOnExit(GameState::InGame),
     ));
 }
 
@@ -127,8 +128,8 @@ fn check_states(
         With<PlayerBody>,
     >,
     mut debug_states: Query<&mut Text, With<DebugState>>,
-) -> Result {
-    let mut debug_state = debug_states.single_mut()?;
+) {
+    let mut debug_state = ok_or_return!(debug_states.single_mut());
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2, tup.7.0, tup.7.1,
@@ -137,33 +138,31 @@ fn check_states(
         let has = arr
             .into_iter()
             .zip([
-                type_name::<Standing>(),
-                type_name::<Walking>(),
-                type_name::<Sprinting>(),
-                type_name::<Crouching>(),
-                type_name::<Sneaking>(),
-                type_name::<Dashing>(),
-                type_name::<ChargeStanding>(),
-                type_name::<ChargeCrouching>(),
-                type_name::<ChargeWalking>(),
-                type_name::<Tripping>(),
-                type_name::<TripRecoverInAir>(),
-                type_name::<TripRecoverOnGround>(),
-                type_name::<Sliding>(),
-                type_name::<Rolling>(),
-                type_name::<Grounded>(),
-                type_name::<EffectiveGrounded>(),
-                type_name::<TryingToDash>(),
-                type_name::<TryingToJump>(),
-                type_name::<TryingToGroundParry>(),
-                type_name::<Movement>(),
+                pretty_type_name::<Standing>(),
+                pretty_type_name::<Walking>(),
+                pretty_type_name::<Sprinting>(),
+                pretty_type_name::<Crouching>(),
+                pretty_type_name::<Sneaking>(),
+                pretty_type_name::<Dashing>(),
+                pretty_type_name::<ChargeStanding>(),
+                pretty_type_name::<ChargeCrouching>(),
+                pretty_type_name::<ChargeWalking>(),
+                pretty_type_name::<Tripping>(),
+                pretty_type_name::<TripRecoverInAir>(),
+                pretty_type_name::<TripRecoverOnGround>(),
+                pretty_type_name::<Sliding>(),
+                pretty_type_name::<Rolling>(),
+                pretty_type_name::<Grounded>(),
+                pretty_type_name::<EffectiveGrounded>(),
+                pretty_type_name::<TryingToDash>(),
+                pretty_type_name::<TryingToJump>(),
+                pretty_type_name::<TryingToGroundParry>(),
+                pretty_type_name::<Movement>(),
             ])
             .filter_map(|(has, name)| if has { Some(name) } else { None })
-            .map(|name| name.split("::").last().unwrap())
             .join("\n");
         debug_state.0 = has;
     }
-    Ok(())
 }
 
 #[add_system(

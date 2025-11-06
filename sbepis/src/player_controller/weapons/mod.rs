@@ -5,8 +5,9 @@ use bevy_butler::*;
 use bevy_rapier3d::na::Vector3;
 use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
+use return_ok::ok_or_return;
 
-use crate::entity::{EntityKilled, EntityKilledSet, GelViscosity};
+use crate::entity::{GelViscosity, Kill};
 use crate::fray::FrayMusic;
 use crate::input::button_just_pressed;
 use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
@@ -16,27 +17,23 @@ pub mod hammer;
 pub mod rifle;
 pub mod sword;
 
-#[derive(Event)]
-#[add_event(plugin = PlayerControllerPlugin)]
-pub struct EntityHit {
+#[derive(EntityEvent)]
+pub struct Hit {
+    #[event_target]
     pub victim: Entity,
     pub perpetrator: Entity,
     pub allies: EntityHashSet,
     pub damage: f32,
     pub fray_modifier: f32,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntityHitSet;
 
-#[derive(Event)]
-#[add_event(plugin = PlayerControllerPlugin)]
-pub struct EntityDamaged {
+#[derive(EntityEvent)]
+pub struct Damage {
+    #[event_target]
     pub victim: Entity,
     pub damage: f32,
     pub fray_modifier: f32,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EntityDamagedSet;
 
 #[derive(Component)]
 pub struct DamageNumbers;
@@ -123,20 +120,16 @@ fn attack(mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer), With<Acti
 fn correct_animation_speed(
     fray_music: Query<&FrayMusic>,
     mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer)>,
-) -> Result {
-    let fray_music = fray_music.single()?;
+) {
+    let fray_music = ok_or_return!(fray_music.single());
     for (animation, mut animation_player) in weapons.iter_mut() {
         if let Some(animation) = animation_player.animation_mut(animation.0) {
             animation.set_speed(fray_music.speed());
         }
     }
-    Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = EntityHitSet,
-)]
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn sweep_dealers(
     mut commands: Commands,
     mut dealers: Query<(
@@ -148,9 +141,7 @@ fn sweep_dealers(
     pivots: Query<(&SweepPivot, &GlobalTransform), Without<DamageSweep>>,
     rapier_context: ReadRapierContext,
     debug_collider_visualizers: Query<Entity, With<DebugColliderVisualizer>>,
-    mut ev_hit: EventWriter<EntityHit>,
 ) -> Result {
-    let debug_collider_visualizer = debug_collider_visualizers.single()?;
     let rapier_context = rapier_context.single()?;
     for (dealer_entity, mut dealer, end, transform) in dealers.iter_mut() {
         let (pivot, pivot_transform) = pivots.get(dealer.pivot)?;
@@ -182,16 +173,18 @@ fn sweep_dealers(
                 true
             },
         );
-        commands
-            .entity(debug_collider_visualizer)
-            .insert(Collider::from(SharedShape::new(sweep_shape)))
-            .insert(Transform::from_translation(position).with_rotation(rotation));
+        if let Ok(debug_collider_visualizer) = debug_collider_visualizers.single() {
+            commands
+                .entity(debug_collider_visualizer)
+                .insert(Collider::from(SharedShape::new(sweep_shape)))
+                .insert(Transform::from_translation(position).with_rotation(rotation));
+        }
 
         dealer.last_transform = *transform;
 
         if let Some(end) = end {
             for entity in dealer.hit_entities.iter() {
-                ev_hit.write(EntityHit {
+                commands.trigger(Hit {
                     victim: *entity,
                     perpetrator: dealer.owner,
                     allies: dealer.allies.clone(),
@@ -210,83 +203,62 @@ fn sweep_dealers(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	after = EntityHitSet,
-	in_set = EntityDamagedSet,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn hit_to_damage(
+    hit: On<Hit>,
     parents: Query<&ChildOf>,
     healths: Query<Entity, With<GelViscosity>>,
-    mut ev_hit: EventReader<EntityHit>,
-    mut ev_damage: EventWriter<EntityDamaged>,
+    mut commands: Commands,
 ) {
-    for event in ev_hit.read() {
-        let victim = find_in_ancestors(event.victim, &healths, &parents).unwrap_or(event.victim);
-        if !event.allies.contains(&victim) {
-            ev_damage.write(EntityDamaged {
-                victim,
-                damage: event.damage,
-                fray_modifier: event.fray_modifier,
+    let victim = find_in_ancestors(hit.victim, &healths, &parents).unwrap_or(hit.victim);
+    if !hit.allies.contains(&victim) {
+        commands.trigger(Damage {
+            victim,
+            damage: hit.damage,
+            fray_modifier: hit.fray_modifier,
+        });
+    }
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn deal_all_damage(
+    damage: On<Damage>,
+    mut healths: Query<&mut GelViscosity>,
+    mut commands: Commands,
+) {
+    if let Ok(mut health) = healths.get_mut(damage.victim) {
+        if damage.damage > 0.0 && health.value <= 0.0 {
+            commands.trigger(Kill {
+                victim: damage.victim,
             });
         }
+
+        health.value -= damage.damage;
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	after = EntityDamagedSet,
-	in_set = EntityKilledSet,
-)]
-fn deal_all_damage(
-    mut ev_hit: EventReader<EntityDamaged>,
-    mut ev_kill: EventWriter<EntityKilled>,
-    mut healths: Query<&mut GelViscosity>,
-) {
-    for event in ev_hit.read() {
-        if let Ok(mut health) = healths.get_mut(event.victim) {
-            let damage = event.damage;
-
-            if damage > 0.0 && health.value <= 0.0 {
-                ev_kill.write(EntityKilled(event.victim));
-            }
-
-            health.value -= damage;
-        }
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	after = EntityDamagedSet,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn update_damage_numbers(
-    mut ev_hit: EventReader<EntityDamaged>,
+    damage: On<Damage>,
     mut damage_numbers: Query<Entity, With<DamageNumbers>>,
     hit_object: Query<Option<&Name>, With<GelViscosity>>,
     mut commands: Commands,
 ) {
-    for event in ev_hit.read() {
-        let Ok(hit_object_name) = hit_object.get(event.victim) else {
-            continue;
-        };
-        let hit_object_name = hit_object_name
-            .map(|name| name.as_str())
-            .unwrap_or("Object");
+    let hit_object_name = ok_or_return!(hit_object.get(damage.victim));
+    let hit_object_name = hit_object_name
+        .map(|name| name.as_str())
+        .unwrap_or("Object");
 
-        let damage = event.damage;
-        let fray_modifier = event.fray_modifier;
-        for damage_numbers in damage_numbers.iter_mut() {
-            commands.spawn((
-                TextSpan(format!("\n{hit_object_name}: {damage:.2}")),
-                TextColor(Color::mix(
-                    &Color::from(css::RED),
-                    &Color::from(css::GREEN),
-                    fray_modifier.clamp(0.0, 1.0),
-                )),
-                ChildOf(damage_numbers),
-            ));
-        }
+    for damage_numbers in damage_numbers.iter_mut() {
+        commands.spawn((
+            TextSpan(format!("\n{hit_object_name}: {:.2}", damage.damage)),
+            TextColor(Color::mix(
+                &Color::from(css::RED),
+                &Color::from(css::GREEN),
+                damage.fray_modifier.clamp(0.0, 1.0),
+            )),
+            ChildOf(damage_numbers),
+        ));
     }
 }
 

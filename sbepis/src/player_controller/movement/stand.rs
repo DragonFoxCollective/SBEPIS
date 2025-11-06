@@ -1,5 +1,5 @@
+use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
 
@@ -45,12 +45,12 @@ impl FromWorld for StandingAssets {
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets(
-    trigger: Trigger<OnAdd, (Standing, ChargeStanding, Walking, Sprinting)>,
+    add: On<Add, (Standing, ChargeStanding, Walking, Sprinting)>,
     players: Query<&PlayerBody>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = players.get(trigger.target())?;
+    let body = players.get(add.entity)?;
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));

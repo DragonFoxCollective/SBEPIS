@@ -1,6 +1,7 @@
 use bevy::ecs::query::{QueryData, QueryFilter, ROQueryItem};
 use bevy::prelude::*;
 use bevy_rapier3d::math::Real;
+use return_ok::ok_or_return;
 use std::array::IntoIter;
 use std::ops::{Add, Mul, Range, Sub};
 
@@ -84,7 +85,7 @@ pub fn despawn_after_timer(
 ) {
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.tick(time.delta());
-        if despawn_timer.finished() {
+        if despawn_timer.is_finished() {
             commands.entity(entity).despawn();
         }
     }
@@ -98,13 +99,15 @@ pub fn billboard(
     mut transforms: Query<&mut Transform, With<Billboard>>,
     player_camera: Query<&GlobalTransform, With<PlayerCamera>>,
     player_body: Query<&GlobalTransform, With<PlayerBody>>,
-) -> Result {
-    let player_camera = player_camera.single()?;
-    let player_body = player_body.single()?;
+) {
+    let player_camera_position = ok_or_return!(player_camera.single()).translation();
+    let player_body = player_body
+        .single()
+        .map(GlobalTransform::up)
+        .unwrap_or(Dir3::Y);
     for mut transform in transforms.iter_mut() {
-        transform.look_at(player_camera.translation(), player_body.up());
+        transform.look_at(player_camera_position, player_body);
     }
-    Ok(())
 }
 
 pub trait QuaternionEx {
@@ -162,14 +165,22 @@ where
     }
 }
 
-pub fn find_in_ancestors<'a, D: QueryData, F: QueryFilter>(
+pub fn find_in_ancestors<'w, 's: 'w, 'a: 'w, D: QueryData, F: QueryFilter>(
     entity: Entity,
-    query: &'a Query<D, F>,
-    parents: &Query<&ChildOf>,
-) -> Option<ROQueryItem<'a, D>> {
-    Iterator::chain(std::iter::once(entity), parents.iter_ancestors(entity))
-        .filter_map(|entity| query.get(entity).ok())
-        .next()
+    query: &'a Query<'w, 's, D, F>,
+    parents: &Query<'w, 's, &ChildOf>,
+) -> Option<ROQueryItem<'w, 's, D>> {
+    if let Ok(item) = query.get(entity) {
+        return Some(item);
+    }
+
+    for e in parents.iter_ancestors(entity) {
+        if let Ok(item) = query.get(e) {
+            return Some(item);
+        }
+    }
+
+    None
 }
 
 #[derive(Component)]

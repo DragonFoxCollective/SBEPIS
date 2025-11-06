@@ -6,18 +6,15 @@ use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_butler::*;
 use bevy_rapier3d::geometry::Collider;
-use return_ok::{ok_or_continue, some_or_return_ok};
+use return_ok::{ok_or_return, some_or_return_ok};
 
-use crate::entity::spawner::{
-    EntitySpawned, EntitySpawnedSet, SpawnerActivated, SpawnerActivatedSet,
-};
+use crate::entity::spawner::{ActivateSpawner, Spawn};
 use crate::entity::{
-    EntityKilled, EntityKilledSet, GelViscosity, Movement, RotateTowardMovement, SpawnHealthBar,
-    TargetPlayer,
+    GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar, TargetPlayer,
 };
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
-use crate::player_controller::weapons::EntityDamaged;
+use crate::player_controller::weapons::Damage;
 use crate::util::AnimationRootReference;
 
 use super::name_tags::{NameTagAssets, SpawnNameTag};
@@ -91,36 +88,26 @@ fn setup_imp_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = SpawnerActivatedSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn queue_spawning_imp(
-    mut ev_spawner: EventReader<SpawnerActivated>,
+    spawn: On<ActivateSpawner>,
     mut commands: Commands,
     spawners: Query<(), With<ImpSpawner>>,
 ) {
-    for ev in ev_spawner.read() {
-        if spawners.get(ev.spawner).is_err() {
-            continue;
-        }
-
-        commands.entity(ev.entity).insert((
-            Name::new("Imp"),
-            Transform::from_translation(ev.position),
-            InsertImpAssets,
-        ));
+    if spawners.get(spawn.spawner).is_err() {
+        return;
     }
+
+    commands.entity(spawn.spawned_entity).insert((
+        Name::new("Imp"),
+        Transform::from_translation(spawn.position),
+        InsertImpAssets,
+    ));
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = queue_spawning_imp,
-	in_set = EntitySpawnedSet,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_imp(
     imps: Query<Entity, With<InsertImpAssets>>,
-    mut ev_spawned: EventWriter<EntitySpawned>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
     gltfs: Res<Assets<Gltf>>,
@@ -146,14 +133,15 @@ fn spawn_imp(
                 Collider::capsule_y(0.25, 0.25),
             ))
             .observe(
-                |trigger: Trigger<SceneInstanceReady>,
+                |scene_instance_ready: On<SceneInstanceReady>,
                  mut commands: Commands,
                  imp_assets: Res<ImpAssets>,
                  gltfs: Res<Assets<Gltf>>,
                  mut animation_graphs: ResMut<Assets<AnimationGraph>>,
                  children: Query<&Children>,
                  material_names: Query<&GltfMaterialName>,
-                 name_tag_assets: Res<NameTagAssets>| {
+                 name_tag_assets: Res<NameTagAssets>|
+                 -> Result {
                     let imp_gltf = gltfs
                         .get(&imp_assets.model)
                         .ok_or("Gltf should be loaded by now")?;
@@ -176,7 +164,11 @@ fn spawn_imp(
                     let mut transitions = AnimationTransitions::new();
                     transitions.play(&mut animation_player, imp_animations.idle, Duration::ZERO);
 
-                    let scene = *children.get(trigger.target()).unwrap().last().unwrap();
+                    let scene = *children
+                        .get(scene_instance_ready.entity)
+                        .unwrap()
+                        .last()
+                        .unwrap();
                     let armature = children.get(scene).unwrap()[0];
 
                     commands.entity(armature).insert((
@@ -187,11 +179,14 @@ fn spawn_imp(
                         imp_animations,
                     ));
 
-                    for child in children.iter_descendants(trigger.target()).filter(|child| {
-                        material_names
-                            .get(*child)
-                            .is_ok_and(|name| name.0 == "Candy")
-                    }) {
+                    for child in children
+                        .iter_descendants(scene_instance_ready.entity)
+                        .filter(|child| {
+                            material_names
+                                .get(*child)
+                                .is_ok_and(|name| name.0 == "Candy")
+                        })
+                    {
                         commands
                             .entity(child)
                             .remove::<MeshMaterial3d<StandardMaterial>>()
@@ -199,23 +194,20 @@ fn spawn_imp(
                     }
 
                     commands
-                        .entity(trigger.target())
+                        .entity(scene_instance_ready.entity)
                         .insert(AnimationRootReference(armature));
 
                     Ok(())
                 },
             );
 
-        ev_spawned.write(EntitySpawned { _entity: imp });
+        commands.trigger(Spawn { entity: imp });
     }
 
     Ok(())
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntitySpawnedSet,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn update_imp_animations(
     mut imps: Query<(&Movement, &AnimationRootReference), With<Imp>>,
     mut animations: Query<(
@@ -258,59 +250,49 @@ fn update_imp_animations(
     }
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn imp_hurt_sound(
-    mut ev_damaged: EventReader<EntityDamaged>,
+    damage: On<Damage>,
     mut imps: Query<(&GelViscosity, &GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
 ) {
-    for ev in ev_damaged.read() {
-        let (health, transform, mut sound_timer) = ok_or_continue!(imps.get_mut(ev.victim));
+    let (health, transform, mut sound_timer) = ok_or_return!(imps.get_mut(damage.victim));
 
-        if ev.damage + health.value < 0.0 {
-            // dead
-            continue;
-        }
-
-        commands.spawn((
-            Transform::from_translation(transform.translation()),
-            AudioPlayer(imp_assets.hurt_sound.clone()),
-            PlaybackSettings::DESPAWN
-                .with_speed(imp_assets.random_sound_effect_variance())
-                .with_spatial(true),
-        ));
-
-        sound_timer.0 = imp_assets.random_ambient_sound_time();
+    if damage.damage + health.value < 0.0 {
+        // dead
+        return;
     }
+
+    commands.spawn((
+        Transform::from_translation(transform.translation()),
+        AudioPlayer(imp_assets.hurt_sound.clone()),
+        PlaybackSettings::DESPAWN
+            .with_speed(imp_assets.random_sound_effect_variance())
+            .with_spatial(true),
+    ));
+
+    sound_timer.0 = imp_assets.random_ambient_sound_time();
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
-)]
+#[add_observer(plugin = NpcPlugin)]
 fn imp_kill_sound(
-    mut ev_damaged: EventReader<EntityKilled>,
+    kill: On<Kill>,
     mut imps: Query<(&GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
     imp_assets: Res<ImpAssets>,
 ) {
-    for ev in ev_damaged.read() {
-        let (transform, mut sound_timer) = ok_or_continue!(imps.get_mut(ev.0));
+    let (transform, mut sound_timer) = ok_or_return!(imps.get_mut(kill.victim));
 
-        commands.spawn((
-            Transform::from_translation(transform.translation()),
-            AudioPlayer(imp_assets.death_sound.clone()),
-            PlaybackSettings::DESPAWN
-                .with_speed(imp_assets.random_sound_effect_variance())
-                .with_spatial(true),
-        ));
+    commands.spawn((
+        Transform::from_translation(transform.translation()),
+        AudioPlayer(imp_assets.death_sound.clone()),
+        PlaybackSettings::DESPAWN
+            .with_speed(imp_assets.random_sound_effect_variance())
+            .with_spatial(true),
+    ));
 
-        sound_timer.0 = imp_assets.random_ambient_sound_time();
-    }
+    sound_timer.0 = imp_assets.random_ambient_sound_time();
 }
 
 #[derive(Component, Default)]

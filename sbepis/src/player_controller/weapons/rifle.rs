@@ -1,9 +1,9 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationTarget, AnimationTargetId, animated_field};
+use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
+use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy::render::mesh::CapsuleUvProfile;
 use bevy_butler::*;
 use bevy_rapier3d::math::Real;
 use bevy_rapier3d::plugin::ReadRapierContext;
@@ -13,7 +13,8 @@ use crate::camera::PlayerCamera;
 use crate::fray::FrayMusic;
 use crate::gridbox_material;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::weapons::{EntityHit, WeaponAnimation};
+use crate::player_controller::weapons::{Hit, WeaponAnimation};
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct RiflePivot {
@@ -116,6 +117,7 @@ pub fn spawn_rifle(
                 fire_sound: asset_server.load("flute.wav"),
                 charge_sound: asset_server.load("flute.wav"),
             },
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -131,10 +133,9 @@ pub fn spawn_rifle(
             AnimationPlayer::default(),
             WeaponAnimation(animation_index),
             ChildOf(body),
+            DespawnOnExit(GameState::InGame),
         ))
         .add_child(rifle_barrel)
-        .observe(on_rifle_fire)
-        .observe(on_rifle_start_charging)
         .id();
     commands.entity(rifle_pivot).insert(AnimationTarget {
         id: rifle_pivot_id,
@@ -144,23 +145,23 @@ pub fn spawn_rifle(
     (rifle_pivot, rifle_barrel)
 }
 
-#[derive(Event, Clone, Copy)]
+#[derive(AnimationEvent, Clone)]
 struct RifleFire;
 
-#[derive(Event, Clone, Copy)]
+#[derive(AnimationEvent, Clone)]
 struct RifleStartCharging;
 
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn on_rifle_fire(
-    trigger: Trigger<RifleFire>,
+    fire: On<RifleFire>,
     rifle_pivots: Query<&RiflePivot>,
     mut rifles: Query<&mut Rifle>,
     mut commands: Commands,
-    mut ev_hit: EventWriter<EntityHit>,
     rapier_context: ReadRapierContext,
     frays: Query<&FrayMusic>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
 ) -> Result {
-    let rifle_pivot_entity = trigger.target();
+    let rifle_pivot_entity = fire.trigger().animation_player;
     let rifle_pivot = rifle_pivots.get(rifle_pivot_entity)?;
     let rifle_barrel_entity = rifle_pivot.barrel;
     let mut rifle = rifles.get_mut(rifle_barrel_entity)?;
@@ -192,7 +193,7 @@ fn on_rifle_fire(
         rifle.charge = 0;
         let damage = fray.modify_fray_damage(rifle.damage) * charge_multiplier;
         let fray_modifier = fray.modify_fray_damage(1.0);
-        ev_hit.write(EntityHit {
+        commands.trigger(Hit {
             victim: hit_entity,
             perpetrator: rifle.wielder,
             allies: rifle.allies.clone(),
@@ -204,13 +205,14 @@ fn on_rifle_fire(
     Ok(())
 }
 
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn on_rifle_start_charging(
-    trigger: Trigger<RifleStartCharging>,
+    charging: On<RifleStartCharging>,
     rifle_pivots: Query<&RiflePivot>,
     mut rifles: Query<&mut Rifle>,
     frays: Query<&FrayMusic>,
 ) -> Result {
-    let rifle_pivot_entity = trigger.target();
+    let rifle_pivot_entity = charging.trigger().animation_player;
     let rifle_pivot = rifle_pivots.get(rifle_pivot_entity)?;
     let rifle_barrel_entity = rifle_pivot.barrel;
     let mut rifle = rifles.get_mut(rifle_barrel_entity)?;
@@ -230,14 +232,16 @@ fn charge_rifle(
     mut commands: Commands,
     mut rifle_barrels: Query<&mut Rifle>,
     fray: Query<&FrayMusic>,
-) -> Result {
-    let fray = fray.single()?;
+) {
     for mut rifle_barrel in rifle_barrels.iter_mut() {
         if !rifle_barrel.is_charging {
             continue;
         }
 
-        let beat = rifle_barrel.get_beat(fray);
+        let beat = fray
+            .single()
+            .map(|fray| rifle_barrel.get_beat(fray))
+            .unwrap_or_default();
         if rifle_barrel.charge < rifle_barrel.max_charge && rifle_barrel.last_beat != beat {
             rifle_barrel.charge += 1;
 
@@ -247,8 +251,8 @@ fn charge_rifle(
                 PlaybackSettings::DESPAWN.with_speed(2.0),
             ));
         }
-        rifle_barrel.update_last_beat(fray);
+        if let Ok(fray) = fray.single() {
+            rifle_barrel.update_last_beat(fray);
+        }
     }
-
-    Ok(())
 }

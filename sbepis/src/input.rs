@@ -13,6 +13,7 @@ pub fn input_manager_bundle<Action: Actionlike>(
     (input_map, action_state)
 }
 
+// TODO: there's gotta be a way to remove this now
 pub trait ActionButtonEvent {
     type Action: Actionlike + Copy;
     type Button: Component + InputManagerReference;
@@ -20,7 +21,7 @@ pub trait ActionButtonEvent {
     fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> + 'static;
     fn action() -> Self::Action;
 }
-pub fn fire_action_button_events<T: ActionButtonEvent>(
+pub fn fire_action_button_events<'a, T: ActionButtonEvent<Event: Event<Trigger<'a>: Default>>>(
     input: Query<(Entity, &ActionState<T::Action>)>,
     buttons: Query<(&T::Button, &Interaction), Changed<Interaction>>,
     mut commands: Commands,
@@ -28,8 +29,8 @@ pub fn fire_action_button_events<T: ActionButtonEvent>(
 ) -> Result {
     if system.is_none() {
         *system = Some(commands.register_system(T::make_event_system().pipe(
-            |In(ev): In<T::Event>, mut ev_action: EventWriter<T::Event>| {
-                ev_action.write(ev);
+            |In(ev): In<T::Event>, mut commands: Commands| {
+                commands.trigger(ev);
             },
         )));
     }
@@ -54,29 +55,6 @@ pub fn fire_action_button_events<T: ActionButtonEvent>(
 
 pub trait InputManagerReference {
     fn input_manager(&self) -> Entity;
-}
-
-pub trait MapsToEvent<Event> {
-    fn make_event(&self) -> Event;
-}
-pub fn map_event<EventA: Event + MapsToEvent<EventB>, EventB: Event>(
-    mut ev_a: EventReader<EventA>,
-    mut ev_b: EventWriter<EventB>,
-) {
-    for ev in ev_a.read() {
-        ev_b.write(ev.make_event());
-    }
-}
-pub fn map_action_to_event<Action: Actionlike + MapsToEvent<EventB>, EventB: Event>(
-    input: Query<(Entity, &ActionState<Action>)>,
-    mut ev_b: EventWriter<EventB>,
-) {
-    input
-        .iter()
-        .flat_map(|(_, input)| input.get_just_pressed())
-        .for_each(|action| {
-            ev_b.write(action.make_event());
-        });
 }
 
 const UNIVERSAL_DEADZONE: f32 = 0.05;
@@ -142,4 +120,11 @@ pub fn button_just_released<T: Actionlike + Copy>(
             false
         }
     }
+}
+
+#[derive(EntityEvent)]
+pub struct JustPressed<T: Actionlike> {
+    #[event_target]
+    pub input_manager: Entity,
+    pub action: T,
 }

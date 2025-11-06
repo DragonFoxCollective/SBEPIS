@@ -16,7 +16,7 @@ use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
-use crate::worldgen::low_lod::LowLODWorldGen;
+use crate::prelude::*;
 use crate::worldgen::terrain::WorldGen;
 
 use self::camera_controls::*;
@@ -32,7 +32,7 @@ mod movement_indicators;
 pub mod stamina;
 pub mod weapons;
 
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct PlayerControllerPlugin;
 #[butler_plugin]
 impl Plugin for PlayerControllerPlugin {
@@ -52,9 +52,7 @@ impl Plugin for PlayerControllerPlugin {
 #[add_plugin(to_plugin = PlayerControllerPlugin, generics = <PlayerAction>)]
 use crate::menus::InputManagerMenuPlugin;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Startup,
-)]
+#[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -85,6 +83,7 @@ fn setup(
             Menu,
             MenuWithInputManager,
             MenuWithoutMouse,
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
     menu_stack.push(input);
@@ -96,6 +95,7 @@ fn setup(
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -103,6 +103,7 @@ fn setup(
         .spawn((
             Name::new("Player Mesh"),
             MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
+            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -117,6 +118,12 @@ fn setup(
             PlayerCamera,
             Pitch(0.0),
             SpatialListener::new(-0.25),
+            DespawnOnExit(GameState::InGame),
+            PostProcessSettings {
+                intensity: 0.02,
+                radius: 4.0,
+            },
+            Msaa::Off,
         ))
         .id();
 
@@ -139,8 +146,8 @@ fn setup(
                 mesh,
             },
             ChunkLoader::<WorldGen>::new(3),
-            ChunkLoader::<LowLODWorldGen>::new(5),
             Ccd::enabled(),
+            DespawnOnExit(GameState::InGame),
         ))
         .add_children(&[camera, collider, mesh])
         .id();
@@ -186,7 +193,7 @@ fn setup(
     commands.spawn((
         Name::new("Damage Numbers"),
         Text("Damage".to_owned()),
-        TextLayout::new_with_justify(JustifyText::Right),
+        TextLayout::new_with_justify(Justify::Right),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),

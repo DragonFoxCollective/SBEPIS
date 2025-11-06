@@ -1,25 +1,29 @@
 use std::f32::consts::PI;
 
+use bevy::asset::RenderAssetUsages;
 use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::render::render_resource::AsBindGroup;
 use bevy::scene::SceneInstanceReady;
+use bevy::shader::ShaderRef;
 use bevy_butler::*;
-use bevy_hanabi::prelude::*;
-use faker_rand::en_us::names::FirstName;
+use bevy_hanabi::prelude::{Gradient, *};
+use fake::Fake;
+use fake::faker::name::en::FirstName;
 use meshtext::{Face, MeshGenerator, MeshText, TextSection};
-use rand::seq::{IteratorRandom, SliceRandom};
-use return_ok::some_or_return_ok;
-use serde::Deserialize;
+use rand::seq::{IndexedRandom as _, IteratorRandom};
+use return_ok::some_or_return;
 
-use crate::entity::spawner::EntitySpawnedSet;
-use crate::entity::{EntityKilled, EntityKilledSet};
+use crate::entity::Kill;
+use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
+
+#[add_plugin(to_plugin = NpcPlugin, generics = <CandyMaterial>, init = MaterialPlugin::<CandyMaterial>::default())]
+use bevy::pbr::MaterialPlugin;
 
 #[derive(Resource)]
 pub struct NameTagAssets {
-    pub names: Handle<AvailableNames>,
+    pub names: Handle<Supporters>,
 
     pub generated_material: Handle<StandardMaterial>,
     pub past_material: Handle<StandardMaterial>,
@@ -39,31 +43,49 @@ pub struct NameTagAssets {
     pub master_particles_trails: [Handle<EffectAsset>; 2],
 }
 
-#[derive(Asset, Deserialize, TypePath)]
+#[derive(Resource)]
 pub struct AvailableNames {
     names: Vec<NameTag>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-enum NameTier {
-    Past,
-    Pgo,
-    Captcha,
-    Alchemiter,
-    Denizen,
-    Master,
+impl From<Supporters> for AvailableNames {
+    fn from(contributors: Supporters) -> Self {
+        Self {
+            names: contributors.names.into_iter().map(NameTag::from).collect(),
+        }
+    }
 }
 
+/// Marks an entity that should have a name tag spawned for it.
+/// This isn't an observer because the names might not be loaded when the entity is spawned.
 #[derive(Component)]
 pub struct SpawnNameTag;
 
 #[derive(Component)]
 pub struct NameTagged(pub NameTag);
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct NameTag {
     name: String,
-    tier: Option<NameTier>,
+    tier: Option<SupporterTier>,
+}
+
+impl Default for NameTag {
+    fn default() -> Self {
+        Self {
+            name: FirstName().fake(),
+            tier: None,
+        }
+    }
+}
+
+impl From<Supporter> for NameTag {
+    fn from(contributor: Supporter) -> Self {
+        Self {
+            name: contributor.name,
+            tier: Some(contributor.tier),
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -262,10 +284,8 @@ fn load_names(
     mut particles: ResMut<Assets<EffectAsset>>,
     mut candy_materials: ResMut<Assets<CandyMaterial>>,
 ) -> Result {
-    let names: Handle<AvailableNames> = asset_server.load("supporters.names.ron");
-
     commands.insert_resource(NameTagAssets {
-        names,
+        names: asset_server.load("supporters.supporters.ron"),
         generated_material: materials.add(Color::srgb(0.4, 0.4, 0.4)),
 
         past_material: materials.add(Color::WHITE),
@@ -303,73 +323,52 @@ fn load_names(
     Ok(())
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-	after = EntitySpawnedSet,
-)]
+#[add_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_name_tags(
     mut commands: Commands,
     asset: Res<NameTagAssets>,
-    mut assets: ResMut<Assets<AvailableNames>>,
+    mut available_names: Option<ResMut<AvailableNames>>,
     entities: Query<Entity, With<SpawnNameTag>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut font_mesh_generator: ResMut<FontMeshGenerator>,
 ) -> Result {
-    let names = some_or_return_ok!(assets.get_mut(&asset.names));
-
     for entity in entities.iter() {
-        let name_tag = {
-            let opt = names
-                .names
-                .iter()
-                .enumerate()
-                .choose(&mut rand::thread_rng())
-                .map(|(i, name)| (i, name.clone()));
-            if let Some((i, name_tag)) = opt {
-                names.names.swap_remove(i);
-                name_tag
-            } else {
-                NameTag {
-                    name: rand::random::<FirstName>().to_string(),
-                    tier: None,
-                }
-            }
-        };
+        let name_tag = get_name(available_names.as_mut()).unwrap_or_default();
 
         let (mesh_text, mesh) = match name_tag.tier {
             None => font_mesh_generator.generate_regular(&name_tag.name),
-            Some(NameTier::Past) => font_mesh_generator.generate_regular(&name_tag.name),
-            Some(NameTier::Pgo) => font_mesh_generator.generate_regular(&name_tag.name),
-            Some(NameTier::Captcha) => font_mesh_generator.generate_regular(&name_tag.name),
-            Some(NameTier::Alchemiter) => font_mesh_generator.generate_bold(&name_tag.name),
-            Some(NameTier::Denizen) => font_mesh_generator.generate_regular(&name_tag.name),
-            Some(NameTier::Master) => font_mesh_generator.generate_bold(&name_tag.name),
+            Some(SupporterTier::Past) => font_mesh_generator.generate_regular(&name_tag.name),
+            Some(SupporterTier::Pgo) => font_mesh_generator.generate_regular(&name_tag.name),
+            Some(SupporterTier::Captcha) => font_mesh_generator.generate_regular(&name_tag.name),
+            Some(SupporterTier::Alchemiter) => font_mesh_generator.generate_bold(&name_tag.name),
+            Some(SupporterTier::Denizen) => font_mesh_generator.generate_regular(&name_tag.name),
+            Some(SupporterTier::Master) => font_mesh_generator.generate_bold(&name_tag.name),
         };
         let material = match name_tag.tier {
             None => NameTagShader::Standard(asset.generated_material.clone()),
-            Some(NameTier::Past) => NameTagShader::Standard(asset.past_material.clone()),
-            Some(NameTier::Pgo) => NameTagShader::Standard(asset.pgo_material.clone()),
-            Some(NameTier::Captcha) => NameTagShader::Standard(asset.captcha_material.clone()),
-            Some(NameTier::Alchemiter) => {
+            Some(SupporterTier::Past) => NameTagShader::Standard(asset.past_material.clone()),
+            Some(SupporterTier::Pgo) => NameTagShader::Standard(asset.pgo_material.clone()),
+            Some(SupporterTier::Captcha) => NameTagShader::Standard(asset.captcha_material.clone()),
+            Some(SupporterTier::Alchemiter) => {
                 NameTagShader::Standard(asset.alchemiter_material.clone())
             }
-            Some(NameTier::Denizen) => NameTagShader::Standard(
+            Some(SupporterTier::Denizen) => NameTagShader::Standard(
                 asset
                     .denizen_materials
-                    .choose(&mut rand::thread_rng())
+                    .choose(&mut rand::rng())
                     .ok_or("No denizen-level materials")?
                     .clone(),
             ),
-            Some(NameTier::Master) => NameTagShader::Candy(asset.master_material.clone()),
+            Some(SupporterTier::Master) => NameTagShader::Candy(asset.master_material.clone()),
         };
         let scale = match name_tag.tier {
             None => 0.2,
-            Some(NameTier::Past) => 0.2,
-            Some(NameTier::Pgo) => 0.2,
-            Some(NameTier::Captcha) => 0.2,
-            Some(NameTier::Alchemiter) => 0.2,
-            Some(NameTier::Denizen) => 0.3,
-            Some(NameTier::Master) => 0.3,
+            Some(SupporterTier::Past) => 0.2,
+            Some(SupporterTier::Pgo) => 0.2,
+            Some(SupporterTier::Captcha) => 0.2,
+            Some(SupporterTier::Alchemiter) => 0.2,
+            Some(SupporterTier::Denizen) => 0.3,
+            Some(SupporterTier::Master) => 0.3,
         };
 
         let mut text_entity = commands.spawn((
@@ -392,15 +391,15 @@ fn spawn_name_tags(
         // idk why they dont work but it makes a bunch of errors. wait until release?
         // let (particles, particle_trails) = match name_tag.tier {
         //     None => (vec![], vec![]),
-        //     Some(NameTier::Past) => (vec![], vec![]),
-        //     Some(NameTier::Pgo) => (vec![], vec![]),
-        //     Some(NameTier::Captcha) => (vec![], vec![]),
-        //     Some(NameTier::Alchemiter) => (vec![], vec![]),
-        //     Some(NameTier::Denizen) => (
+        //     Some(ContributorTier::Past) => (vec![], vec![]),
+        //     Some(ContributorTier::Pgo) => (vec![], vec![]),
+        //     Some(ContributorTier::Captcha) => (vec![], vec![]),
+        //     Some(ContributorTier::Alchemiter) => (vec![], vec![]),
+        //     Some(ContributorTier::Denizen) => (
         //         vec![asset.denizen_particles.clone()],
         //         vec![asset.denizen_particles_trails.clone()],
         //     ),
-        //     Some(NameTier::Master) => (
+        //     Some(ContributorTier::Master) => (
         //         asset.master_particles.to_vec(),
         //         asset.master_particles_trails.to_vec(),
         //     ),
@@ -422,17 +421,20 @@ fn spawn_name_tags(
         //     }
         // }
 
-        if !matches!(name_tag.tier, Some(NameTier::Master)) {
+        if !matches!(name_tag.tier, Some(SupporterTier::Master)) {
             commands.entity(entity).observe(
-                |trigger: Trigger<SceneInstanceReady>,
+                |scene_instance_ready: On<SceneInstanceReady>,
                  material_names: Query<&GltfMaterialName>,
                  mut commands: Commands,
                  children: Query<&Children>| {
-                    for child in children.iter_descendants(trigger.target()).filter(|child| {
-                        material_names
-                            .get(*child)
-                            .is_ok_and(|name| name.0 == "Candy")
-                    }) {
+                    for child in children
+                        .iter_descendants(scene_instance_ready.entity)
+                        .filter(|child| {
+                            material_names
+                                .get(*child)
+                                .is_ok_and(|name| name.0 == "Candy")
+                        })
+                    {
                         commands.entity(child).insert(Visibility::Hidden);
                     }
                 },
@@ -448,24 +450,50 @@ fn spawn_name_tags(
     Ok(())
 }
 
+fn get_name(available_names: Option<&mut ResMut<AvailableNames>>) -> Option<NameTag> {
+    let available_names = available_names?;
+
+    let opt = available_names
+        .names
+        .iter()
+        .enumerate()
+        .choose(&mut rand::rng())
+        .map(|(i, name)| (i, name.clone()));
+    if let Some((i, _)) = opt {
+        available_names.names.swap_remove(i);
+    }
+    opt.map(|(_, name_tag)| name_tag)
+}
+
 #[add_system(
 	plugin = NpcPlugin, schedule = Update,
-	after = EntityKilledSet,
+	run_if = not(resource_exists::<AvailableNames>),
 )]
-fn add_killed_name_back(
-    mut ev_killed: EventReader<EntityKilled>,
-    mut names: ResMut<Assets<AvailableNames>>,
+fn add_available_names(
+    mut commands: Commands,
     assets: Res<NameTagAssets>,
+    names: Res<Assets<Supporters>>,
+) {
+    let names = some_or_return!(names.get(&assets.names));
+    commands.insert_resource(AvailableNames::from(names.clone()));
+}
+
+#[add_observer(plugin = NpcPlugin)]
+fn add_killed_name_back(
+    kill: On<Kill>,
+    mut names: Option<ResMut<AvailableNames>>,
     name_tagged: Query<&NameTagged>,
 ) -> Result {
-    let names = some_or_return_ok!(names.get_mut(&assets.names));
-    for ev in ev_killed.read() {
-        if let Ok(name_tagged) = name_tagged.get(ev.0)
-            && name_tagged.0.tier.is_some()
-        {
-            names.names.push(name_tagged.0.clone());
-        }
+    if let Ok(name_tagged) = name_tagged.get(kill.victim)
+        && name_tagged.0.tier.is_some()
+    {
+        names
+            .as_mut()
+            .ok_or("Names not loaded (this should be impossible???)")?
+            .names
+            .push(name_tagged.0.clone());
     }
+
     Ok(())
 }
 

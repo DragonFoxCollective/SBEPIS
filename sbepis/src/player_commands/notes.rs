@@ -3,29 +3,23 @@ use bevy_butler::*;
 use leafwing_input_manager::prelude::*;
 use soundyrust::Note;
 
-use crate::input::{MapsToEvent, button_just_pressed};
-use crate::player_commands::{CloseStaffAction, CommandSent, CommandSentSet, PlayerCommandsPlugin};
+use crate::input::JustPressed;
+use crate::player_commands::{CloseStaffAction, PlayerCommandsPlugin, SendCommand};
 
 #[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct NotePlayed {
+pub struct PlayNote {
     pub note: Note,
 }
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NotePlayedSet;
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	generics = <PlayNoteAction, NotePlayed>,
-	in_set = NotePlayedSet,
-)]
-use crate::input::map_action_to_event;
+#[add_observer(plugin = PlayerCommandsPlugin)]
+pub fn map_action_to_event(input: On<JustPressed<PlayNoteAction>>, mut commands: Commands) {
+    commands.trigger(PlayNote {
+        note: input.action.note(),
+    });
+}
 
 #[derive(Event)]
-#[add_event(plugin = PlayerCommandsPlugin)]
-pub struct NotesCleared;
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NotesClearedSet;
+pub struct ClearNotes;
 
 #[derive(Actionlike, Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
 pub enum PlayNoteAction {
@@ -253,42 +247,25 @@ impl PlayNoteAction {
         }
     }
 }
-impl MapsToEvent<NotePlayed> for PlayNoteAction {
-    fn make_event(&self) -> NotePlayed {
-        NotePlayed { note: self.note() }
-    }
-}
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	after = NotePlayedSet,
-)]
+#[add_observer(plugin = PlayerCommandsPlugin)]
 fn spawn_note_audio(
+    play_note: On<PlayNote>,
     mut commands: Commands,
-    mut ev_note_played: EventReader<NotePlayed>,
     asset_server: Res<AssetServer>,
 ) {
-    for ev in ev_note_played.read() {
-        let note = ev.note;
-
-        commands.spawn((
-            AudioPlayer::new(asset_server.load("flute.wav")),
-            PlaybackSettings::DESPAWN.with_speed(note.frequency / Note::C4.frequency),
-        ));
-    }
+    commands.spawn((
+        AudioPlayer::new(asset_server.load("flute.wav")),
+        PlaybackSettings::DESPAWN.with_speed(play_note.note.frequency / Note::C4.frequency),
+    ));
 }
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	after = CommandSentSet,
-	in_set = NotesClearedSet,
-	run_if = on_event::<CommandSent>,
-)]
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Update,
-	in_set = NotesClearedSet,
-	run_if = button_just_pressed(CloseStaffAction),
-)]
-fn clear_notes(mut ev_clear_notes: EventWriter<NotesCleared>) {
-    ev_clear_notes.write(NotesCleared);
+#[add_observer(plugin = PlayerCommandsPlugin)]
+fn clear_notes_on_close(_: On<JustPressed<CloseStaffAction>>, mut commands: Commands) {
+    commands.trigger(ClearNotes);
+}
+
+#[add_observer(plugin = PlayerCommandsPlugin)]
+fn clear_notes_after_command(_: On<SendCommand>, mut commands: Commands) {
+    commands.trigger(ClearNotes);
 }

@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::*;
+use return_ok::some_or_return;
 
 use crate::entity::EntityPlugin;
 use crate::prelude::PlayerBody;
@@ -82,10 +83,14 @@ pub struct TargetPlayer;
 fn target_player(
     mut target_players: Query<(&Transform, &mut Movement), With<TargetPlayer>>,
     player: Query<&Transform, With<PlayerBody>>,
-) -> Result {
-    let player_transform = player.single()?;
+) {
     for (transform, mut input) in target_players.iter_mut() {
+        let player_transform = some_or_return!(player.iter().min_by(|a, b| {
+            a.translation
+                .distance(transform.translation)
+                .partial_cmp(&b.translation.distance(transform.translation))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }));
         input.0 = (player_transform.translation - transform.translation).normalize();
     }
-    Ok(())
 }

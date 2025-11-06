@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Velocity;
 use leafwing_input_manager::prelude::ActionState;
+use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::gravity::{AffectedByGravity, ComputedGravity};
@@ -66,6 +67,21 @@ pub struct TripRecoverOnGround {
 #[derive(Component, Default)]
 pub struct TryingToGroundParry {
     pub duration: Duration,
+}
+
+#[derive(Component)]
+pub struct HitStop {
+    pub duration: Duration,
+    pub velocity: Vec3,
+    pub movement: Vec3,
+}
+
+#[insert_resource(plugin = PlayerControllerPlugin, init = HitStopSettings {
+	ground_parry_duration: Duration::from_secs_f32(0.1),
+})]
+#[derive(Resource)]
+pub struct HitStopSettings {
+    pub ground_parry_duration: Duration,
 }
 
 #[add_system(
@@ -136,8 +152,8 @@ fn update_trip_recover_ground(
     coyote_time_settings: Res<CoyoteTimeSettings>,
     mut commands: Commands,
     input: Query<&ActionState<PlayerAction>>,
-) -> Result {
-    let input = input.single()?;
+) {
+    let input = ok_or_return!(input.single());
     for (player, mut trip_recover_ground) in players.iter_mut() {
         trip_recover_ground.duration += time.delta();
         if trip_recover_ground.duration >= coyote_time_settings.coyote_time {
@@ -150,7 +166,6 @@ fn update_trip_recover_ground(
             }
         }
     }
-    Ok(())
 }
 
 #[add_system(
@@ -190,8 +205,9 @@ fn update_trying_to_ground_parry(
     for (player, mut trying_to_ground_parry) in players.iter_mut() {
         trying_to_ground_parry.duration += time.delta();
         debug!(
-            "Trying to ground parry: {:.2?}",
-            trying_to_ground_parry.duration.as_secs_f32()
+            "Trying to ground parry: {:.2?} / {:.2?}",
+            trying_to_ground_parry.duration.as_secs_f32(),
+            coyote_time_settings.input_buffer_time.as_secs_f32()
         );
         if trying_to_ground_parry.duration >= coyote_time_settings.input_buffer_time {
             commands.entity(player).remove::<TryingToGroundParry>();
@@ -207,13 +223,21 @@ fn update_trying_to_ground_parry(
 )]
 fn ground_parry(
     mut players: Query<
-        (Entity, &mut Movement, &Transform, &mut Stamina),
+        (
+            Entity,
+            &mut Movement,
+            &Transform,
+            &mut Stamina,
+            &mut Velocity,
+        ),
         (With<TryingToGroundParry>, With<TripRecoverOnGround>),
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
+    parry_sound: Res<ParrySound>,
+    hit_stop_settings: Res<HitStopSettings>,
 ) {
-    for (player, mut movement, transform, mut stamina) in players.iter_mut() {
+    for (player, mut movement, transform, mut stamina, mut velocity) in players.iter_mut() {
         debug!("GROUND PARRY!!!!!");
 
         stamina.current += trip_settings.ground_parry_stamina_gain;
@@ -224,7 +248,21 @@ fn ground_parry(
             .remove::<TripRecoverOnGround>()
             .insert(Sliding::default());
 
-        movement.0 += transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+        let ground_parry_velocity =
+            transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+        movement.0 += ground_parry_velocity;
+        velocity.linvel += ground_parry_velocity;
+
+        commands.spawn((
+            Name::new("Parry Sound"),
+            AudioPlayer::new(parry_sound.0.clone()),
+        ));
+
+        commands.entity(player).insert(HitStop {
+            duration: hit_stop_settings.ground_parry_duration,
+            velocity: velocity.linvel,
+            movement: movement.0,
+        });
     }
 }
 
@@ -265,5 +303,49 @@ fn walking_too_fast_to_tripping(
                 gravity.up,
                 gravity.up * trip_settings.upward_speed,
             ));
+    }
+}
+
+#[derive(Resource)]
+pub struct ParrySound(pub Handle<AudioSource>);
+
+#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(ParrySound(asset_server.load("parry-ultrakill.mp3")));
+}
+
+#[add_system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	before = MovementControlSet::DoHorizontalMovement,
+	before = MovementControlSet::DoVerticalMovement,
+	after = MovementControlSet::UpdateState,
+)]
+fn hit_stop_reset(mut players: Query<(&mut Movement, &mut Velocity), With<HitStop>>) {
+    for (mut movement, mut velocity) in players.iter_mut() {
+        movement.0 = Vec3::ZERO;
+        velocity.linvel = Vec3::ZERO;
+    }
+}
+
+#[add_system(
+	plugin = PlayerControllerPlugin, schedule = Update,
+	after = MovementControlSet::DoHorizontalMovement,
+	after = MovementControlSet::DoVerticalMovement,
+)]
+fn hit_stop_update(
+    mut players: Query<(Entity, &mut HitStop, &mut Movement, &mut Velocity)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (entity, mut hit_stop, mut movement, mut velocity) in players.iter_mut() {
+        if let Some(new_duration) = hit_stop.duration.checked_sub(time.delta()) {
+            movement.0 = Vec3::ZERO;
+            velocity.linvel = Vec3::ZERO;
+            hit_stop.duration = new_duration;
+        } else {
+            movement.0 = hit_stop.movement;
+            velocity.linvel = hit_stop.velocity;
+            commands.entity(entity).remove::<HitStop>();
+        }
     }
 }

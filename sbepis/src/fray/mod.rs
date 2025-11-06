@@ -4,28 +4,26 @@ use std::time::Duration;
 use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy_butler::*;
+use return_ok::ok_or_return_ok;
 use soundyrust::*;
 use tracks::{FrayTracks, Track};
 
-use crate::camera::PlayerCameraNode;
 use crate::npcs::imp::Imp;
-use crate::player_controller::weapons::{EntityHit, EntityHitSet};
-use crate::prelude::PlayerBody;
+use crate::player_controller::weapons::Hit;
+use crate::prelude::*;
 use crate::util::MapRangeBetween;
 
 mod tracks;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct FrayPlugin;
 
 #[add_plugin(to_plugin = FrayPlugin)]
 use soundyrust::SoundyPlugin;
 
-#[add_system(
-	plugin = FrayPlugin, schedule = Startup,
-)]
-fn play_background_music(mut commands: Commands, mut assets: ResMut<Assets<MidiAudio>>) {
+#[add_system(plugin = FrayPlugin, schedule = Startup)]
+fn load_background_music(mut commands: Commands, mut assets: ResMut<Assets<MidiAudio>>) {
     let mut midi = MidiAudio::from_bytes(include_bytes!("../../assets/hl4mgm.sf2"));
     let backing_track = midi.add_track(
         MidiAudioTrack::from_bytes(include_bytes!("../../assets/fray backing.mid"), 4.0 / 4.0)
@@ -69,21 +67,27 @@ fn play_background_music(mut commands: Commands, mut assets: ResMut<Assets<MidiA
         },
     );
 
+    commands.insert_resource(FrayTracks {
+        midi: assets.add(midi),
+        player: Track::FourFour,
+        imp: Track::SixEight,
+        backing_track,
+        four_four,
+        six_eight,
+    });
+}
+
+#[add_system(plugin = FrayPlugin, schedule = OnEnter(GameState::InGame))]
+fn spawn_background_music(mut commands: Commands, tracks: Res<FrayTracks>) {
     commands.spawn((
-        AudioPlayer(assets.add(midi)),
+        AudioPlayer(tracks.midi.clone()),
         PlaybackSettings::LOOP
             .with_volume(Volume::Linear(0.2))
             .paused(),
         Name::new("Background Music"),
-        FrayMusic::new(backing_track),
+        FrayMusic::new(tracks.backing_track),
+        DespawnOnExit(GameState::InGame),
     ));
-
-    commands.insert_resource(FrayTracks {
-        player: Track::FourFour,
-        imp: Track::SixEight,
-        four_four,
-        six_eight,
-    });
 
     commands.spawn((
         Name::new("Beat Counter"),
@@ -96,6 +100,7 @@ fn play_background_music(mut commands: Commands, mut assets: ResMut<Assets<MidiA
             ..default()
         },
         PlayerCameraNode,
+        DespawnOnExit(GameState::InGame),
     ));
 }
 
@@ -175,7 +180,7 @@ fn tick_fray_music(
     mut beat_counters: Query<(&mut BeatCounter, &mut Text)>,
     mut assets: ResMut<Assets<MidiAudio>>,
 ) -> Result {
-    let (mut beat_counter, mut beat_counter_text) = beat_counters.single_mut()?;
+    let (mut beat_counter, mut beat_counter_text) = ok_or_return_ok!(beat_counters.single_mut());
     for (mut fray_music, audio_sink, midi_audio) in fray_musics.iter_mut() {
         if let Some(delay) = fray_music.delay {
             fray_music.delay = delay.checked_sub(time.delta());
@@ -217,12 +222,9 @@ fn tick_fray_music(
     Ok(())
 }
 
-#[add_system(
-	plugin = FrayPlugin, schedule = Update,
-	after = EntityHitSet,
-)]
+#[add_observer(plugin = FrayPlugin)]
 fn queue_tracks_on_hit(
-    mut ev_hit: EventReader<EntityHit>,
+    hit: On<Hit>,
     imps: Query<(), With<Imp>>,
     players: Query<(), With<PlayerBody>>,
     audio_players: Query<&AudioPlayer<MidiAudio>>,
@@ -230,30 +232,28 @@ fn queue_tracks_on_hit(
     fray_tracks: Res<FrayTracks>,
 ) -> Result {
     let audio = assets
-        .get_mut(&audio_players.single()?.0)
+        .get_mut(&ok_or_return_ok!(audio_players.single()).0)
         .ok_or("Midi audio not found")?;
 
-    for event in ev_hit.read() {
-        if imps.get(event.perpetrator).is_ok() {
-            audio.queue(
-                fray_tracks.imp_track(),
-                MidiQueueEvent {
-                    event: MidiQueueEventType::Play,
-                    timing: MidiQueueTiming::Bar,
-                    looping: MidiQueueLooping::Once,
-                },
-            );
-        }
-        if players.get(event.perpetrator).is_ok() {
-            audio.queue(
-                fray_tracks.player_track(),
-                MidiQueueEvent {
-                    event: MidiQueueEventType::Play,
-                    timing: MidiQueueTiming::Bar,
-                    looping: MidiQueueLooping::Once,
-                },
-            );
-        }
+    if imps.get(hit.perpetrator).is_ok() {
+        audio.queue(
+            fray_tracks.imp_track(),
+            MidiQueueEvent {
+                event: MidiQueueEventType::Play,
+                timing: MidiQueueTiming::Bar,
+                looping: MidiQueueLooping::Once,
+            },
+        );
+    }
+    if players.get(hit.perpetrator).is_ok() {
+        audio.queue(
+            fray_tracks.player_track(),
+            MidiQueueEvent {
+                event: MidiQueueEventType::Play,
+                timing: MidiQueueTiming::Bar,
+                looping: MidiQueueLooping::Once,
+            },
+        );
     }
 
     Ok(())

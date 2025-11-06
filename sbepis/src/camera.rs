@@ -1,9 +1,10 @@
+use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_butler::*;
 use return_ok::ok_or_return;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct PlayerCameraPlugin;
 
 #[derive(Component)]

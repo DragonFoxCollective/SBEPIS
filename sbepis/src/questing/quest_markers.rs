@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use return_ok::{ok_or_continue, some_or_continue, some_or_return};
 
-use crate::entity::EntityKilledSet;
 use crate::questing::{QuestGiver, QuestingPlugin, Quests};
 
 #[derive(Component)]
@@ -75,10 +74,7 @@ fn spawn_quest_markers(
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	after = EntityKilledSet
-)]
+#[add_system(plugin = QuestingPlugin, schedule = PostUpdate)]
 fn despawn_invalid_quest_markers(
     mut commands: Commands,
     quest_markers: Query<(Entity, &QuestMarker)>,

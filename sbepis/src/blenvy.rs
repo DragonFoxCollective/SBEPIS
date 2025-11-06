@@ -11,9 +11,10 @@ use crate::entity::spawner::Spawner;
 use crate::gravity::{AffectedByGravity, GravityPoint, GravityPriority};
 use crate::npcs::consort::ConsortSpawner;
 use crate::npcs::imp::ImpSpawner;
+use crate::prelude::*;
 
 #[butler_plugin]
-#[add_plugin(to_plugin = crate::SbepisPlugin)]
+#[add_plugin(to_plugin = SbepisPlugin)]
 pub struct BlenvyPlugin;
 
 #[add_plugin(to_plugin = BlenvyPlugin)]
@@ -21,7 +22,6 @@ use bevy_skein::SkeinPlugin;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub struct MeshColliderBlundle;
 
 #[add_system(
@@ -57,7 +57,6 @@ fn create_mesh_collider(
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub struct PlanetBlundle {
     pub radius: f32,
     pub gravity: f32,
@@ -81,7 +80,6 @@ fn create_planet(scenes: Query<(Entity, &PlanetBlundle)>, mut commands: Commands
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub struct BoxBlundle;
 
 #[add_system(
@@ -105,7 +103,6 @@ fn create_box(scenes: Query<Entity, With<BoxBlundle>>, mut commands: Commands) {
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-#[register_type(plugin = BlenvyPlugin)]
 pub enum SpawnerBlundle {
     Imp,
     Consort,

@@ -60,31 +60,35 @@ pub struct Sliding {
     sound: Option<Entity>,
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
-fn add_sliding_sound(
-    trigger: Trigger<OnAdd, Sliding>,
-    mut slidings: Query<&mut Sliding>,
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+fn update_sliding_sound(
+    mut slidings: Query<(&mut Sliding, Has<Grounded>)>,
     mut commands: Commands,
     slide_assets: Res<SlideAssets>,
-) -> Result {
-    let mut sliding = slidings.get_mut(trigger.target())?;
-    let sound = commands
-        .spawn((
-            AudioPlayer::new(slide_assets.sound.clone()),
-            PlaybackSettings::LOOP,
-        ))
-        .id();
-    sliding.sound = Some(sound);
-    Ok(())
+) {
+    for (mut sliding, grounded) in slidings.iter_mut() {
+        if grounded && sliding.sound.is_none() {
+            let sound = commands
+                .spawn((
+                    AudioPlayer::new(slide_assets.sound.clone()),
+                    PlaybackSettings::LOOP,
+                ))
+                .id();
+            sliding.sound = Some(sound);
+        } else if !grounded && let Some(sound) = sliding.sound {
+            commands.entity(sound).despawn();
+            sliding.sound = None;
+        }
+    }
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn remove_sliding_sound(
-    trigger: Trigger<OnRemove, Sliding>,
+    remove: On<Remove, Sliding>,
     slidings: Query<&Sliding>,
     mut commands: Commands,
 ) -> Result {
-    let sliding = slidings.get(trigger.target())?;
+    let sliding = slidings.get(remove.entity)?;
     commands.entity(some_or_return_ok!(sliding.sound)).despawn();
     Ok(())
 }
@@ -125,34 +129,11 @@ fn sliding_to_standing_or_walking(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::DoHorizontalMovement,
-)]
-fn no_air_sliding(
-    mut players: Query<(Entity, Has<Grounded>, &Velocity), With<Sliding>>,
-    mut commands: Commands,
-) {
-    for (player, grounded, velocity) in players.iter_mut() {
-        if grounded {
-            commands
-                .entity(player)
-                .insert_if_new(Movement(velocity.linvel));
-        } else {
-            commands.entity(player).remove::<Movement>();
-        }
-    }
-}
-
 #[add_observer(plugin = PlayerControllerPlugin)]
-fn readd_movement(
-    trigger: Trigger<OnRemove, Sliding>,
-    mut commands: Commands,
-    players: Query<&Velocity>,
-) {
-    commands.entity(trigger.target()).insert_if_new(
+fn readd_movement(remove: On<Remove, Sliding>, mut commands: Commands, players: Query<&Velocity>) {
+    commands.entity(remove.entity).insert_if_new(
         players
-            .get(trigger.target())
+            .get(remove.entity)
             .map(|velocity| Movement(velocity.linvel))
             .unwrap_or_default(),
     );
@@ -162,7 +143,6 @@ fn readd_movement(
 	plugin = PlayerControllerPlugin, schedule = Update,
 	in_set = MovementControlSet::DoHorizontalMovement,
 	before = ExecuteMovementSet,
-	after = no_air_sliding,
 )]
 fn update_slide_velocity(
     mut players: Query<
