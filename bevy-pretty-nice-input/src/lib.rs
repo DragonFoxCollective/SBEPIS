@@ -352,6 +352,18 @@ impl ActionData {
             ActionData::Axis3D(_) => ActionData::Axis3D(Vec3::ZERO),
         }
     }
+
+    pub fn length(&self) -> f32 {
+        match self {
+            ActionData::Axis1D(value) => value.abs(),
+            ActionData::Axis2D(value) => value.length(),
+            ActionData::Axis3D(value) => value.length(),
+        }
+    }
+
+    pub fn is_pressed_with(&self, threshold: f32) -> bool {
+        self.length() > threshold
+    }
 }
 
 #[derive(Component, Default, Debug)]
@@ -362,10 +374,48 @@ pub struct PrevActionData(pub Option<ActionData>);
 
 pub trait Action: Send + Sync + 'static {}
 
+/// Gets added when its component is added, and removed after the timer expires when its component is removed.
 #[derive(Component)]
 pub struct ComponentBuffer<T: Component> {
     timer: Timer,
-    marker: PhantomData<T>,
+    _marker: PhantomData<T>,
+}
+
+impl<T: Component> ComponentBuffer<T> {
+    pub fn new_bundle(duration: f32) -> impl Bundle {
+        (
+            observe(move |add: On<Add, T>, mut commands: Commands| {
+                let mut timer = Timer::from_seconds(duration, TimerMode::Once);
+                timer.pause();
+                commands.entity(add.entity).insert(ComponentBuffer::<T> {
+                    timer,
+                    _marker: PhantomData,
+                });
+            }),
+            observe(
+                |remove: On<Remove, T>, mut conditions: Query<&mut ComponentBuffer<T>>| -> Result {
+                    let mut condition = conditions.get_mut(remove.entity)?;
+                    condition.timer.reset();
+                    condition.timer.unpause();
+                    Ok(())
+                },
+            ),
+            add_systems(PreUpdate, tick_component_buffer::<T>),
+        )
+    }
+}
+
+fn tick_component_buffer<T: Component>(
+    mut buffers: Query<(Entity, &mut ComponentBuffer<T>)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (entity, mut buffer) in buffers.iter_mut() {
+        buffer.timer.tick(time.delta());
+        if buffer.timer.is_finished() {
+            commands.entity(entity).remove::<ComponentBuffer<T>>();
+        }
+    }
 }
 
 #[derive(Component, Debug)]
@@ -407,6 +457,8 @@ pub trait Condition {
     fn bundle<A: Action>(&self) -> impl Bundle;
 }
 
+#[allow(dead_code)]
+#[deprecated(note = "TODO marker")]
 fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) {
     commands.trigger(update.next());
 }
@@ -414,18 +466,55 @@ fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) 
 /// Only lets one valid input pass every duration
 #[derive(Component)]
 pub struct Cooldown {
-    pub duration: f32,
+    timer: Timer,
+    prev: Option<ConditionedBindingUpdate>,
 }
 
 impl Cooldown {
     pub fn new(duration: f32) -> Self {
-        Self { duration }
+        Self {
+            timer: Timer::from_seconds(duration, TimerMode::Repeating),
+            prev: None,
+        }
     }
 }
 
 impl Condition for Cooldown {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(condition_pass)
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut conditions: Query<&mut Cooldown>,
+             mut commands: Commands|
+             -> Result {
+                let mut condition = conditions.get_mut(update.target)?;
+                if !update.data.is_zero()
+                    && condition
+                        .prev
+                        .as_ref()
+                        .is_none_or(|prev| prev.data.is_zero())
+                {
+                    commands.trigger(update.next());
+                    condition.timer.reset();
+                    condition.timer.unpause();
+                } else if update.data.is_zero() {
+                    condition.timer.pause();
+                }
+                condition.prev = Some(update.clone());
+                Ok(())
+            },
+        )
+    }
+}
+
+fn tick_cooldown(mut conditions: Query<&mut Cooldown>, time: Res<Time>, mut commands: Commands) {
+    for mut condition in conditions.iter_mut() {
+        condition.timer.tick(time.delta());
+        if condition.timer.is_finished()
+            && let Some(prev) = &condition.prev
+        {
+            commands.trigger(prev.next());
+            commands.trigger(prev.next().with_data(prev.data.zeroed()));
+        }
     }
 }
 
@@ -459,7 +548,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                     }
                 },
             ),
-            add_systems(Update, action_prev_filter::<A, F>),
+            add_systems(PreUpdate, action_prev_filter::<A, F>),
         )
     }
 }
@@ -484,7 +573,27 @@ impl Default for ButtonPress {
 
 impl Condition for ButtonPress {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(condition_pass)
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             mut prev: Local<Option<ActionData>>,
+             conditions: Query<&ButtonPress>|
+             -> Result {
+                let condition = conditions.get(update.target)?;
+                if !update.data.is_zero()
+                    && prev.is_none_or(|prev| !prev.is_pressed_with(condition.threshold))
+                {
+                    commands.trigger(update.next());
+                    commands.trigger(
+                        update
+                            .next()
+                            .with_data(prev.unwrap_or(update.data.zeroed())),
+                    );
+                }
+                *prev = Some(update.data);
+                Ok(())
+            },
+        )
     }
 }
 
@@ -508,7 +617,24 @@ impl Default for ButtonRelease {
 
 impl Condition for ButtonRelease {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(condition_pass)
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             mut prev: Local<Option<ActionData>>,
+             conditions: Query<&ButtonRelease>|
+             -> Result {
+                let condition = conditions.get(update.target)?;
+                if update.data.is_zero()
+                    && let Some(prev) = *prev
+                    && prev.is_pressed_with(condition.threshold)
+                {
+                    commands.trigger(update.next().with_data(prev));
+                    commands.trigger(update.next());
+                }
+                *prev = Some(update.data);
+                Ok(())
+            },
+        )
     }
 }
 
@@ -540,22 +666,81 @@ impl Condition for Invert {
 /// Continues sending valid updates for a duration after the input stops being valid
 #[derive(Component)]
 pub struct InputBuffer {
-    pub duration: f32,
     timer: Timer,
+    prev: Option<ConditionedBindingUpdate>,
 }
 
 impl InputBuffer {
     pub fn new(duration: f32) -> Self {
         Self {
-            duration,
             timer: Timer::from_seconds(duration, TimerMode::Once),
+            prev: None,
         }
     }
 }
 
 impl Condition for InputBuffer {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(condition_pass)
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             mut condition: Query<&mut InputBuffer>|
+             -> Result {
+                let mut condition = condition.get_mut(update.target)?;
+                if !update.data.is_zero() {
+                    commands.trigger(update.next());
+                    condition.prev = Some(update.clone());
+                    condition.timer.reset();
+                    condition.timer.unpause();
+                } else {
+                    condition.timer.pause();
+                }
+                Ok(())
+            },
+        )
+    }
+}
+
+fn tick_input_buffer(
+    mut conditions: Query<&mut InputBuffer>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for mut condition in conditions.iter_mut() {
+        condition.timer.tick(time.delta());
+        if !condition.timer.is_finished()
+            && let Some(prev) = &condition.prev
+        {
+            commands.trigger(prev.next());
+        }
+    }
+}
+
+#[derive(EntityEvent)]
+pub struct ResetBufferEvent {
+    #[event_target]
+    pub target: Entity,
+    pub entities: Vec<Entity>,
+    pub index: usize,
+}
+
+impl ResetBufferEvent {
+    pub fn next(&self) -> Option<Self> {
+        self.entities.get(self.index - 1).map(|next| Self {
+            target: *next,
+            entities: self.entities.clone(),
+            index: self.index - 1,
+        })
+    }
+}
+
+impl From<&ConditionedBindingUpdate> for ResetBufferEvent {
+    fn from(update: &ConditionedBindingUpdate) -> Self {
+        Self {
+            target: update.target,
+            entities: update.entities.clone(),
+            index: update.index,
+        }
     }
 }
 
@@ -565,7 +750,20 @@ pub struct ResetBuffer;
 
 impl Condition for ResetBuffer {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(condition_pass)
+        observe(
+            |update: On<ConditionedBindingUpdate>, mut commands: Commands| {
+                if !update.data.is_zero() {
+                    commands.trigger(ResetBufferEvent::from(&*update));
+                }
+                commands.trigger(update.next());
+            },
+        )
+    }
+}
+
+fn pass_reset_buffer(reset: On<ResetBufferEvent>, mut commands: Commands) {
+    if let Some(next) = reset.next() {
+        commands.trigger(next);
     }
 }
 
@@ -584,8 +782,11 @@ impl Plugin for PrettyNiceInputPlugin {
                 binding_part_mouse_move,
                 binding_part_mouse_scroll,
                 binding_part_mouse_scroll_axis,
+                tick_cooldown,
+                tick_input_buffer,
             ),
-        );
+        )
+        .add_observer(pass_reset_buffer);
         #[cfg(feature = "debug_graph")]
         app.init_resource::<debug_graph::DebugGraph>();
     }
