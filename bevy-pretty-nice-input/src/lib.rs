@@ -472,10 +472,9 @@ pub struct Cooldown {
 
 impl Cooldown {
     pub fn new(duration: f32) -> Self {
-        Self {
-            timer: Timer::from_seconds(duration, TimerMode::Repeating),
-            prev: None,
-        }
+        let mut timer = Timer::from_seconds(duration, TimerMode::Once);
+        timer.finish();
+        Self { timer, prev: None }
     }
 }
 
@@ -493,11 +492,17 @@ impl Condition for Cooldown {
                         .as_ref()
                         .is_none_or(|prev| prev.data.is_zero())
                 {
-                    commands.trigger(update.next());
-                    condition.timer.reset();
-                    condition.timer.unpause();
+                    if condition.timer.is_finished() {
+                        info!("Cooling down");
+                        commands.trigger(update.next());
+                        commands.trigger(update.next().with_data(update.data.zeroed()));
+                    } else {
+                        info!("Re-cooling down");
+                    }
+                    condition.timer.set_mode(TimerMode::Repeating);
                 } else if update.data.is_zero() {
-                    condition.timer.pause();
+                    info!("Un-cooling down");
+                    condition.timer.set_mode(TimerMode::Once);
                 }
                 condition.prev = Some(update.clone());
                 Ok(())
@@ -510,8 +515,10 @@ fn tick_cooldown(mut conditions: Query<&mut Cooldown>, time: Res<Time>, mut comm
     for mut condition in conditions.iter_mut() {
         condition.timer.tick(time.delta());
         if condition.timer.is_finished()
+            && condition.timer.mode() == TimerMode::Repeating
             && let Some(prev) = &condition.prev
         {
+            info!("Cooldown finished, sending {:?}", prev.data);
             commands.trigger(prev.next());
             commands.trigger(prev.next().with_data(prev.data.zeroed()));
         }
@@ -583,6 +590,7 @@ impl Condition for ButtonPress {
                 if !update.data.is_zero()
                     && prev.is_none_or(|prev| !prev.is_pressed_with(condition.threshold))
                 {
+                    info!("Button Pressed");
                     commands.trigger(update.next());
                     commands.trigger(
                         update
@@ -672,31 +680,44 @@ pub struct InputBuffer {
 
 impl InputBuffer {
     pub fn new(duration: f32) -> Self {
-        Self {
-            timer: Timer::from_seconds(duration, TimerMode::Once),
-            prev: None,
-        }
+        let mut timer = Timer::from_seconds(duration, TimerMode::Once);
+        timer.pause();
+        Self { timer, prev: None }
     }
 }
 
 impl Condition for InputBuffer {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(
-            |update: On<ConditionedBindingUpdate>,
-             mut commands: Commands,
-             mut condition: Query<&mut InputBuffer>|
-             -> Result {
-                let mut condition = condition.get_mut(update.target)?;
-                if !update.data.is_zero() {
+        (
+            observe(
+                |update: On<ConditionedBindingUpdate>,
+                 mut commands: Commands,
+                 mut condition: Query<&mut InputBuffer>|
+                 -> Result {
+                    let mut condition = condition.get_mut(update.target)?;
                     commands.trigger(update.next());
-                    condition.prev = Some(update.clone());
-                    condition.timer.reset();
+                    if !update.data.is_zero() {
+                        condition.prev = Some(update.clone());
+                        condition.timer.reset();
+                        condition.timer.pause();
+                    } else {
+                        condition.timer.unpause();
+                    }
+                    Ok(())
+                },
+            ),
+            observe(
+                |reset: On<ResetBufferEvent>, mut condition: Query<&mut InputBuffer>| -> Result {
+                    let mut condition = condition.get_mut(reset.target)?;
+                    let was_paused = condition.timer.is_paused();
                     condition.timer.unpause();
-                } else {
-                    condition.timer.pause();
-                }
-                Ok(())
-            },
+                    condition.timer.finish();
+                    if was_paused {
+                        condition.timer.pause();
+                    }
+                    Ok(())
+                },
+            ),
         )
     }
 }
@@ -711,7 +732,13 @@ fn tick_input_buffer(
         if !condition.timer.is_finished()
             && let Some(prev) = &condition.prev
         {
+            info!("Input Buffer active, sending {:?}", prev.data);
             commands.trigger(prev.next());
+        } else if condition.timer.just_finished()
+            && let Some(prev) = &condition.prev
+        {
+            info!("Input Buffer finished, sending {:?}", prev.data.zeroed());
+            commands.trigger(prev.next().with_data(prev.data.zeroed()));
         }
     }
 }
@@ -726,10 +753,10 @@ pub struct ResetBufferEvent {
 
 impl ResetBufferEvent {
     pub fn next(&self) -> Option<Self> {
-        self.entities.get(self.index - 1).map(|next| Self {
-            target: *next,
+        self.index.checked_sub(1).map(|index| Self {
+            target: self.entities[index],
             entities: self.entities.clone(),
-            index: self.index - 1,
+            index,
         })
     }
 }

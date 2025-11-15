@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
-    Action, ButtonPress, Cooldown, FilterBuffered, InputBuffer, ResetBuffer, binding1d, binding2d,
-    input, input_transition,
+    Action, ButtonPress, ComponentBuffer, Cooldown, FilterBuffered, InputBuffer, ResetBuffer,
+    binding1d, binding2d, input, input_transition,
 };
 use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
@@ -94,6 +94,7 @@ fn setup(
             FilterBuffered::<Grounded>::default(),
             HasEnoughStaminaToJump,
             Cooldown::new(0.5),
+            ResetBuffer,
         ]),
         input!(Look, [binding2d::mouse_move()]),
         (
@@ -112,6 +113,7 @@ fn setup(
                 FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToCrouchJump,
                 Cooldown::new(0.5),
+                ResetBuffer,
             ]),
             input_transition!(CrouchSneak: Crouching <=> Sneaking, [binding2d::wasd()]),
             input_transition!(WalkSneak: Walking <= Sneaking, [binding1d::left_ctrl()]),
@@ -133,6 +135,7 @@ fn setup(
                 FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToChargeJump,
                 Cooldown::new(0.5),
+                ResetBuffer,
             ]),
             input_transition!(ChargeCrouch: ChargeStanding <=> ChargeCrouching, [binding1d::left_ctrl()]),
             input_transition!(ChargeCrouchJump: ChargeCrouching => Crouching, [binding1d::space()], [
@@ -141,6 +144,7 @@ fn setup(
                 FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToChargeCrouchJump,
                 Cooldown::new(0.5),
+                ResetBuffer,
             ]),
             input_transition!(ChargeWalk: ChargeStanding <=> ChargeWalking, [binding2d::wasd()]),
             input_transition!(ChargeDash: * <= ChargeWalking, [binding1d::left_shift()]),
@@ -162,6 +166,10 @@ fn setup(
         input!(OpenQuestScreen, [binding1d::key(KeyCode::KeyJ)]),
         input!(OpenInventory, [binding1d::key(KeyCode::KeyV)]),
         input!(OpenStaff, [binding1d::key(KeyCode::Backquote)]),
+        (
+            ComponentBuffer::<Grounded>::new_bundle(0.5),
+            ComponentBuffer::<TripRecover>::new_bundle(0.5),
+        ),
     );
 
     let input = commands

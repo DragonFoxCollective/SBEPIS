@@ -205,7 +205,7 @@ impl Condition for HasEnoughStaminaToJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if stamina.current >= settings.jump_stamina_cost {
+                if update.data.is_zero() || stamina.current >= settings.jump_stamina_cost {
                     commands.trigger(update.next());
                 }
                 Ok(())
@@ -226,7 +226,7 @@ impl Condition for HasEnoughStaminaToCrouchJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if stamina.current >= settings.high_jump_stamina_cost {
+                if update.data.is_zero() || stamina.current >= settings.high_jump_stamina_cost {
                     commands.trigger(update.next());
                 }
                 Ok(())
@@ -247,7 +247,8 @@ impl Condition for HasEnoughStaminaToChargeJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if stamina.current >= settings.charge_jump_min_stamina_cost {
+                if update.data.is_zero() || stamina.current >= settings.charge_jump_min_stamina_cost
+                {
                     commands.trigger(update.next());
                 }
                 Ok(())
@@ -268,7 +269,9 @@ impl Condition for HasEnoughStaminaToChargeCrouchJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if stamina.current >= settings.unreal_air_jump_min_stamina_cost {
+                if update.data.is_zero()
+                    || stamina.current >= settings.unreal_air_jump_min_stamina_cost
+                {
                     commands.trigger(update.next());
                 }
                 Ok(())
