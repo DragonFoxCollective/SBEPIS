@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
+use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
@@ -42,13 +43,15 @@ pub struct Walking;
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn update_di_walk(
-    walk: On<Updated<Walk>>,
+    di: On<Updated<Walk>>,
+    mut players: Query<&mut Walking>,
     mut commands: Commands,
     walk_settings: Res<PlayerWalkSettings>,
 ) -> Result {
+    let mut _walking = ok_or_return_ok!(players.get_mut(di.input));
     commands.trigger(DIUpdate {
-        entity: walk.input,
-        value: walk
+        entity: di.input,
+        value: di
             .data
             .as_2d()
             .ok_or::<BevyError>("Walk didn't have 2D data".into())?,

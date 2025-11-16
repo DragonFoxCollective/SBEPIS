@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
+use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
@@ -64,7 +65,7 @@ fn to_rolling_assets(
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> Result {
-    let mut rolling = players.get_mut(di.input)?;
+    let mut rolling = ok_or_return_ok!(players.get_mut(di.input));
     rolling.di = di
         .data
         .as_2d()

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{Action, Updated};
+use return_ok::ok_or_return_ok;
 
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::di::DIUpdate;
@@ -23,13 +24,15 @@ pub struct Sprinting;
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn update_di_sprintwalk(
-    walk: On<Updated<SprintWalk>>,
+    di: On<Updated<SprintWalk>>,
+    mut players: Query<&mut Sprinting>,
     mut commands: Commands,
     walk_settings: Res<PlayerWalkSettings>,
 ) -> Result {
+    let mut _sprinting = ok_or_return_ok!(players.get_mut(di.input));
     commands.trigger(DIUpdate {
-        entity: walk.input,
-        value: walk
+        entity: di.input,
+        value: di
             .data
             .as_2d()
             .ok_or::<BevyError>("SprintWalk didn't have 2D data".into())?,

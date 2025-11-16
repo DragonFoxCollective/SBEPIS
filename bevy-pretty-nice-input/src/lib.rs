@@ -550,7 +550,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                 |update: On<ConditionedBindingUpdate>,
                  inputs: Query<(), F>,
                  mut commands: Commands| {
-                    if inputs.get(update.input).is_ok() {
+                    if update.data.is_zero() || inputs.get(update.input).is_ok() {
                         commands.trigger(update.next());
                     }
                 },
@@ -707,13 +707,20 @@ impl Condition for InputBuffer {
                 },
             ),
             observe(
-                |reset: On<ResetBufferEvent>, mut condition: Query<&mut InputBuffer>| -> Result {
+                |reset: On<ResetBufferEvent>,
+                 mut commands: Commands,
+                 mut condition: Query<&mut InputBuffer>|
+                 -> Result {
+                    info!("Resetting input buffer");
                     let mut condition = condition.get_mut(reset.target)?;
                     let was_paused = condition.timer.is_paused();
                     condition.timer.unpause();
                     condition.timer.finish();
                     if was_paused {
                         condition.timer.pause();
+                    }
+                    if let Some(prev) = &condition.prev {
+                        commands.trigger(prev.next().with_data(prev.data.zeroed()));
                     }
                     Ok(())
                 },
@@ -1182,20 +1189,20 @@ pub fn action_2<A: Action>(
     mut commands: Commands,
     mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
-    if binding_update.data.as_1d().is_some() {
-        info!(
-            "Action 2 update received {} {:?}",
-            ShortName::of::<A>(),
-            binding_update.data
-        );
-    }
-
     let action_of = actions.get(binding_update.action)?;
     let input = action_of.0;
 
     let input_disabled = inputs.get(input)?;
     let data_is_zero = binding_update.data.is_zero() || input_disabled;
     let prev_is_zero = prev_data.as_ref().is_none_or(ActionData::is_zero);
+
+    if !input_disabled && binding_update.data.as_1d().is_some() {
+        info!(
+            "Action 2 update received {} {:?}",
+            ShortName::of::<A>(),
+            binding_update.data
+        );
+    }
 
     if !data_is_zero && prev_is_zero {
         commands.trigger(JustPressed::<A> {

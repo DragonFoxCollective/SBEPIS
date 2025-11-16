@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::Velocity;
+use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
@@ -71,7 +72,7 @@ pub struct SlidingSound {
 
 #[add_observer(plugin = PlayerControllerPlugin)]
 fn update_di(di: On<Updated<SlideNeutral>>, mut players: Query<&mut Sliding>) -> Result {
-    let mut sliding = players.get_mut(di.input)?;
+    let mut sliding = ok_or_return_ok!(players.get_mut(di.input));
     sliding.di = di
         .data
         .as_2d()
