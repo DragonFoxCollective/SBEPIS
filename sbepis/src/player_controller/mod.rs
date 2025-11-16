@@ -99,9 +99,12 @@ fn setup(
         input!(Look, [binding2d::mouse_move()]),
         (
             input_transition!(Dash: Walking => *, [binding1d::left_shift()], [
+                ButtonPress::default(),
                 InputBuffer::new(0.2),
                 FilterBuffered::<Grounded>::default(),
                 HasEnoughStaminaToDash,
+                Cooldown::new(0.5),
+                ResetBuffer,
             ]),
             input_transition!(Sprint: Walking <=> Sprinting, [binding1d::left_shift()]),
             input_transition!(SprintWalk: SprintStanding <=> Sprinting, [binding2d::wasd()]),

@@ -70,12 +70,7 @@ pub struct Dashing {
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
     mut players: Query<
-        (
-            &Velocity,
-            &WalkDI,
-            &mut Stamina,
-            Option<&ChargingTime>,
-        ),
+        (&Velocity, &WalkDI, &mut Stamina, Option<&ChargingTime>),
         Or<(With<Walking>, With<Sprinting>, With<ChargeWalking>)>, // TODO: replace this with event input
     >,
     charge_settings: Res<PlayerChargeSettings>,
@@ -182,7 +177,7 @@ impl Condition for HasEnoughStaminaToDash {
                 } else {
                     settings.stamina_cost
                 };
-                if stamina.current >= required_stamina {
+                if update.data.is_zero() || stamina.current >= required_stamina {
                     commands.trigger(update.next());
                 }
                 Ok(())
