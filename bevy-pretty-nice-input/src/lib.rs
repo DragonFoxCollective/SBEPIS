@@ -382,7 +382,7 @@ pub struct ComponentBuffer<T: Component> {
 }
 
 impl<T: Component> ComponentBuffer<T> {
-    pub fn new_bundle(duration: f32) -> impl Bundle {
+    pub fn observe(duration: f32) -> impl Bundle {
         (
             observe(move |add: On<Add, T>, mut commands: Commands| {
                 let mut timer = Timer::from_seconds(duration, TimerMode::Once);

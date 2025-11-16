@@ -170,8 +170,8 @@ fn setup(
         input!(OpenInventory, [binding1d::key(KeyCode::KeyV)]),
         input!(OpenStaff, [binding1d::key(KeyCode::Backquote)]),
         (
-            ComponentBuffer::<Grounded>::new_bundle(0.2),
-            ComponentBuffer::<TripRecover>::new_bundle(0.2),
+            ComponentBuffer::<Grounded>::observe(0.2),
+            ComponentBuffer::<TripRecover>::observe(0.2),
         ),
     );
 
