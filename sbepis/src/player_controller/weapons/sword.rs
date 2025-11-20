@@ -180,17 +180,17 @@ pub fn spawn_sword(
                 MenuInputOf(body),
                 input!(
                     Attack,
-                    [binding1d::left_click()],
+                    Axis1D[binding1d::left_click()],
                     [Filter::<With<ActiveWeapon>>::default()]
                 ),
                 input!(
                     NextWeapon,
-                    [binding1d::scroll_up()],
+                    Axis1D[binding1d::scroll_up()],
                     [Filter::<With<ActiveWeapon>>::default()]
                 ),
                 input!(
                     PrevWeapon,
-                    [binding1d::scroll_down()],
+                    Axis1D[binding1d::scroll_down()],
                     [Filter::<With<ActiveWeapon>>::default()]
                 ),
             ),

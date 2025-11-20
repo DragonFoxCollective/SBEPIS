@@ -46,7 +46,7 @@ fn propose_quest_if_none(
     dialogue.add_option(
         &mut commands,
         "Accept [E]".to_owned(),
-        input!(PickDialogueOption, [binding1d::key(KeyCode::KeyE)]),
+        input!(PickDialogueOption, Axis1D[binding1d::key(KeyCode::KeyE)]),
         AcceptQuest {
             quest_proposal: dialogue.root,
             quest_id,
@@ -55,7 +55,7 @@ fn propose_quest_if_none(
     dialogue.add_option(
         &mut commands,
         "Decline [Space]".to_owned(),
-        input!(PickDialogueOption, [binding1d::key(KeyCode::Space)]),
+        input!(PickDialogueOption, Axis1D[binding1d::key(KeyCode::Space)]),
         DeclineQuest {
             quest_proposal: dialogue.root,
             quest_id,

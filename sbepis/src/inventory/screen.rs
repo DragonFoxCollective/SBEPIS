@@ -29,7 +29,7 @@ fn spawn_inventory_screen(mut commands: Commands) {
             },
             BackgroundColor(css::GRAY.with_alpha(0.5).into()),
             Visibility::Hidden,
-            input!(CloseMenuAction, [binding1d::key(KeyCode::KeyV)]),
+            input!(CloseMenuAction, Axis1D[binding1d::key(KeyCode::KeyV)]),
             PlayerCameraNode,
             Menu,
             MenuWithMouse,

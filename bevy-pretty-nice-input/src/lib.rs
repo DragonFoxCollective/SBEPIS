@@ -15,7 +15,7 @@ pub mod debug_graph;
 
 #[macro_export]
 macro_rules! input {
-    ( $action:ty, [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {(
+    ( $action:ty, $binding_dim:ident [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {(
         ::bevy::prelude::related!($crate::Actions<$action>[(
 			::bevy::prelude::related!($crate::Bindings[$((
 				::bevy::prelude::Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
@@ -24,24 +24,25 @@ macro_rules! input {
 			)),*]),
 
 			::bevy::prelude::Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
-			$crate::PrevActionData::default(),
+			$crate::PrevActionData($crate::ActionData::$binding_dim(Default::default())),
+			$crate::PrevAction2Data::default(),
 			$crate::bundles::observe($crate::action::<$action>),
 			$crate::bundles::observe($crate::action_2::<$action>),
-			$crate::bundles::observe($crate::action_prev_set::<$action>),
+			$crate::bundles::observe($crate::action_2_invalidate::<$action>),
 
 			::bevy::prelude::related!($crate::Conditions[$((
 				::bevy::prelude::Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
 				{
 					use $crate::Condition;
 					let condition = $condition;
-					(condition.bundle::<$action>(), condition)
+					(condition.bundle::<$action>(), condition, $crate::bundles::observe($crate::invalidate_pass))
 				}
 			)),*]),
 		)]),
     )};
 
-    ( $action:ty, [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        $crate::input!($action, [$($binding),*], [])
+    ( $action:ty, $binding_dim:ident [$( $binding:expr ),* $(,)?]$(,)? ) => {
+        $crate::input!($action, $binding_dim [$($binding),*], [])
     };
 }
 
@@ -369,8 +370,11 @@ impl ActionData {
 #[derive(Component, Default, Debug)]
 pub struct BindingPartData(pub f32);
 
+#[derive(Component, Debug)]
+pub struct PrevActionData(pub ActionData);
+
 #[derive(Component, Default, Debug)]
-pub struct PrevActionData(pub Option<ActionData>);
+pub struct PrevAction2Data(pub Option<ActionData>);
 
 pub trait Action: Send + Sync + 'static {}
 
@@ -463,6 +467,10 @@ fn condition_pass(update: On<ConditionedBindingUpdate>, mut commands: Commands) 
     commands.trigger(update.next());
 }
 
+pub fn invalidate_pass(invalidate: On<InvalidateData>, mut commands: Commands) {
+    commands.trigger(invalidate.next());
+}
+
 /// Only lets one valid input pass every duration
 #[derive(Component)]
 pub struct Cooldown {
@@ -480,33 +488,44 @@ impl Cooldown {
 
 impl Condition for Cooldown {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(
-            |update: On<ConditionedBindingUpdate>,
-             mut conditions: Query<&mut Cooldown>,
-             mut commands: Commands|
-             -> Result {
-                let mut condition = conditions.get_mut(update.target)?;
-                if !update.data.is_zero()
-                    && condition
+        (
+            observe(
+                |update: On<ConditionedBindingUpdate>,
+                 mut conditions: Query<&mut Cooldown>,
+                 mut commands: Commands|
+                 -> Result {
+                    let mut condition = conditions.get_mut(update.target)?;
+
+                    let data = update.data;
+                    let prev_data = condition
                         .prev
-                        .as_ref()
-                        .is_none_or(|prev| prev.data.is_zero())
-                {
-                    if condition.timer.is_finished() {
-                        info!("Cooling down");
-                        commands.trigger(update.next());
-                        commands.trigger(update.next().with_data(update.data.zeroed()));
-                    } else {
-                        info!("Re-cooling down");
+                        .replace(update.clone())
+                        .map(|prev| prev.data)
+                        .unwrap_or(data);
+
+                    if !data.is_zero() && prev_data.is_zero() {
+                        if condition.timer.is_finished() {
+                            info!("Cooling down");
+                            commands.trigger(update.next());
+                            commands.trigger(update.next().with_data(data.zeroed()));
+                        } else {
+                            info!("Re-cooling down");
+                        }
+                        condition.timer.set_mode(TimerMode::Repeating);
+                    } else if data.is_zero() {
+                        info!("Un-cooling down");
+                        condition.timer.set_mode(TimerMode::Once);
                     }
-                    condition.timer.set_mode(TimerMode::Repeating);
-                } else if update.data.is_zero() {
-                    info!("Un-cooling down");
-                    condition.timer.set_mode(TimerMode::Once);
-                }
-                condition.prev = Some(update.clone());
-                Ok(())
-            },
+                    Ok(())
+                },
+            ),
+            observe(
+                |invalidate: On<InvalidateData>, mut conditions: Query<&mut Cooldown>| -> Result {
+                    let mut condition = conditions.get_mut(invalidate.target)?;
+                    condition.prev = None;
+                    Ok(())
+                },
+            ),
         )
     }
 }
@@ -550,8 +569,15 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
                 |update: On<ConditionedBindingUpdate>,
                  inputs: Query<(), F>,
                  mut commands: Commands| {
-                    if update.data.is_zero() || inputs.get(update.input).is_ok() {
+                    if inputs.get(update.input).is_ok() {
+                        info!(
+                            "Filter passed for {} filtering {}",
+                            ShortName::of::<A>(),
+                            ShortName::of::<F>()
+                        );
                         commands.trigger(update.next());
+                    } else {
+                        commands.trigger(InvalidateData::from(&*update).next());
                     }
                 },
             ),
@@ -564,43 +590,59 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
 #[derive(Component)]
 pub struct ButtonPress {
     pub threshold: f32,
+    prev: Option<ActionData>,
 }
 
 impl ButtonPress {
     pub fn new(threshold: f32) -> Self {
-        Self { threshold }
+        Self {
+            threshold,
+            prev: None,
+        }
     }
 }
 
 impl Default for ButtonPress {
     fn default() -> Self {
-        Self { threshold: 0.5 }
+        Self {
+            threshold: 0.5,
+            prev: None,
+        }
     }
 }
 
 impl Condition for ButtonPress {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(
-            |update: On<ConditionedBindingUpdate>,
-             mut commands: Commands,
-             mut prev: Local<Option<ActionData>>,
-             conditions: Query<&ButtonPress>|
-             -> Result {
-                let condition = conditions.get(update.target)?;
-                if !update.data.is_zero()
-                    && prev.is_none_or(|prev| !prev.is_pressed_with(condition.threshold))
-                {
-                    info!("Button Pressed");
-                    commands.trigger(update.next());
-                    commands.trigger(
-                        update
-                            .next()
-                            .with_data(prev.unwrap_or(update.data.zeroed())),
-                    );
-                }
-                *prev = Some(update.data);
-                Ok(())
-            },
+        (
+            observe(
+                |update: On<ConditionedBindingUpdate>,
+                 mut commands: Commands,
+                 mut conditions: Query<&mut ButtonPress>|
+                 -> Result {
+                    let mut condition = conditions.get_mut(update.target)?;
+
+                    let data = update.data;
+                    let prev_data = condition.prev.replace(update.data).unwrap_or(data);
+
+                    if data.is_pressed_with(condition.threshold)
+                        && !prev_data.is_pressed_with(condition.threshold)
+                    {
+                        info!("Button Pressed");
+                        commands.trigger(update.next());
+                        commands.trigger(update.next().with_data(prev_data));
+                    }
+                    Ok(())
+                },
+            ),
+            observe(
+                |invalidate: On<InvalidateData>,
+                 mut conditions: Query<&mut ButtonPress>|
+                 -> Result {
+                    let mut condition = conditions.get_mut(invalidate.target)?;
+                    condition.prev = None;
+                    Ok(())
+                },
+            ),
         )
     }
 }
@@ -609,63 +651,93 @@ impl Condition for ButtonPress {
 #[derive(Component)]
 pub struct ButtonRelease {
     pub threshold: f32,
+    prev: Option<ActionData>,
 }
 
 impl ButtonRelease {
     pub fn new(threshold: f32) -> Self {
-        Self { threshold }
+        Self {
+            threshold,
+            prev: None,
+        }
     }
 }
 
 impl Default for ButtonRelease {
     fn default() -> Self {
-        Self { threshold: 0.5 }
+        Self {
+            threshold: 0.5,
+            prev: None,
+        }
     }
 }
 
 impl Condition for ButtonRelease {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        observe(
-            |update: On<ConditionedBindingUpdate>,
-             mut commands: Commands,
-             mut prev: Local<Option<ActionData>>,
-             conditions: Query<&ButtonRelease>|
-             -> Result {
-                let condition = conditions.get(update.target)?;
-                if update.data.is_zero()
-                    && let Some(prev) = *prev
-                    && prev.is_pressed_with(condition.threshold)
-                {
-                    commands.trigger(update.next().with_data(prev));
-                    commands.trigger(update.next());
-                }
-                *prev = Some(update.data);
-                Ok(())
-            },
+        (
+            observe(
+                |update: On<ConditionedBindingUpdate>,
+                 mut commands: Commands,
+                 mut conditions: Query<&mut ButtonRelease>|
+                 -> Result {
+                    let mut condition = conditions.get_mut(update.target)?;
+
+                    let data = update.data;
+                    let prev_data = condition.prev.replace(update.data).unwrap_or(data);
+
+                    if !data.is_pressed_with(condition.threshold)
+                        && prev_data.is_pressed_with(condition.threshold)
+                    {
+                        commands.trigger(update.next().with_data(prev_data));
+                        commands.trigger(update.next());
+                    }
+                    Ok(())
+                },
+            ),
+            observe(
+                |invalidate: On<InvalidateData>,
+                 mut conditions: Query<&mut ButtonRelease>|
+                 -> Result {
+                    let mut condition = conditions.get_mut(invalidate.target)?;
+                    condition.prev = None;
+                    Ok(())
+                },
+            ),
         )
     }
 }
 
 /// Inverts the update, using the last good update when the current one fails.
 #[derive(Component, Default)]
-pub struct Invert;
+pub struct Invert {
+    prev_good: Option<ActionData>,
+}
 
 impl Condition for Invert {
     fn bundle<A: Action>(&self) -> impl Bundle {
         observe(
             |update: On<ConditionedBindingUpdate>,
              mut commands: Commands,
-             mut prev_good: Local<Option<ActionData>>| {
-                if update.data.is_zero() {
-                    if let Some(prev) = *prev_good {
+             mut conditions: Query<&mut Invert>|
+             -> Result {
+                let mut condition = conditions.get_mut(update.target)?;
+
+                let data = update.data;
+                let prev_good = condition.prev_good;
+                if !data.is_zero() {
+                    condition.prev_good = Some(data);
+                }
+
+                if data.is_zero() {
+                    if let Some(prev) = prev_good {
                         commands.trigger(update.next().with_data(prev));
                     } else {
                         // No idea what to do if there's no previous good input. Perhaps a Binding::inverted_default()?
                     }
                 } else {
-                    *prev_good = Some(update.data);
-                    commands.trigger(update.next().with_data(update.data.zeroed()));
+                    commands.trigger(update.next().with_data(data.zeroed()));
                 }
+                Ok(())
             },
         )
     }
@@ -684,6 +756,15 @@ impl InputBuffer {
         timer.pause();
         Self { timer, prev: None }
     }
+
+    pub fn force_finish(&mut self) {
+        let was_paused = self.timer.is_paused();
+        self.timer.unpause();
+        self.timer.finish();
+        if was_paused {
+            self.timer.pause();
+        }
+    }
 }
 
 impl Condition for InputBuffer {
@@ -692,11 +773,15 @@ impl Condition for InputBuffer {
             observe(
                 |update: On<ConditionedBindingUpdate>,
                  mut commands: Commands,
-                 mut condition: Query<&mut InputBuffer>|
+                 mut conditions: Query<&mut InputBuffer>|
                  -> Result {
-                    let mut condition = condition.get_mut(update.target)?;
+                    let mut condition = conditions.get_mut(update.target)?;
+
+                    let data = update.data;
+                    condition.prev.replace(update.clone());
+
                     commands.trigger(update.next());
-                    if !update.data.is_zero() {
+                    if !data.is_zero() {
                         condition.prev = Some(update.clone());
                         condition.timer.reset();
                         condition.timer.pause();
@@ -707,18 +792,23 @@ impl Condition for InputBuffer {
                 },
             ),
             observe(
+                |invalidate: On<InvalidateData>,
+                 mut conditions: Query<&mut InputBuffer>|
+                 -> Result {
+                    let mut condition = conditions.get_mut(invalidate.target)?;
+                    condition.prev = None;
+                    condition.force_finish();
+                    Ok(())
+                },
+            ),
+            observe(
                 |reset: On<ResetBufferEvent>,
                  mut commands: Commands,
                  mut condition: Query<&mut InputBuffer>|
                  -> Result {
                     info!("Resetting input buffer");
                     let mut condition = condition.get_mut(reset.target)?;
-                    let was_paused = condition.timer.is_paused();
-                    condition.timer.unpause();
-                    condition.timer.finish();
-                    if was_paused {
-                        condition.timer.pause();
-                    }
+                    condition.force_finish();
                     if let Some(prev) = &condition.prev {
                         commands.trigger(prev.next().with_data(prev.data.zeroed()));
                     }
@@ -865,6 +955,35 @@ impl ConditionedBindingUpdate {
             data,
             entities: self.entities.clone(),
             index: self.index,
+        }
+    }
+}
+
+#[derive(EntityEvent)]
+pub struct InvalidateData {
+    #[event_target]
+    pub target: Entity,
+    pub entities: Vec<Entity>,
+    pub index: usize,
+}
+
+impl InvalidateData {
+    /// Guarunteed when used in conditions, not in the final action event
+    pub fn next(&self) -> Self {
+        Self {
+            target: self.entities[self.index + 1],
+            entities: self.entities.clone(),
+            index: self.index + 1,
+        }
+    }
+}
+
+impl From<&ConditionedBindingUpdate> for InvalidateData {
+    fn from(update: &ConditionedBindingUpdate) -> Self {
+        Self {
+            target: update.target,
+            entities: update.entities.clone(),
+            index: update.index,
         }
     }
 }
@@ -1157,7 +1276,7 @@ pub fn binding(
 
 pub fn action<A: Action>(
     binding_update: On<BindingUpdate>,
-    actions: Query<(&ActionOf<A>, &Conditions)>,
+    mut actions: Query<(&ActionOf<A>, &Conditions, &mut PrevActionData)>,
     mut commands: Commands,
 ) -> Result {
     // info!(
@@ -1166,7 +1285,8 @@ pub fn action<A: Action>(
     //     binding_update.data
     // );
 
-    let (action_of, conditions) = actions.get(binding_update.action)?;
+    let (action_of, conditions, mut prev) = actions.get_mut(binding_update.action)?;
+    prev.0 = binding_update.data;
     let input = action_of.0;
 
     let mut entities = conditions.0.clone();
@@ -1183,62 +1303,77 @@ pub fn action<A: Action>(
 }
 
 pub fn action_2<A: Action>(
-    binding_update: On<ConditionedBindingUpdate>,
-    actions: Query<&ActionOf<A>>,
+    update: On<ConditionedBindingUpdate>,
+    mut actions: Query<(&ActionOf<A>, &mut PrevAction2Data)>,
     inputs: Query<Has<InputDisabled>>,
     mut commands: Commands,
-    mut prev_data: Local<Option<ActionData>>,
 ) -> Result {
-    let action_of = actions.get(binding_update.action)?;
+    let (action_of, mut prev) = actions.get_mut(update.action)?;
     let input = action_of.0;
-
     let input_disabled = inputs.get(input)?;
-    let data_is_zero = binding_update.data.is_zero() || input_disabled;
-    let prev_is_zero = prev_data.as_ref().is_none_or(ActionData::is_zero);
 
-    if !input_disabled && binding_update.data.as_1d().is_some() {
+    let data = if input_disabled {
+        update.data.zeroed()
+    } else {
+        update.data
+    };
+    let prev_data = if let Some(prev_data) = prev.0.replace(data) {
+        prev_data
+    } else {
+        info!("Initialized {}", ShortName::of::<A>());
+        return Ok(());
+    };
+
+    if data.as_1d().is_some() {
         info!(
             "Action 2 update received {} {:?}",
             ShortName::of::<A>(),
-            binding_update.data
+            update.data
         );
     }
 
-    if !data_is_zero && prev_is_zero {
+    if !data.is_zero() && prev_data.is_zero() {
+        if data.as_1d().is_some() {
+            info!("Action just pressed {}", ShortName::of::<A>());
+        }
         commands.trigger(JustPressed::<A> {
             input,
-            data: binding_update.data,
+            data,
             _marker: PhantomData,
         });
     }
-    if !data_is_zero {
+    if !data.is_zero() {
         commands.trigger(Pressed::<A> {
             input,
-            data: binding_update.data,
+            data,
             _marker: PhantomData,
         });
     }
     commands.trigger(Updated::<A> {
         input,
-        data: binding_update.data,
+        data,
         _marker: PhantomData,
     });
-    if data_is_zero && !prev_is_zero {
+    if data.is_zero() && !prev_data.is_zero() {
+        if data.as_1d().is_some() {
+            info!("Action just released {}", ShortName::of::<A>());
+        }
         commands.trigger(JustReleased::<A> {
             input,
             _marker: PhantomData,
         });
     }
 
-    *prev_data = Some(binding_update.data);
     Ok(())
 }
 
-pub fn action_prev_set<A: Action>(
-    binding_update: On<BindingUpdate>,
-    mut actions: Query<&mut PrevActionData>,
+pub fn action_2_invalidate<A: Action>(
+    invalidate: On<InvalidateData>,
+    mut actions: Query<&mut PrevAction2Data>,
 ) -> Result {
-    actions.get_mut(binding_update.action)?.0 = Some(binding_update.data);
+    info!("Invalidating {}", ShortName::of::<A>());
+    let mut prev = actions.get_mut(invalidate.target)?;
+    prev.0.take();
     Ok(())
 }
 
@@ -1253,13 +1388,15 @@ fn action_prev_filter<A: Action, F: QueryFilter + Send + Sync + 'static>(
             continue;
         };
         let passed = inputs.get(action_of.0).is_ok();
-        if let Some(prev_data) = prev_data.0
-            && passed
-            && !filter.prev_passed
-        {
+        if passed && !filter.prev_passed {
+            info!(
+                "Oop! Time to start paying attention to {} because {} is now valid",
+                ShortName::of::<A>(),
+                ShortName::of::<F>()
+            );
             commands.trigger(BindingUpdate {
                 action: condition_of.0,
-                data: prev_data,
+                data: prev_data.0,
             });
         }
         filter.prev_passed = passed;
@@ -1271,6 +1408,11 @@ pub fn transition_on<A: Action, F: Component, T: Component + Default>(
     sprint: On<JustPressed<A>>,
     mut commands: Commands,
 ) {
+    info!(
+        "Transitioning on {} => {}",
+        ShortName::of::<F>(),
+        ShortName::of::<T>()
+    );
     commands
         .entity(sprint.input)
         .remove::<F>()
@@ -1281,6 +1423,11 @@ pub fn transition_off<A: Action, F: Component, T: Component + Default>(
     sprint: On<JustReleased<A>>,
     mut commands: Commands,
 ) {
+    info!(
+        "Transitioning off {} => {}",
+        ShortName::of::<F>(),
+        ShortName::of::<T>()
+    );
     commands
         .entity(sprint.input)
         .remove::<F>()

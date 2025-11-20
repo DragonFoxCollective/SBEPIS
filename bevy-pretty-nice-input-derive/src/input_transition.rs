@@ -162,7 +162,7 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
 
 fn build_output(
     action: &syn::Type,
-    bindings: &[syn::Expr],
+    bindings: &Bindings,
     conditions: &[syn::Expr],
     observers: &[syn::Expr],
 ) -> syn::Expr {
@@ -170,7 +170,7 @@ fn build_output(
         (
             ::bevy_pretty_nice_input::input!(
                 #action,
-                [#( #bindings ),*],
+                #bindings,
                 [#( #conditions ),*],
             ),
             #( #observers ),*
@@ -280,9 +280,9 @@ fn build_transition(
             build_observers(action, from, to, direction)?
         } else {
             #[cfg(feature = "debug_graph")]
-        let empty = from.iter().map(|f| parse_quote! {
-            ::bevy_pretty_nice_input::debug_graph::add_graph_edge::<#f, #action, #action>()
-        }).collect::<Vec<_>>();
+			let empty = from.iter().map(|f| parse_quote! {
+				::bevy_pretty_nice_input::debug_graph::add_graph_edge::<#f, #action, #action>()
+			}).collect::<Vec<_>>();
             #[cfg(not(feature = "debug_graph"))]
             let empty = vec![];
             empty
@@ -299,7 +299,7 @@ struct InputTransition {
     left: LeftTransitionSide,
     arrow: TransitionArrow,
     right: RightTransitionSide,
-    bindings: Vec<syn::Expr>,
+    bindings: Bindings,
     conditions: Vec<syn::Expr>,
 }
 
@@ -310,11 +310,18 @@ impl Parse for InputTransition {
         let left = input.parse::<LeftTransitionSide>()?;
         let arrow = input.parse::<TransitionArrow>()?;
         let right = input.parse::<RightTransitionSide>()?;
-        let bindings = input.parse::<ExprList>()?.0;
-        let conditions = input.parse::<ExprList>().unwrap_or_default().0;
-        if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+        let bindings = input.parse::<Bindings>()?;
+        let conditions = if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
-        }
+            let conditions = input.parse::<ExprList>().unwrap_or_default().0;
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+            conditions
+        } else {
+            Vec::new()
+        };
 
         Ok(InputTransition {
             action,
@@ -589,12 +596,67 @@ impl ToTokens for RightArrowType {
     }
 }
 
+#[derive(Clone)]
+struct Bindings {
+    dim: BindingDim,
+    bindings: Vec<syn::Expr>,
+}
+
+impl Parse for Bindings {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let dim = input.parse::<BindingDim>()?;
+        let bindings = input.parse::<ExprList>()?.0;
+        Ok(Bindings { dim, bindings })
+    }
+}
+
+impl ToTokens for Bindings {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let dim = &self.dim;
+        let bindings = &self.bindings;
+        tokens.extend(quote! {
+            #dim [ #( #bindings ),* ]
+        });
+    }
+}
+
+#[derive(Clone)]
+enum BindingDim {
+    Axis1D,
+    Axis2D,
+    Axis3D,
+}
+
+impl Parse for BindingDim {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ident = input.parse::<syn::Ident>()?;
+        match ident.to_string().as_str() {
+            "Axis1D" => Ok(BindingDim::Axis1D),
+            "Axis2D" => Ok(BindingDim::Axis2D),
+            "Axis3D" => Ok(BindingDim::Axis3D),
+            _ => Err(syn::Error::new_spanned(
+                ident,
+                "Expected one of `Axis1D`, `Axis2D`, or `Axis3D`",
+            )),
+        }
+    }
+}
+
+impl ToTokens for BindingDim {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            BindingDim::Axis1D => tokens.extend(quote! { Axis1D }),
+            BindingDim::Axis2D => tokens.extend(quote! { Axis2D }),
+            BindingDim::Axis3D => tokens.extend(quote! { Axis3D }),
+        }
+    }
+}
+
 #[derive(Default)]
 struct ExprList(Vec<syn::Expr>);
 
 impl Parse for ExprList {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<Token![,]>()?;
         let content;
         syn::bracketed!(content in input);
         let exprs = content.parse_terminated(syn::Expr::parse, Token![,])?;
