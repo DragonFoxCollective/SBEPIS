@@ -475,15 +475,15 @@ impl Condition for Cooldown {
 
                     if !data.is_zero() && prev_data.is_zero() {
                         if condition.timer.is_finished() {
-                            info!("Cooling down");
+                            debug!("Cooling down");
                             commands.trigger(update.next());
                             commands.trigger(update.next().with_data(data.zeroed()));
                         } else {
-                            info!("Re-cooling down");
+                            debug!("Re-cooling down");
                         }
                         condition.timer.set_mode(TimerMode::Repeating);
                     } else if data.is_zero() {
-                        info!("Un-cooling down");
+                        debug!("Un-cooling down");
                         condition.timer.set_mode(TimerMode::Once);
                         commands.trigger(update.next());
                     }
@@ -508,7 +508,7 @@ fn tick_cooldown(mut conditions: Query<&mut Cooldown>, time: Res<Time>, mut comm
             && condition.timer.mode() == TimerMode::Repeating
             && let Some(prev) = &condition.prev
         {
-            info!("Cooldown finished, sending {:?}", prev.data);
+            debug!("Cooldown finished, sending {:?}", prev.data);
             commands.trigger(prev.next());
             commands.trigger(prev.next().with_data(prev.data.zeroed()));
         }
@@ -570,7 +570,7 @@ impl<F: QueryFilter + Send + Sync + 'static> Condition for InvalidatingFilter<F>
         observe(
             |update: On<ConditionedBindingUpdate>, inputs: Query<(), F>, mut commands: Commands| {
                 if inputs.get(update.input).is_ok() {
-                    info!(
+                    debug!(
                         "Filter passed for {} filtering {}",
                         ShortName::of::<A>(),
                         ShortName::of::<F>()
@@ -625,11 +625,11 @@ impl Condition for ButtonPress {
                     if data.is_pressed_with(condition.threshold)
                         && !prev_data.is_pressed_with(condition.threshold)
                     {
-                        info!("Button Pressed");
+                        debug!("Button Pressed");
                         commands.trigger(update.next());
                         commands.trigger(update.next().with_data(data.zeroed()));
                     } else if !data.is_pressed_with(condition.threshold) {
-                        info!("Button Passed");
+                        debug!("Button Passed");
                         commands.trigger(update.next().with_data(data.zeroed()));
                     }
                     Ok(())
@@ -807,7 +807,7 @@ impl Condition for InputBuffer {
                  mut commands: Commands,
                  mut condition: Query<&mut InputBuffer>|
                  -> Result {
-                    info!("Resetting input buffer");
+                    debug!("Resetting input buffer");
                     let mut condition = condition.get_mut(reset.target)?;
                     condition.force_finish();
                     if let Some(prev) = &condition.prev {
@@ -830,12 +830,12 @@ fn tick_input_buffer(
         if !condition.timer.is_finished()
             && let Some(prev) = &condition.prev
         {
-            info!("Input Buffer active, sending {:?}", prev.data);
+            debug!("Input Buffer active, sending {:?}", prev.data);
             commands.trigger(prev.next());
         } else if condition.timer.just_finished()
             && let Some(prev) = &condition.prev
         {
-            info!("Input Buffer finished, sending {:?}", prev.data.zeroed());
+            debug!("Input Buffer finished, sending {:?}", prev.data.zeroed());
             commands.trigger(prev.next().with_data(prev.data.zeroed()));
         }
     }
@@ -1266,7 +1266,7 @@ pub fn binding(
         )));
     };
 
-    // info!("Binding update received {:?}, {:?}", update.value, data);
+    // debug!("Binding update received {:?}, {:?}", update.value, data);
 
     commands.trigger(BindingUpdate {
         action: binding_of.0,
@@ -1281,7 +1281,7 @@ pub fn action<A: Action>(
     mut actions: Query<(&ActionOf<A>, &Conditions, &mut PrevActionData)>,
     mut commands: Commands,
 ) -> Result {
-    // info!(
+    // debug!(
     //     "Action update received {} {:?}",
     //     ShortName::of::<A>(),
     //     binding_update.data
@@ -1322,12 +1322,12 @@ pub fn action_2<A: Action>(
     let prev_data = if let Some(prev_data) = prev.0.replace(data) {
         prev_data
     } else {
-        info!("Initialized {}", ShortName::of::<A>());
+        debug!("Initialized {}", ShortName::of::<A>());
         return Ok(());
     };
 
     if data.as_1d().is_some() {
-        info!(
+        debug!(
             "Action 2 update received {} {:?}",
             ShortName::of::<A>(),
             update.data
@@ -1336,7 +1336,7 @@ pub fn action_2<A: Action>(
 
     if !data.is_zero() && prev_data.is_zero() {
         if data.as_1d().is_some() {
-            info!("Action just pressed {}", ShortName::of::<A>());
+            debug!("Action just pressed {}", ShortName::of::<A>());
         }
         commands.trigger(JustPressed::<A> {
             input,
@@ -1358,7 +1358,7 @@ pub fn action_2<A: Action>(
     });
     if data.is_zero() && !prev_data.is_zero() {
         if data.as_1d().is_some() {
-            info!("Action just released {}", ShortName::of::<A>());
+            debug!("Action just released {}", ShortName::of::<A>());
         }
         commands.trigger(JustReleased::<A> {
             input,
@@ -1375,7 +1375,7 @@ pub fn action_2_invalidate<A: Action>(
 ) -> Result {
     let mut prev = actions.get_mut(invalidate.target)?;
     if prev.0.is_some() {
-        info!("Invalidating {}", ShortName::of::<A>());
+        debug!("Invalidating {}", ShortName::of::<A>());
         prev.0 = None;
     }
     Ok(())
@@ -1404,7 +1404,7 @@ pub fn action_enable<A: Action>(
 ) -> Result {
     for &action in inputs.get(remove.entity)?.0.iter() {
         let prev_data = actions.get(action)?;
-        info!(
+        debug!(
             "Enabling input for {} using {:?}",
             ShortName::of::<A>(),
             prev_data.0
@@ -1421,7 +1421,7 @@ pub fn transition_on<A: Action, F: Component, T: Component + Default>(
     sprint: On<JustPressed<A>>,
     mut commands: Commands,
 ) {
-    info!(
+    debug!(
         "Transitioning on {} => {}",
         ShortName::of::<F>(),
         ShortName::of::<T>()
@@ -1436,7 +1436,7 @@ pub fn transition_off<A: Action, F: Component, T: Component + Default>(
     sprint: On<JustReleased<A>>,
     mut commands: Commands,
 ) {
-    info!(
+    debug!(
         "Transitioning off {} => {}",
         ShortName::of::<F>(),
         ShortName::of::<T>()
