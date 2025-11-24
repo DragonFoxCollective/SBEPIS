@@ -8,6 +8,6 @@ debug_graph = ["bevy-pretty-nice-input-derive/debug_graph"]
 default = []
 
 [dependencies]
-bevy = { version = "0.17", default-features = false }
+bevy = { version = "0.17", default-features = false, features = ["bevy_log"] }
 bevy-pretty-nice-input-derive = { path = "../bevy-pretty-nice-input-derive" }
 paste = "1.0.15"

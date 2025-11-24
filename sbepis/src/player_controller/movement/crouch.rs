@@ -12,6 +12,7 @@ use super::charge::ChargeCrouching;
 use super::slide::Sliding;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Crouch;
 
 #[derive(Resource)]

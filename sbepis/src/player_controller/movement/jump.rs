@@ -13,15 +13,19 @@ use crate::util::MapRangeBetween;
 use super::dash::Dashing;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Jump;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct CrouchJump;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct ChargeJump;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct ChargeCrouchJump;
 
 #[derive(EntityEvent)]

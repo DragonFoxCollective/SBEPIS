@@ -8,9 +8,11 @@ use crate::player_controller::movement::di::DIUpdate;
 use crate::player_controller::movement::walk::PlayerWalkSettings;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct CrouchSneak;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct WalkSneak;
 
 #[derive(Component, Default)]

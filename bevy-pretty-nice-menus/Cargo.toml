@@ -8,5 +8,8 @@ default = ["pretty-nice-input"]
 pretty-nice-input = ["dep:bevy-pretty-nice-input"]
 
 [dependencies]
-bevy = { version = "0.17", default-features = false, features = [] }
+bevy = { version = "0.17", default-features = false, features = [
+	"bevy_log",
+	"bevy_camera",
+] }
 bevy-pretty-nice-input = { path = "../bevy-pretty-nice-input", optional = true }

@@ -14,12 +14,15 @@ use crate::player_controller::movement::grounded::Grounded;
 use crate::util::MapRange;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Slide;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct SlideNeutral;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct SlideStand;
 
 #[derive(Resource)]

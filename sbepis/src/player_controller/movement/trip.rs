@@ -19,6 +19,7 @@ use super::stand::Standing;
 use super::walk::Walking;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Trip;
 
 #[derive(Action)]

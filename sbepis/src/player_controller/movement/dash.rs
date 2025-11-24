@@ -20,6 +20,7 @@ use super::sprint::Sprinting;
 use super::walk::{PlayerWalkSettings, Walking};
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Dash;
 
 #[derive(Resource)]

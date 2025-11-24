@@ -14,6 +14,7 @@ use super::di::WalkDI;
 use super::grounded::Grounded;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Walk;
 
 #[derive(Resource)]

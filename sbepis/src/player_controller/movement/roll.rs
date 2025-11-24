@@ -10,15 +10,19 @@ use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::PlayerBody;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct CrouchRoll;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct SprintRoll;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct NeutralCrouchRoll;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct RollNeutral;
 
 #[derive(Resource)]

@@ -8,12 +8,15 @@ use crate::player_controller::movement::di::DIUpdate;
 use crate::player_controller::movement::walk::PlayerWalkSettings;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Sprint;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct SprintWalk;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct UnSprintWalk;
 
 #[derive(Component, Default)]

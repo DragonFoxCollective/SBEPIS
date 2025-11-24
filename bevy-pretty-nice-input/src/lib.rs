@@ -5,46 +5,13 @@ use bevy::input::gamepad::GamepadAxisChangedEvent;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseButtonInput, MouseMotion, MouseWheel};
 use bevy::prelude::*;
-pub use bevy_pretty_nice_input_derive::{Action, input_transition};
+pub use bevy_pretty_nice_input_derive::{Action, input, input_transition};
 
 use crate::bundles::{add_systems, observe};
 
 pub mod bundles;
 #[cfg(feature = "debug_graph")]
 pub mod debug_graph;
-
-#[macro_export]
-macro_rules! input {
-    ( $action:ty, $binding_dim:ident [$( $binding:expr ),* $(,)?], [$( $condition:expr ),* $(,)?]$(,)? ) => {(
-        ::bevy::prelude::related!($crate::Actions<$action>[(
-			::bevy::prelude::related!($crate::Bindings[$((
-				::bevy::prelude::Name::new(format!("Binding of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				$crate::bundles::observe($crate::binding),
-				$crate::BindingParts::spawn($binding),
-			)),*]),
-
-			::bevy::prelude::Name::new(format!("Action of {}", ::bevy::prelude::ShortName::of::<$action>())),
-			$crate::PrevActionData($crate::ActionData::$binding_dim(Default::default())),
-			$crate::PrevAction2Data::default(),
-			$crate::bundles::observe($crate::action::<$action>),
-			$crate::bundles::observe($crate::action_2::<$action>),
-			$crate::bundles::observe($crate::action_2_invalidate::<$action>),
-
-			::bevy::prelude::related!($crate::Conditions[$((
-				::bevy::prelude::Name::new(format!("Condition of {}", ::bevy::prelude::ShortName::of::<$action>())),
-				{
-					use $crate::Condition;
-					let condition = $condition;
-					(condition.bundle::<$action>(), condition, $crate::bundles::observe($crate::invalidate_pass))
-				}
-			)),*]),
-		)]),
-    )};
-
-    ( $action:ty, $binding_dim:ident [$( $binding:expr ),* $(,)?]$(,)? ) => {
-        $crate::input!($action, $binding_dim [$($binding),*], [])
-    };
-}
 
 #[derive(EntityEvent)]
 pub struct JustPressed<A: Action> {
@@ -376,7 +343,10 @@ pub struct PrevActionData(pub ActionData);
 #[derive(Component, Default, Debug)]
 pub struct PrevAction2Data(pub Option<ActionData>);
 
-pub trait Action: Send + Sync + 'static {}
+pub trait Action: Send + Sync + 'static {
+    /// Which filter determines how enabled/disabled input is processed. Generally, this should either be [`IsInputEnabled`] or [`IsInputEnabledInvalidate`].
+    type EnableFilter: Condition;
+}
 
 /// Gets added when its component is added, and removed after the timer expires when its component is removed.
 #[derive(Component)]
@@ -471,7 +441,7 @@ pub fn invalidate_pass(invalidate: On<InvalidateData>, mut commands: Commands) {
     commands.trigger(invalidate.next());
 }
 
-/// Only lets one valid input pass every duration
+/// Only lets one valid input pass every duration.
 #[derive(Component)]
 pub struct Cooldown {
     timer: Timer,
@@ -515,6 +485,7 @@ impl Condition for Cooldown {
                     } else if data.is_zero() {
                         info!("Un-cooling down");
                         condition.timer.set_mode(TimerMode::Once);
+                        commands.trigger(update.next());
                     }
                     Ok(())
                 },
@@ -544,19 +515,20 @@ fn tick_cooldown(mut conditions: Query<&mut Cooldown>, time: Res<Time>, mut comm
     }
 }
 
-/// Only lets the input pass if the query filter matches
+/// Only lets the input pass if the query filter matches.
 #[derive(Component)]
 pub struct Filter<F: QueryFilter> {
-    pub prev_passed: bool,
     _marker: PhantomData<F>,
 }
 
 pub type FilterBuffered<F> = Filter<With<ComponentBuffer<F>>>;
 
+/// Works best for state machines, when controls can change while the input is disabled.
+pub type IsInputEnabled = Filter<Without<InputDisabled>>;
+
 impl<F: QueryFilter> Default for Filter<F> {
     fn default() -> Self {
         Self {
-            prev_passed: false,
             _marker: PhantomData,
         }
     }
@@ -564,29 +536,55 @@ impl<F: QueryFilter> Default for Filter<F> {
 
 impl<F: QueryFilter + Send + Sync + 'static> Condition for Filter<F> {
     fn bundle<A: Action>(&self) -> impl Bundle {
-        (
-            observe(
-                |update: On<ConditionedBindingUpdate>,
-                 inputs: Query<(), F>,
-                 mut commands: Commands| {
-                    if inputs.get(update.input).is_ok() {
-                        info!(
-                            "Filter passed for {} filtering {}",
-                            ShortName::of::<A>(),
-                            ShortName::of::<F>()
-                        );
-                        commands.trigger(update.next());
-                    } else {
-                        commands.trigger(InvalidateData::from(&*update).next());
-                    }
-                },
-            ),
-            add_systems(PreUpdate, action_prev_filter::<A, F>),
+        observe(
+            |update: On<ConditionedBindingUpdate>, inputs: Query<(), F>, mut commands: Commands| {
+                if inputs.get(update.input).is_ok() {
+                    commands.trigger(update.next());
+                } else {
+                    commands.trigger(update.next().with_data(update.data.zeroed()));
+                }
+            },
         )
     }
 }
 
-/// Rising edge filter
+/// Only lets the input pass if the query filter matches. Otherwise, invalidates the input.
+#[derive(Component)]
+pub struct InvalidatingFilter<F: QueryFilter> {
+    _marker: PhantomData<F>,
+}
+
+/// Works best for state-agnostic inputs, like opening/closing menus, where keeping the previous input would be harmful.
+pub type IsInputEnabledInvalidate = InvalidatingFilter<Without<InputDisabled>>;
+
+impl<F: QueryFilter> Default for InvalidatingFilter<F> {
+    fn default() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<F: QueryFilter + Send + Sync + 'static> Condition for InvalidatingFilter<F> {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>, inputs: Query<(), F>, mut commands: Commands| {
+                if inputs.get(update.input).is_ok() {
+                    info!(
+                        "Filter passed for {} filtering {}",
+                        ShortName::of::<A>(),
+                        ShortName::of::<F>()
+                    );
+                    commands.trigger(update.next());
+                } else {
+                    commands.trigger(InvalidateData::from(&*update).next());
+                }
+            },
+        )
+    }
+}
+
+/// Rising edge filter.
 #[derive(Component)]
 pub struct ButtonPress {
     pub threshold: f32,
@@ -629,7 +627,10 @@ impl Condition for ButtonPress {
                     {
                         info!("Button Pressed");
                         commands.trigger(update.next());
-                        commands.trigger(update.next().with_data(prev_data));
+                        commands.trigger(update.next().with_data(data.zeroed()));
+                    } else if !data.is_pressed_with(condition.threshold) {
+                        info!("Button Passed");
+                        commands.trigger(update.next().with_data(data.zeroed()));
                     }
                     Ok(())
                 },
@@ -647,7 +648,7 @@ impl Condition for ButtonPress {
     }
 }
 
-/// Falling edge filter
+/// Falling edge filter.
 #[derive(Component)]
 pub struct ButtonRelease {
     pub threshold: f32,
@@ -753,7 +754,7 @@ pub struct InputBuffer {
 impl InputBuffer {
     pub fn new(duration: f32) -> Self {
         let mut timer = Timer::from_seconds(duration, TimerMode::Once);
-        timer.pause();
+        timer.finish();
         Self { timer, prev: None }
     }
 
@@ -908,6 +909,7 @@ impl Plugin for PrettyNiceInputPlugin {
                 binding_part_mouse_scroll_axis,
                 tick_cooldown,
                 tick_input_buffer,
+                action_initialize,
             ),
         )
         .add_observer(pass_reset_buffer);
@@ -1371,35 +1373,46 @@ pub fn action_2_invalidate<A: Action>(
     invalidate: On<InvalidateData>,
     mut actions: Query<&mut PrevAction2Data>,
 ) -> Result {
-    info!("Invalidating {}", ShortName::of::<A>());
     let mut prev = actions.get_mut(invalidate.target)?;
-    prev.0.take();
+    if prev.0.is_some() {
+        info!("Invalidating {}", ShortName::of::<A>());
+        prev.0 = None;
+    }
     Ok(())
 }
 
-fn action_prev_filter<A: Action, F: QueryFilter + Send + Sync + 'static>(
-    inputs: Query<(), F>,
-    actions: Query<(&PrevActionData, &ActionOf<A>)>,
-    mut filters: Query<(&mut Filter<F>, &ConditionOf)>,
+fn action_initialize(
+    actions: Query<(Entity, &PrevActionData, &PrevAction2Data)>,
     mut commands: Commands,
 ) -> Result {
-    for (mut filter, condition_of) in filters.iter_mut() {
-        let Ok((prev_data, action_of)) = actions.get(condition_of.0) else {
-            continue;
-        };
-        let passed = inputs.get(action_of.0).is_ok();
-        if passed && !filter.prev_passed {
-            info!(
-                "Oop! Time to start paying attention to {} because {} is now valid",
-                ShortName::of::<A>(),
-                ShortName::of::<F>()
-            );
+    for (entity, prev_data, prev_data_2) in actions.iter() {
+        if prev_data_2.0.is_none() {
             commands.trigger(BindingUpdate {
-                action: condition_of.0,
+                action: entity,
                 data: prev_data.0,
             });
         }
-        filter.prev_passed = passed;
+    }
+    Ok(())
+}
+
+pub fn action_enable<A: Action>(
+    remove: On<Remove, InputDisabled>,
+    inputs: Query<&Actions<A>>,
+    actions: Query<&PrevActionData>,
+    mut commands: Commands,
+) -> Result {
+    for &action in inputs.get(remove.entity)?.0.iter() {
+        let prev_data = actions.get(action)?;
+        info!(
+            "Enabling input for {} using {:?}",
+            ShortName::of::<A>(),
+            prev_data.0
+        );
+        commands.trigger(BindingUpdate {
+            action,
+            data: prev_data.0,
+        });
     }
     Ok(())
 }

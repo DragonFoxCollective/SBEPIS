@@ -13,15 +13,19 @@ use crate::player_controller::movement::trip::Trip;
 use super::trip::{PlayerTripSettings, Tripping};
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct Charge;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct ChargeCrouch;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct ChargeWalk;
 
 #[derive(Action)]
+#[action(invalidate = false)]
 pub struct ChargeDash;
 
 #[derive(Resource)]

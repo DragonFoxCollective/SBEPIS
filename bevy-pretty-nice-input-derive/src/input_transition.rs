@@ -3,6 +3,8 @@ use quote::{ToTokens, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::{Token, parse_quote};
 
+use crate::input::{Bindings, Conditions};
+
 pub fn input_transition_impl(input: TokenStream) -> TokenStream {
     match input_transition(syn::parse_macro_input!(input as InputTransition)) {
         Ok(expr) => expr.into_token_stream().into(),
@@ -16,9 +18,9 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
             let (left, direction) = match input.left {
                 LeftTransitionSide::Multiple(ref types) => (types, ObserverArrow::Right),
                 LeftTransitionSide::MultipleBack(ref first, rest) => {
-                    if !input.conditions.is_empty() {
+                    if !input.conditions.conditions.is_empty() {
                         return Err(syn::Error::new_spanned(
-                            &input.conditions[0],
+                            &input.conditions.conditions[0],
                             "Cannot have conditions with bidirectional transitions",
                         ));
                     }
@@ -63,9 +65,9 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
             let (right, direction) = match input.right {
                 RightTransitionSide::Multiple(ref types) => (types, ObserverArrow::Left),
                 RightTransitionSide::MultipleBack(rest, ref last) => {
-                    if !input.conditions.is_empty() {
+                    if !input.conditions.conditions.is_empty() {
                         return Err(syn::Error::new_spanned(
-                            &input.conditions[0],
+                            &input.conditions.conditions[0],
                             "Cannot have conditions with bidirectional transitions",
                         ));
                     }
@@ -107,9 +109,9 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
             ))
         }
         TransitionArrow::Both => {
-            if !input.conditions.is_empty() {
+            if !input.conditions.conditions.is_empty() {
                 return Err(syn::Error::new_spanned(
-                    &input.conditions[0],
+                    &input.conditions.conditions[0],
                     "Cannot have conditions with bidirectional transitions",
                 ));
             }
@@ -163,7 +165,7 @@ fn input_transition(input: InputTransition) -> syn::Result<syn::Expr> {
 fn build_output(
     action: &syn::Type,
     bindings: &Bindings,
-    conditions: &[syn::Expr],
+    conditions: &Conditions,
     observers: &[syn::Expr],
 ) -> syn::Expr {
     parse_quote! {
@@ -171,7 +173,7 @@ fn build_output(
             ::bevy_pretty_nice_input::input!(
                 #action,
                 #bindings,
-                [#( #conditions ),*],
+                #conditions,
             ),
             #( #observers ),*
         )
@@ -182,11 +184,11 @@ fn build_filter(from: &[syn::Type]) -> syn::Expr {
     if from.len() == 1 {
         let from = &from[0];
         parse_quote! {
-            ::bevy_pretty_nice_input::Filter::<::bevy::prelude::With<#from>>::default()
+            ::bevy_pretty_nice_input::InvalidatingFilter::<::bevy::prelude::With<#from>>::default()
         }
     } else {
         parse_quote! {
-            ::bevy_pretty_nice_input::Filter::<::bevy::prelude::Or<(#( ::bevy::prelude::With<#from> ,)*)>>::default()
+            ::bevy_pretty_nice_input::InvalidatingFilter::<::bevy::prelude::Or<(#( ::bevy::prelude::With<#from> ,)*)>>::default()
         }
     }
 }
@@ -262,7 +264,7 @@ enum ObserverArrow<'a> {
 
 struct TransitionOutput {
     action: syn::Type,
-    conditions: Vec<syn::Expr>,
+    conditions: Conditions,
     observers: Vec<syn::Expr>,
 }
 
@@ -270,11 +272,11 @@ fn build_transition(
     action: &syn::Type,
     from: &[syn::Type],
     to: Option<&syn::Type>,
-    mut conditions: Vec<syn::Expr>,
+    mut conditions: Conditions,
     direction: ObserverArrow,
 ) -> syn::Result<TransitionOutput> {
     let filters = from.iter().chain(to).cloned().collect::<Vec<_>>();
-    conditions.insert(0, build_filter(&filters));
+    conditions.conditions.insert(0, build_filter(&filters));
     let observers =
         if let Some(to) = to {
             build_observers(action, from, to, direction)?
@@ -300,7 +302,7 @@ struct InputTransition {
     arrow: TransitionArrow,
     right: RightTransitionSide,
     bindings: Bindings,
-    conditions: Vec<syn::Expr>,
+    conditions: Conditions,
 }
 
 impl Parse for InputTransition {
@@ -314,13 +316,13 @@ impl Parse for InputTransition {
         let bindings = input.parse::<Bindings>()?;
         let conditions = if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
-            let conditions = input.parse::<ExprList>().unwrap_or_default().0;
+            let conditions = input.parse::<Conditions>().unwrap_or_default();
             if input.peek(Token![,]) {
                 input.parse::<Token![,]>()?;
             }
             conditions
         } else {
-            Vec::new()
+            Conditions::default()
         };
 
         Ok(InputTransition {
@@ -593,73 +595,5 @@ impl ToTokens for RightArrowType {
                 tokens.extend(quote! { => #ty });
             }
         }
-    }
-}
-
-#[derive(Clone)]
-struct Bindings {
-    dim: BindingDim,
-    bindings: Vec<syn::Expr>,
-}
-
-impl Parse for Bindings {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let dim = input.parse::<BindingDim>()?;
-        let bindings = input.parse::<ExprList>()?.0;
-        Ok(Bindings { dim, bindings })
-    }
-}
-
-impl ToTokens for Bindings {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let dim = &self.dim;
-        let bindings = &self.bindings;
-        tokens.extend(quote! {
-            #dim [ #( #bindings ),* ]
-        });
-    }
-}
-
-#[derive(Clone)]
-enum BindingDim {
-    Axis1D,
-    Axis2D,
-    Axis3D,
-}
-
-impl Parse for BindingDim {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident = input.parse::<syn::Ident>()?;
-        match ident.to_string().as_str() {
-            "Axis1D" => Ok(BindingDim::Axis1D),
-            "Axis2D" => Ok(BindingDim::Axis2D),
-            "Axis3D" => Ok(BindingDim::Axis3D),
-            _ => Err(syn::Error::new_spanned(
-                ident,
-                "Expected one of `Axis1D`, `Axis2D`, or `Axis3D`",
-            )),
-        }
-    }
-}
-
-impl ToTokens for BindingDim {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        match self {
-            BindingDim::Axis1D => tokens.extend(quote! { Axis1D }),
-            BindingDim::Axis2D => tokens.extend(quote! { Axis2D }),
-            BindingDim::Axis3D => tokens.extend(quote! { Axis3D }),
-        }
-    }
-}
-
-#[derive(Default)]
-struct ExprList(Vec<syn::Expr>);
-
-impl Parse for ExprList {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let content;
-        syn::bracketed!(content in input);
-        let exprs = content.parse_terminated(syn::Expr::parse, Token![,])?;
-        Ok(ExprList(exprs.into_iter().collect()))
     }
 }
