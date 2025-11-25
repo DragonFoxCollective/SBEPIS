@@ -1,19 +1,14 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
-use leafwing_input_manager::Actionlike;
-use leafwing_input_manager::prelude::InputMap;
+use bevy_pretty_nice_input::{Action, binding1d, input};
+use bevy_pretty_nice_menus::{MenuHidesWhenClosed, MenuWithInput, MenuWithoutMouse};
 
 use crate::camera::PlayerCameraNode;
-use crate::input::input_manager_bundle;
-use crate::menus::{
-    CloseMenuBinding, Menu, MenuHidesWhenClosed, MenuWithInputManager, MenuWithoutMouse,
-    OpenMenuBinding,
-};
 use crate::player_commands::PlayerCommandsPlugin;
 use crate::player_commands::note_holder::NoteNodeHolder;
-use crate::player_commands::notes::PlayNoteAction;
-use crate::player_controller::PlayerAction;
+use crate::player_commands::notes::*;
+use crate::player_controller::OpenStaff;
 
 #[derive(Component)]
 pub struct CommandStaff;
@@ -52,50 +47,52 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
             BackgroundColor(css::BEIGE.into()),
             CommandStaff,
             PlayerCameraNode,
-            input_manager_bundle(
-                InputMap::default()
-                    .with(PlayNoteAction::C4, KeyCode::KeyZ)
-                    .with(PlayNoteAction::CS4, KeyCode::KeyS)
-                    .with(PlayNoteAction::D4, KeyCode::KeyX)
-                    .with(PlayNoteAction::DS4, KeyCode::KeyD)
-                    .with(PlayNoteAction::E4, KeyCode::KeyC)
-                    .with(PlayNoteAction::F4, KeyCode::KeyV)
-                    .with(PlayNoteAction::FS4, KeyCode::KeyG)
-                    .with(PlayNoteAction::G4, KeyCode::KeyB)
-                    .with(PlayNoteAction::GS4, KeyCode::KeyH)
-                    .with(PlayNoteAction::A4, KeyCode::KeyN)
-                    .with(PlayNoteAction::AS4, KeyCode::KeyJ)
-                    .with(PlayNoteAction::B4, KeyCode::KeyM)
-                    .with(PlayNoteAction::C5, KeyCode::Comma)
-                    .with(PlayNoteAction::CS5, KeyCode::KeyL)
-                    .with(PlayNoteAction::D5, KeyCode::Period)
-                    .with(PlayNoteAction::DS5, KeyCode::Semicolon)
-                    .with(PlayNoteAction::E5, KeyCode::Slash)
-                    .with(PlayNoteAction::C5, KeyCode::KeyQ)
-                    .with(PlayNoteAction::CS5, KeyCode::Digit2)
-                    .with(PlayNoteAction::D5, KeyCode::KeyW)
-                    .with(PlayNoteAction::DS5, KeyCode::Digit3)
-                    .with(PlayNoteAction::E5, KeyCode::KeyE)
-                    .with(PlayNoteAction::F5, KeyCode::KeyR)
-                    .with(PlayNoteAction::FS5, KeyCode::Digit5)
-                    .with(PlayNoteAction::G5, KeyCode::KeyT)
-                    .with(PlayNoteAction::GS5, KeyCode::Digit6)
-                    .with(PlayNoteAction::A5, KeyCode::KeyY)
-                    .with(PlayNoteAction::AS5, KeyCode::Digit7)
-                    .with(PlayNoteAction::B5, KeyCode::KeyU)
-                    .with(PlayNoteAction::C6, KeyCode::KeyI)
-                    .with(PlayNoteAction::CS6, KeyCode::Digit9)
-                    .with(PlayNoteAction::D6, KeyCode::KeyO)
-                    .with(PlayNoteAction::DS6, KeyCode::Digit0)
-                    .with(PlayNoteAction::E6, KeyCode::KeyP),
-                false,
+            (
+                (
+                    input!(PlayC4Down, Axis1D[binding1d::key(KeyCode::KeyZ)]),
+                    input!(PlayCS4Down, Axis1D[binding1d::key(KeyCode::KeyS)]),
+                    input!(PlayD4Down, Axis1D[binding1d::key(KeyCode::KeyX)]),
+                    input!(PlayDS4Down, Axis1D[binding1d::key(KeyCode::KeyD)]),
+                    input!(PlayE4Down, Axis1D[binding1d::key(KeyCode::KeyC)]),
+                    input!(PlayF4Down, Axis1D[binding1d::key(KeyCode::KeyV)]),
+                    input!(PlayFS4Down, Axis1D[binding1d::key(KeyCode::KeyG)]),
+                    input!(PlayG4Down, Axis1D[binding1d::key(KeyCode::KeyB)]),
+                    input!(PlayGS4Down, Axis1D[binding1d::key(KeyCode::KeyH)]),
+                    input!(PlayA4Down, Axis1D[binding1d::key(KeyCode::KeyN)]),
+                    input!(PlayAS4Down, Axis1D[binding1d::key(KeyCode::KeyJ)]),
+                    input!(PlayB4Down, Axis1D[binding1d::key(KeyCode::KeyM)]),
+                ),
+                (
+                    input!(PlayC5Down, Axis1D[binding1d::key(KeyCode::Comma)]),
+                    input!(PlayCS5Down, Axis1D[binding1d::key(KeyCode::KeyL)]),
+                    input!(PlayD5Down, Axis1D[binding1d::key(KeyCode::Period)]),
+                    input!(PlayDS5Down, Axis1D[binding1d::key(KeyCode::Semicolon)]),
+                    input!(PlayE5Down, Axis1D[binding1d::key(KeyCode::Slash)]),
+                ),
+                (
+                    input!(PlayC5Up, Axis1D[binding1d::key(KeyCode::KeyQ)]),
+                    input!(PlayCS5Up, Axis1D[binding1d::key(KeyCode::Digit2)]),
+                    input!(PlayD5Up, Axis1D[binding1d::key(KeyCode::KeyW)]),
+                    input!(PlayDS5Up, Axis1D[binding1d::key(KeyCode::Digit3)]),
+                    input!(PlayE5Up, Axis1D[binding1d::key(KeyCode::KeyE)]),
+                    input!(PlayF5Up, Axis1D[binding1d::key(KeyCode::KeyR)]),
+                    input!(PlayFS5Up, Axis1D[binding1d::key(KeyCode::Digit5)]),
+                    input!(PlayG5Up, Axis1D[binding1d::key(KeyCode::KeyT)]),
+                    input!(PlayGS5Up, Axis1D[binding1d::key(KeyCode::Digit6)]),
+                    input!(PlayA5Up, Axis1D[binding1d::key(KeyCode::KeyY)]),
+                    input!(PlayAS5Up, Axis1D[binding1d::key(KeyCode::Digit7)]),
+                    input!(PlayB5Up, Axis1D[binding1d::key(KeyCode::KeyU)]),
+                ),
+                (
+                    input!(PlayC6Up, Axis1D[binding1d::key(KeyCode::KeyI)]),
+                    input!(PlayCS6Up, Axis1D[binding1d::key(KeyCode::Digit9)]),
+                    input!(PlayD6Up, Axis1D[binding1d::key(KeyCode::KeyO)]),
+                    input!(PlayDS6Up, Axis1D[binding1d::key(KeyCode::Digit0)]),
+                    input!(PlayE6Up, Axis1D[binding1d::key(KeyCode::KeyP)]),
+                ),
+                input!(CloseStaff, Axis1D[binding1d::key(KeyCode::Backquote)]),
             ),
-            input_manager_bundle(
-                InputMap::default().with(CloseStaffAction, KeyCode::Backquote),
-                false,
-            ),
-            Menu,
-            MenuWithInputManager,
+            MenuWithInput,
             MenuWithoutMouse,
             MenuHidesWhenClosed,
         ))
@@ -141,28 +138,11 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-pub struct OpenStaffBinding;
-impl OpenMenuBinding for OpenStaffBinding {
-    type Action = PlayerAction;
-    type Menu = CommandStaff;
-    fn action() -> Self::Action {
-        PlayerAction::OpenStaff
-    }
-}
+#[add_observer(plugin = PlayerCommandsPlugin, generics = <OpenStaff, CommandStaff>)]
+use bevy_pretty_nice_menus::show_menu_on_action;
 
-#[add_observer(plugin = PlayerCommandsPlugin, generics = <OpenStaffBinding>)]
-use crate::menus::show_menu_on_action;
+#[derive(Action)]
+pub struct CloseStaff;
 
-#[derive(Actionlike, Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
-pub struct CloseStaffAction;
-
-pub struct CloseStaffBinding;
-impl CloseMenuBinding for CloseStaffBinding {
-    type Action = CloseStaffAction;
-    fn action() -> Self::Action {
-        CloseStaffAction
-    }
-}
-
-#[add_observer(plugin = PlayerCommandsPlugin, generics = <CloseStaffBinding>)]
-use crate::menus::close_menu_on_action;
+#[add_observer(plugin = PlayerCommandsPlugin, generics = <CloseStaff>)]
+use bevy_pretty_nice_menus::close_menu_on_action;

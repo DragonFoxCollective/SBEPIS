@@ -3,31 +3,29 @@ use std::marker::PhantomData;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed, Pressed};
 use bevy_rapier3d::prelude::*;
-use leafwing_input_manager::prelude::*;
-use return_ok::ok_or_return_ok;
 
 use crate::camera::PlayerCamera;
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
+use crate::player_controller::{Interact, PlayerControllerPlugin};
 use crate::util::find_in_ancestors;
 
 use super::PlayerBody;
 
+#[derive(Action)]
+pub struct Look;
+
 #[derive(Component)]
 pub struct Pitch(pub f32);
 
-/// Probably in radians per pixel?
+/// Probably in radians per mouse sensor pixel?
 #[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.002))]
+#[insert_resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.0015))]
 pub struct MouseSensitivity(pub f32);
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::UpdateState,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn rotate_camera_and_body(
-    input: Query<&ActionState<PlayerAction>>,
+    look: On<Pressed<Look>>,
     sensitivity: Res<MouseSensitivity>,
     mut player_camera: Query<
         (&mut Transform, &mut Pitch, &Camera),
@@ -38,7 +36,10 @@ fn rotate_camera_and_body(
         (Without<PlayerCamera>, With<PlayerBody>),
     >,
 ) -> Result {
-    let delta = ok_or_return_ok!(input.single()).axis_pair(&PlayerAction::Look);
+    let delta = look
+        .data
+        .as_2d()
+        .ok_or::<BevyError>("Look action expects 2d data".into())?;
 
     {
         let (mut camera_transform, mut camera_pitch, camera) = player_camera.single_mut()?;
@@ -65,25 +66,20 @@ fn rotate_camera_and_body(
 }
 
 pub fn interact_with<T: Component>(
+    interact: On<JustPressed<Interact>>,
+    bodies: Query<&PlayerBody>,
     rapier_context: ReadRapierContext,
-    player_camera: Query<&GlobalTransform, With<PlayerCamera>>,
+    cameras: Query<&GlobalTransform, With<PlayerCamera>>,
     entities: Query<Entity, With<T>>,
     parents: Query<&ChildOf>,
-    input: Query<&ActionState<PlayerAction>>,
     mut commands: Commands,
 ) -> Result {
-    if !match input.iter().find(|input| !input.disabled()) {
-        Some(input) => input.just_pressed(&PlayerAction::Interact),
-        None => false,
-    } {
-        return Ok(());
-    }
-
-    let player_camera = player_camera.single()?;
+    let body = bodies.get(interact.input)?;
+    let camera = cameras.get(body.camera)?;
     let mut hit_entity: Option<(Option<Entity>, f32)> = None;
     rapier_context.single()?.intersect_ray(
-        player_camera.translation(),
-        player_camera.forward().into(),
+        camera.translation(),
+        camera.forward().into(),
         3.0,
         true,
         QueryFilter::default(),

@@ -1,21 +1,21 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
+use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::entity::movement::ExecuteMovementSet;
-use crate::input::{button_just_pressed, button_just_released};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::di::DIUpdate;
 
-use super::charge::{ChargeCrouching, ChargeStanding, ChargeWalking};
-use super::crouch::Crouching;
-use super::di::DirectionalInput;
+use super::di::WalkDI;
 use super::grounded::Grounded;
-use super::sneak::Sneaking;
-use super::sprint::Sprinting;
-use super::stand::Standing;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct Walk;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
@@ -42,80 +42,39 @@ pub struct PlayerWalkSettings {
 #[derive(Component, Default)]
 pub struct Walking;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_pressed(PlayerAction::Move),
-)]
-fn standing_to_walking(
-    players: Query<Entity, (With<PlayerBody>, With<Standing>)>,
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn update_di_walk(
+    di: On<Updated<Walk>>,
+    mut players: Query<&mut Walking>,
     mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands.entity(player).remove::<Standing>().insert(Walking);
-    }
+    walk_settings: Res<PlayerWalkSettings>,
+) -> Result {
+    let mut _walking = ok_or_return_ok!(players.get_mut(di.input));
+    commands.trigger(DIUpdate {
+        entity: di.input,
+        value: di
+            .data
+            .as_2d()
+            .ok_or::<BevyError>("Walk didn't have 2D data".into())?,
+        speed: walk_settings.speed,
+    });
+    Ok(())
 }
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_released(PlayerAction::Move),
-)]
-fn walking_to_standing(
-    players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands.entity(player).remove::<Walking>().insert(Standing);
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::DoHorizontalMovement,
+	in_set = MovementControlSystems::DoHorizontalMovement,
 	before = ExecuteMovementSet,
 )]
 fn update_walk_velocity(
-    mut movement: Query<
-        (
-            &mut Movement,
-            &Velocity,
-            &Transform,
-            &DirectionalInput,
-            Has<Walking>,
-            Has<Sprinting>,
-            Has<Sneaking>,
-            Has<Grounded>,
-        ),
-        Or<(
-            With<Standing>,
-            With<Walking>,
-            With<Sprinting>,
-            With<Crouching>,
-            With<Sneaking>,
-            With<ChargeStanding>,
-            With<ChargeCrouching>,
-            With<ChargeWalking>,
-        )>,
-    >,
+    mut movement: Query<(&mut Movement, &Velocity, &Transform, &WalkDI, Has<Grounded>)>,
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,
 ) {
-    for (mut movement, velocity, transform, di, walking, sprinting, sneaking, grounded) in
-        movement.iter_mut()
-    {
+    for (mut movement, velocity, transform, di, grounded) in movement.iter_mut() {
         // Set up vectors
         let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
-        let wish_velocity = di.input
-            * if walking {
-                walk_settings.speed
-            } else if sprinting {
-                walk_settings.sprint_speed
-            } else if sneaking {
-                walk_settings.sneak_speed
-            } else {
-                0.0
-            };
+        let wish_velocity = di.input;
         let wish_speed = wish_velocity.length();
         let wish_direction = wish_velocity.normalize_or_zero();
         let friction = if grounded {

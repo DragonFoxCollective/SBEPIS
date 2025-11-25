@@ -17,7 +17,7 @@ pub struct StandingAssets {
     pub mesh_transform: Transform,
     pub collider: Collider,
     pub collider_transform: Transform,
-    pub camera_transform: Transform,
+    pub camera_position: Vec3,
 }
 
 impl FromWorld for StandingAssets {
@@ -38,7 +38,7 @@ impl FromWorld for StandingAssets {
             mesh_transform: Transform::from_translation(Vec3::Y * 0.75),
             collider: Collider::capsule_y(0.5, 0.25),
             collider_transform: Transform::from_translation(Vec3::Y * 0.75),
-            camera_transform: Transform::from_translation(Vec3::Y * 1.25),
+            camera_position: Vec3::Y * 1.25,
         }
     }
 }
@@ -47,6 +47,7 @@ impl FromWorld for StandingAssets {
 fn to_standing_assets(
     add: On<Add, (Standing, ChargeStanding, Walking, Sprinting)>,
     players: Query<&PlayerBody>,
+    mut cameras: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -57,7 +58,7 @@ fn to_standing_assets(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    commands.entity(body.camera).insert(assets.camera_transform);
+    cameras.get_mut(body.camera)?.translation = assets.camera_position;
     Ok(())
 }
 

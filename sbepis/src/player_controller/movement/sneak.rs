@@ -1,58 +1,38 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, Updated};
+use return_ok::ok_or_return_ok;
 
-use crate::input::{button_just_pressed, button_just_released};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::di::DIUpdate;
+use crate::player_controller::movement::walk::PlayerWalkSettings;
 
-use super::crouch::Crouching;
-use super::walk::Walking;
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct CrouchSneak;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct WalkSneak;
 
 #[derive(Component, Default)]
 pub struct Sneaking;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Move),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn crouching_to_sneaking(
-    players: Query<Entity, (With<PlayerBody>, With<Crouching>)>,
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn update_di_sneak(
+    di: On<Updated<CrouchSneak>>,
+    mut players: Query<&mut Sneaking>,
     mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Crouching>()
-            .insert(Sneaking);
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Move),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn sneaking_to_crouching(
-    players: Query<Entity, (With<PlayerBody>, With<Sneaking>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Sneaking>()
-            .insert(Crouching);
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn sneaking_to_walking(players: Query<Entity, With<Sneaking>>, mut commands: Commands) {
-    for player in players.iter() {
-        commands.entity(player).remove::<Sneaking>().insert(Walking);
-    }
+    walk_settings: Res<PlayerWalkSettings>,
+) -> Result {
+    let mut _sneaking = ok_or_return_ok!(players.get_mut(di.input));
+    commands.trigger(DIUpdate {
+        entity: di.input,
+        value: di
+            .data
+            .as_2d()
+            .ok_or::<BevyError>("CrouchSneak didn't have 2D data".into())?,
+        speed: walk_settings.sneak_speed,
+    });
+    Ok(())
 }

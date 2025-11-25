@@ -47,7 +47,6 @@ fn create_mesh_collider(
         }
 
         if num_colliders > 0 {
-            println!("Created mesh collider for {scene:?}, {num_colliders:?} meshes used");
             commands.entity(scene).remove::<MeshColliderBlundle>();
         }
     }

@@ -19,11 +19,9 @@ mod entity;
 mod framerate;
 mod fray;
 mod gravity;
-mod input;
 mod inventory;
 mod main_bundles;
 mod main_menu;
-pub mod menus;
 mod npcs;
 #[cfg(feature = "overview_camera")]
 mod overview_camera;
@@ -63,7 +61,7 @@ fn main() {
 			},
 		})
 		.set(LogPlugin {
-			filter: "info,sbepis=debug,avian3d=debug,wgpu=error,naga=warn,calloop=error,symphonia_core=warn,symphonia_bundle_mp3=warn,blenvy=error".into(),
+			filter: "info,sbepis=debug,avian3d=debug,wgpu=error,naga=warn,calloop=error,symphonia_core=warn,symphonia_bundle_mp3=warn,blenvy=error,bevy_pretty_nice_input=debug".into(),
 			..default()
 		})).add_plugins(SbepisPlugin).run();
 }
@@ -95,6 +93,12 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 #[add_plugin(to_plugin = SbepisPlugin, init = HanabiPlugin)]
 use bevy_hanabi::HanabiPlugin;
+
+#[add_plugin(to_plugin = SbepisPlugin)]
+use bevy_pretty_nice_input::PrettyNiceInputPlugin;
+
+#[add_plugin(to_plugin = SbepisPlugin)]
+use bevy_pretty_nice_menus::PrettyNiceMenusPlugin;
 
 #[add_system(
 	plugin = SbepisPlugin, schedule = Startup,

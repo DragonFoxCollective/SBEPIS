@@ -1,101 +1,17 @@
 use bevy::prelude::*;
 use bevy_butler::*;
-use leafwing_input_manager::prelude::*;
+use bevy_pretty_nice_input::{binding1d, input};
+use bevy_pretty_nice_menus::MenuStack;
 
-use crate::dialogue::spawn_dialogue;
-use crate::input::{ActionButtonEvent, InputManagerReference};
-use crate::menus::*;
+use crate::dialogue::{PickDialogueOption, spawn_dialogue};
 use crate::player_controller::camera_controls::InteractWith;
-use crate::questing::{
-    AcceptQuest, DeclineQuest, Quest, QuestGiver, QuestId, QuestingPlugin, Quests,
-};
-
-#[derive(Component)]
-pub struct QuestProposal {
-    pub quest_id: QuestId,
-}
-
-#[derive(Component)]
-pub struct QuestProposalAccept {
-    pub quest_proposal: Entity,
-}
-impl InputManagerReference for QuestProposalAccept {
-    fn input_manager(&self) -> Entity {
-        self.quest_proposal
-    }
-}
-impl ActionButtonEvent for QuestProposalAccept {
-    type Action = QuestProposalAction;
-    type Button = Self;
-    type Event = AcceptQuest;
-
-    fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> {
-        IntoSystem::into_system(
-            |In(quest_proposal): In<Entity>, quest_proposals: Query<&QuestProposal>| {
-                let quest_id = quest_proposals.get(quest_proposal).unwrap().quest_id;
-                Self::Event {
-                    quest_proposal,
-                    quest_id,
-                }
-            },
-        )
-    }
-
-    fn action() -> Self::Action {
-        Self::Action::Accept
-    }
-}
-
-#[derive(Component)]
-pub struct QuestProposalDecline {
-    pub quest_proposal: Entity,
-}
-impl InputManagerReference for QuestProposalDecline {
-    fn input_manager(&self) -> Entity {
-        self.quest_proposal
-    }
-}
-impl ActionButtonEvent for QuestProposalDecline {
-    type Action = QuestProposalAction;
-    type Button = Self;
-    type Event = DeclineQuest;
-
-    fn make_event_system() -> impl IntoSystem<In<Entity>, Self::Event, ()> {
-        IntoSystem::into_system(
-            |In(quest_proposal): In<Entity>, quest_proposals: Query<&QuestProposal>| {
-                let quest_id = quest_proposals.get(quest_proposal).unwrap().quest_id;
-                Self::Event {
-                    quest_proposal,
-                    quest_id,
-                }
-            },
-        )
-    }
-
-    fn action() -> Self::Action {
-        Self::Action::Decline
-    }
-}
-
-// TODO: I don't like this
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestProposalAccept>,
-)]
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestProposalDecline>,
-)]
-use crate::input::fire_action_button_events;
+use crate::questing::{AcceptQuest, DeclineQuest, Quest, QuestGiver, QuestingPlugin, Quests};
 
 #[add_observer(plugin = QuestingPlugin, generics = <AcceptQuest>)]
 #[add_observer(plugin = QuestingPlugin, generics = <DeclineQuest>)]
-use crate::menus::close_menu_on_event;
+use bevy_pretty_nice_menus::close_menu_on_event;
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-	generics = <QuestGiver>,
-)]
+#[add_observer(plugin = QuestingPlugin, generics = <QuestGiver>)]
 use crate::prelude::interact_with;
 
 #[add_observer(plugin = QuestingPlugin)]
@@ -125,39 +41,26 @@ fn propose_quest_if_none(
         &mut commands,
         &mut menu_stack,
         format!("{}\n\n{}", quest.name, quest.description),
-        QuestProposal { quest_id },
-        InputMap::default()
-            .with(QuestProposalAction::Accept, KeyCode::KeyE)
-            .with(QuestProposalAction::Decline, KeyCode::Space),
+        (),
     );
     dialogue.add_option(
         &mut commands,
         "Accept [E]".to_owned(),
-        QuestProposalAccept {
+        input!(PickDialogueOption, Axis1D[binding1d::key(KeyCode::KeyE)]),
+        AcceptQuest {
             quest_proposal: dialogue.root,
+            quest_id,
         },
     );
     dialogue.add_option(
         &mut commands,
         "Decline [Space]".to_owned(),
-        QuestProposalDecline {
+        input!(PickDialogueOption, Axis1D[binding1d::key(KeyCode::Space)]),
+        DeclineQuest {
             quest_proposal: dialogue.root,
+            quest_id,
         },
     );
 
     Ok(())
-}
-
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
-pub enum QuestProposalAction {
-    Accept,
-    Decline,
-}
-impl Actionlike for QuestProposalAction {
-    fn input_control_kind(&self) -> InputControlKind {
-        match self {
-            QuestProposalAction::Accept => InputControlKind::Button,
-            QuestProposalAction::Decline => InputControlKind::Button,
-        }
-    }
 }

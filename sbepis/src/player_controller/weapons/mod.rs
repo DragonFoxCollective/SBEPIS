@@ -2,6 +2,7 @@ use bevy::color::palettes::css;
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed};
 use bevy_rapier3d::na::Vector3;
 use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
@@ -9,8 +10,7 @@ use return_ok::ok_or_return;
 
 use crate::entity::{GelViscosity, Kill};
 use crate::fray::FrayMusic;
-use crate::input::button_just_pressed;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
+use crate::player_controller::PlayerControllerPlugin;
 use crate::util::{QuaternionEx, find_in_ancestors};
 
 pub mod hammer;
@@ -39,10 +39,16 @@ pub struct Damage {
 pub struct DamageNumbers;
 
 #[derive(Component)]
-pub struct WeaponSet {
-    pub weapons: Vec<Entity>,
-    pub active_weapon: usize,
+#[relationship_target(relationship = WeaponOf)]
+pub struct Weapons {
+    #[relationship]
+    weapons: Vec<Entity>,
+    pub active_weapon: Option<Entity>,
 }
+
+#[derive(Component)]
+#[relationship(relationship_target = Weapons)]
+pub struct WeaponOf(pub Entity);
 
 #[derive(Component)]
 pub struct UninitializedWeaponSet;
@@ -97,26 +103,26 @@ pub struct DebugColliderVisualizer;
 #[derive(Component)]
 pub struct WeaponAnimation(pub AnimationNodeIndex);
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Use),
-)]
-fn attack(mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer), With<ActiveWeapon>>) {
-    for (animation, mut animation_player) in weapons.iter_mut() {
-        if let Some(animation) = animation_player.animation_mut(animation.0) {
-            if animation.is_finished() {
-                animation.replay();
-            }
-        } else {
-            animation_player.stop_all();
-            animation_player.play(animation.0);
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn attack(
+    attack: On<JustPressed<Attack>>,
+    mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer)>,
+) -> Result {
+    let (animation, mut animation_player) = weapons.get_mut(attack.input)?;
+
+    if let Some(animation) = animation_player.animation_mut(animation.0) {
+        if animation.is_finished() {
+            animation.replay();
         }
+    } else {
+        animation_player.stop_all();
+        animation_player.play(animation.0);
     }
+
+    Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-)]
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn correct_animation_speed(
     fray_music: Query<&FrayMusic>,
     mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer)>,
@@ -262,16 +268,20 @@ fn update_damage_numbers(
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-)]
+#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn initialize_weapon_sets(
     mut commands: Commands,
-    weapon_sets: Query<(Entity, &WeaponSet), With<UninitializedWeaponSet>>,
+    mut weapon_sets: Query<(Entity, &mut Weapons), With<UninitializedWeaponSet>>,
 ) {
-    for (entity, weapon_set) in weapon_sets.iter() {
-        for (index, weapon) in weapon_set.weapons.iter().enumerate() {
-            if index == weapon_set.active_weapon {
+    for (entity, mut weapon_set) in weapon_sets.iter_mut() {
+        if weapon_set.weapons.is_empty() {
+            continue;
+        }
+        if weapon_set.active_weapon.is_none() {
+            weapon_set.active_weapon = Some(weapon_set.weapons[0]);
+        }
+        for weapon in weapon_set.weapons.iter() {
+            if Some(*weapon) == weapon_set.active_weapon {
                 show_weapon(&mut commands, *weapon);
             } else {
                 hide_weapon(&mut commands, *weapon);
@@ -281,33 +291,57 @@ fn initialize_weapon_sets(
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::NextWeapon),
-)]
-fn switch_weapon_next(mut commands: Commands, mut weapon_sets: Query<&mut WeaponSet>) {
-    for mut weapon_set in weapon_sets.iter_mut() {
-        let old_weapon = weapon_set.weapons[weapon_set.active_weapon];
-        hide_weapon(&mut commands, old_weapon);
-        weapon_set.active_weapon = (weapon_set.active_weapon + 1) % weapon_set.weapons.len();
-        let new_weapon = weapon_set.weapons[weapon_set.active_weapon];
-        show_weapon(&mut commands, new_weapon);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn switch_weapon_next(
+    next: On<JustPressed<NextWeapon>>,
+    mut commands: Commands,
+    weapons: Query<&WeaponOf>,
+    mut weapon_sets: Query<&mut Weapons>,
+) -> Result {
+    let old_weapon = next.input;
+    let weapon_of = weapons.get(old_weapon)?;
+    let mut weapon_set = weapon_sets.get_mut(weapon_of.0)?;
+    hide_weapon(&mut commands, old_weapon);
+    let old_weapon_index = weapon_set
+        .weapons
+        .iter()
+        .position(|&w| w == old_weapon)
+        .ok_or("Current weapon not found in weapon set")?;
+
+    let new_weapon_index = (old_weapon_index + 1) % weapon_set.weapons.len();
+    let new_weapon = weapon_set.weapons[new_weapon_index];
+    weapon_set.active_weapon = Some(new_weapon);
+    show_weapon(&mut commands, new_weapon);
+    debug!(
+        "Switching to next weapon from index {} to {}",
+        old_weapon_index, new_weapon_index
+    );
+    Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::PrevWeapon),
-)]
-fn switch_weapon_prev(mut commands: Commands, mut weapon_sets: Query<&mut WeaponSet>) {
-    for mut weapon_set in weapon_sets.iter_mut() {
-        let old_weapon = weapon_set.weapons[weapon_set.active_weapon];
-        hide_weapon(&mut commands, old_weapon);
-        weapon_set.active_weapon =
-            (weapon_set.active_weapon + weapon_set.weapons.len() - 1) % weapon_set.weapons.len();
-        let new_weapon = weapon_set.weapons[weapon_set.active_weapon];
-        show_weapon(&mut commands, new_weapon);
-    }
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn switch_weapon_prev(
+    prev: On<JustPressed<PrevWeapon>>,
+    mut commands: Commands,
+    weapons: Query<&WeaponOf>,
+    mut weapon_sets: Query<&mut Weapons>,
+) -> Result {
+    let old_weapon = prev.input;
+    let weapon_of = weapons.get(old_weapon)?;
+    let mut weapon_set = weapon_sets.get_mut(weapon_of.0)?;
+    hide_weapon(&mut commands, old_weapon);
+    let old_weapon_index = weapon_set
+        .weapons
+        .iter()
+        .position(|&w| w == old_weapon)
+        .ok_or("Current weapon not found in weapon set")?;
+
+    let new_weapon_index =
+        (old_weapon_index + weapon_set.weapons.len() - 1) % weapon_set.weapons.len();
+    let new_weapon = weapon_set.weapons[new_weapon_index];
+    weapon_set.active_weapon = Some(new_weapon);
+    show_weapon(&mut commands, new_weapon);
+    Ok(())
 }
 
 fn hide_weapon(commands: &mut Commands, weapon: Entity) {
@@ -320,6 +354,31 @@ fn hide_weapon(commands: &mut Commands, weapon: Entity) {
 fn show_weapon(commands: &mut Commands, weapon: Entity) {
     commands
         .entity(weapon)
-        .insert(ActiveWeapon)
+        .insert(AddActiveWeaponLater)
         .insert(Visibility::Inherited);
 }
+
+#[derive(Component)]
+pub struct AddActiveWeaponLater;
+
+#[add_system(plugin = PlayerControllerPlugin, schedule = PostUpdate)]
+fn add_active_weapon_later(
+    mut commands: Commands,
+    weapons: Query<Entity, With<AddActiveWeaponLater>>,
+) {
+    for weapon in weapons.iter() {
+        commands
+            .entity(weapon)
+            .remove::<AddActiveWeaponLater>()
+            .insert(ActiveWeapon);
+    }
+}
+
+#[derive(Action)]
+pub struct Attack;
+
+#[derive(Action)]
+pub struct NextWeapon;
+
+#[derive(Action)]
+pub struct PrevWeapon;

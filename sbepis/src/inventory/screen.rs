@@ -1,12 +1,11 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
-use leafwing_input_manager::prelude::InputMap;
+use bevy_pretty_nice_input::{binding1d, input};
+use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
-use crate::input::input_manager_bundle;
 use crate::inventory::{InventoryPlugin, Item, PickUpItem};
-use crate::menus::*;
 
 #[derive(Component)]
 pub struct InventoryScreen;
@@ -28,14 +27,10 @@ fn spawn_inventory_screen(mut commands: Commands) {
             },
             BackgroundColor(css::GRAY.with_alpha(0.5).into()),
             Visibility::Hidden,
-            input_manager_bundle(
-                InputMap::default().with(CloseMenuAction, KeyCode::KeyV),
-                false,
-            ),
+            input!(CloseMenuAction, Axis1D[binding1d::key(KeyCode::KeyV)]),
             PlayerCameraNode,
-            Menu,
             MenuWithMouse,
-            MenuWithInputManager,
+            MenuWithInput,
             MenuHidesWhenClosed,
             InventoryScreen,
         ))

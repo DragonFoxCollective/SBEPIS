@@ -3,19 +3,43 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
+use bevy_pretty_nice_input::{
+    Action, ButtonPress, ComponentBuffer, Cooldown, FilterBuffered, InputBuffer, ResetBuffer,
+    binding1d, binding2d, input, input_transition,
+};
+use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
-use leafwing_input_manager::prelude::*;
-use movement::MovementControlSet;
-use movement::di::DirectionalInput;
+use movement::MovementControlSystems;
+use movement::di::WalkDI;
 use movement::stand::Standing;
 use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
 use crate::gridbox_material;
-use crate::input::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::menus::{Menu, MenuStack, MenuWithInputManager, MenuWithoutMouse};
+use crate::player_controller::movement::charge::{
+    Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeStanding, ChargeWalk, ChargeWalking,
+};
+use crate::player_controller::movement::crouch::{Crouch, Crouching};
+use crate::player_controller::movement::dash::{Dash, Dashing, HasEnoughStaminaToDash};
+use crate::player_controller::movement::grounded::Grounded;
+use crate::player_controller::movement::jump::{
+    ChargeCrouchJump, ChargeJump, CrouchJump, HasEnoughStaminaToChargeCrouchJump,
+    HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump, Jump,
+};
+use crate::player_controller::movement::roll::{
+    CrouchRoll, NeutralCrouchRoll, NeutralRolling, RollNeutral, Rolling, SprintRoll,
+};
+use crate::player_controller::movement::slide::{
+    NeutralSliding, Slide, SlideNeutral, SlideStand, Sliding,
+};
+use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
+use crate::player_controller::movement::sprint::{
+    Sprint, SprintStanding, SprintWalk, Sprinting, UnSprintWalk,
+};
+use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover};
+use crate::player_controller::movement::walk::{Walk, Walking};
 use crate::prelude::*;
 use crate::worldgen::terrain::WorldGen;
 
@@ -40,18 +64,18 @@ impl Plugin for PlayerControllerPlugin {
         app.configure_sets(
             Update,
             (
-                MovementControlSet::UpdateDi.before(MovementControlSet::UpdateState),
-                MovementControlSet::UpdateGrounded.before(MovementControlSet::UpdateState),
-                MovementControlSet::DoHorizontalMovement.after(MovementControlSet::UpdateState),
-                MovementControlSet::DoVerticalMovement.after(MovementControlSet::UpdateState),
+                MovementControlSystems::UpdateDi.before(MovementControlSystems::UpdateState),
+                MovementControlSystems::UpdateGrounded.before(MovementControlSystems::UpdateState),
+                MovementControlSystems::DoHorizontalMovement
+                    .after(MovementControlSystems::UpdateState),
+                MovementControlSystems::DoVerticalMovement
+                    .after(MovementControlSystems::UpdateState),
             ),
         );
     }
 }
 
-#[add_plugin(to_plugin = PlayerControllerPlugin, generics = <PlayerAction>)]
-use crate::menus::InputManagerMenuPlugin;
-
+// TODO: figure out how to UNIT TEST this stuff
 #[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
     mut commands: Commands,
@@ -62,26 +86,98 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
+    let input_bundle = (
+        input_transition!(Walk: Standing <=> Walking, Axis2D[binding2d::wasd()]),
+        input_transition!(Jump: (Standing, Walking) => *, Axis1D[binding1d::space()], [
+            ButtonPress::default(),
+            InputBuffer::new(0.2),
+            FilterBuffered::<Grounded>::default(),
+            HasEnoughStaminaToJump,
+            Cooldown::new(0.5),
+            ResetBuffer,
+        ]),
+        input!(Look, Axis2D[binding2d::mouse_move()]),
+        (
+            input_transition!(Dash: Walking => *, Axis1D[binding1d::left_shift()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToDash,
+                Cooldown::new(0.5),
+                ResetBuffer,
+            ]),
+            input_transition!(Sprint: Walking <=> Sprinting, Axis1D[binding1d::left_shift()]),
+            input_transition!(SprintWalk: SprintStanding <=> Sprinting, Axis2D[binding2d::wasd()]),
+            input_transition!(UnSprintWalk: Standing <= SprintStanding, Axis1D[binding1d::left_shift()]),
+            input_transition!(Crouch: Standing <=> Crouching, Axis1D[binding1d::left_ctrl()]),
+            input_transition!(CrouchJump: (Crouching, Sneaking, Sliding, Rolling) => *, Axis1D[binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToCrouchJump,
+                Cooldown::new(0.5),
+                ResetBuffer,
+            ]),
+            input_transition!(CrouchSneak: Crouching <=> Sneaking, Axis2D[binding2d::wasd()]),
+            input_transition!(WalkSneak: Walking <= Sneaking, Axis1D[binding1d::left_ctrl()]),
+        ),
+        (
+            input_transition!(Slide: Walking <=> Sliding, Axis1D[binding1d::left_ctrl()]),
+            input_transition!(SlideNeutral: NeutralSliding <=> Sliding, Axis2D[binding2d::wasd()]),
+            input_transition!(SlideStand: Standing <= NeutralSliding, Axis1D[binding1d::left_ctrl()]),
+            input_transition!(CrouchRoll: (Sliding <=, Sneaking) => Rolling, Axis1D[binding1d::left_shift()]),
+            input_transition!(RollNeutral: NeutralRolling <=> Rolling, Axis2D[binding2d::wasd()]),
+            input_transition!(NeutralCrouchRoll: (NeutralSliding <=, Crouching) => NeutralRolling, Axis1D[binding1d::left_shift()]),
+            input_transition!(SprintRoll: (Sprinting <=, Dashing) => Rolling, Axis1D[binding1d::left_ctrl()]),
+        ),
+        (
+            input_transition!(Charge: Standing <=> ChargeStanding, Axis1D[binding1d::left_shift()]),
+            input_transition!(ChargeJump: ChargeStanding => Standing, Axis1D[binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToChargeJump,
+                Cooldown::new(0.5),
+                ResetBuffer,
+            ]),
+            input_transition!(ChargeCrouch: ChargeStanding <=> ChargeCrouching, Axis1D[binding1d::left_ctrl()]),
+            input_transition!(ChargeCrouchJump: ChargeCrouching => Crouching, Axis1D[binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToChargeCrouchJump,
+                Cooldown::new(0.5),
+                ResetBuffer,
+            ]),
+            input_transition!(ChargeWalk: ChargeStanding <=> ChargeWalking, Axis2D[binding2d::wasd()]),
+            input_transition!(ChargeDash: * <= ChargeWalking, Axis1D[binding1d::left_shift()]),
+            input_transition!(Trip: * <= ChargeCrouching, Axis1D[binding1d::left_shift()]),
+            input!(
+                GroundParry,
+                Axis1D[binding1d::left_ctrl()],
+                [
+                    ButtonPress::default(),
+                    InputBuffer::new(0.2),
+                    FilterBuffered::<Grounded>::default(),
+                    FilterBuffered::<TripRecover>::default(),
+                    ResetBuffer,
+                ],
+            ),
+        ),
+        input!(Interact, Axis1D[binding1d::key(KeyCode::KeyE)]),
+        // TODO: move these
+        input!(OpenQuestScreen, Axis1D[binding1d::key(KeyCode::KeyJ)]),
+        input!(OpenInventory, Axis1D[binding1d::key(KeyCode::KeyV)]),
+        input!(OpenStaff, Axis1D[binding1d::key(KeyCode::Backquote)]),
+        (
+            ComponentBuffer::<Grounded>::observe(0.2),
+            ComponentBuffer::<TripRecover>::observe(0.2),
+        ),
+    );
+
     let input = commands
         .spawn((
-            input_manager_bundle(
-                InputMap::default()
-                    .with_dual_axis(PlayerAction::Move, VirtualDPad::wasd())
-                    .with(PlayerAction::Jump, KeyCode::Space)
-                    .with_dual_axis(PlayerAction::Look, MouseMove::default())
-                    .with(PlayerAction::Sprint, KeyCode::ShiftLeft)
-                    .with(PlayerAction::Crouch, KeyCode::ControlLeft)
-                    .with(PlayerAction::Use, MouseButton::Left)
-                    .with(PlayerAction::Interact, KeyCode::KeyE)
-                    .with(PlayerAction::NextWeapon, MouseScrollDirection::UP)
-                    .with(PlayerAction::PrevWeapon, MouseScrollDirection::DOWN)
-                    .with(PlayerAction::OpenQuestScreen, KeyCode::KeyJ)
-                    .with(PlayerAction::OpenInventory, KeyCode::KeyV)
-                    .with(PlayerAction::OpenStaff, KeyCode::Backquote),
-                false,
-            ),
-            Menu,
-            MenuWithInputManager,
+            MenuWithInput,
             MenuWithoutMouse,
             DespawnOnExit(GameState::InGame),
         ))
@@ -133,7 +229,7 @@ fn setup(
             Transform::from_translation(Vec3::new(5.0, 10.0, 0.0)),
             Mob,
             Inventory::default(),
-            DirectionalInput::default(),
+            WalkDI::default(),
             Stamina {
                 current: 1.0,
                 max: 1.0,
@@ -148,11 +244,14 @@ fn setup(
             ChunkLoader::<WorldGen>::new(3),
             Ccd::enabled(),
             DespawnOnExit(GameState::InGame),
+            UninitializedWeaponSet,
+            input_bundle,
+            MenuInputOf(input),
         ))
         .add_children(&[camera, collider, mesh])
         .id();
 
-    let (hammer_pivot, _hammer_head) = spawn_hammer(
+    spawn_hammer(
         &mut commands,
         &asset_server,
         &mut materials,
@@ -162,7 +261,7 @@ fn setup(
         body,
     );
 
-    let (sword_pivot, _sword_blade) = spawn_sword(
+    spawn_sword(
         &mut commands,
         &asset_server,
         &mut materials,
@@ -172,7 +271,7 @@ fn setup(
         body,
     );
 
-    let (rifle_pivot, _rifle_barrel) = spawn_rifle(
+    spawn_rifle(
         &mut commands,
         &asset_server,
         &mut materials,
@@ -181,14 +280,6 @@ fn setup(
         &mut graphs,
         body,
     );
-
-    commands.entity(body).insert((
-        WeaponSet {
-            weapons: vec![hammer_pivot, sword_pivot, rifle_pivot],
-            active_weapon: 0,
-        },
-        UninitializedWeaponSet,
-    ));
 
     commands.spawn((
         Name::new("Damage Numbers"),
@@ -213,38 +304,20 @@ fn setup(
     Ok(())
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Reflect, Debug)]
-pub enum PlayerAction {
-    Move,
-    Jump,
-    Look,
-    Sprint,
-    Crouch,
-    Use,
-    Interact,
-    NextWeapon,
-    PrevWeapon,
-    OpenQuestScreen,
-    OpenInventory,
-    OpenStaff,
-}
-impl Actionlike for PlayerAction {
-    fn input_control_kind(&self) -> InputControlKind {
-        match self {
-            PlayerAction::Move => InputControlKind::DualAxis,
-            PlayerAction::Jump => InputControlKind::Button,
-            PlayerAction::Look => InputControlKind::DualAxis,
-            PlayerAction::Sprint => InputControlKind::Button,
-            PlayerAction::Crouch => InputControlKind::Button,
-            PlayerAction::Use => InputControlKind::Button,
-            PlayerAction::Interact => InputControlKind::Button,
-            PlayerAction::NextWeapon => InputControlKind::Button,
-            PlayerAction::PrevWeapon => InputControlKind::Button,
-            PlayerAction::OpenQuestScreen => InputControlKind::Button,
-            PlayerAction::OpenInventory => InputControlKind::Button,
-            PlayerAction::OpenStaff => InputControlKind::Button,
-        }
-    }
+#[cfg(feature = "debug_movement_graph")]
+#[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame), after = setup)]
+fn debug_graph(graph: Res<bevy_pretty_nice_input::debug_graph::DebugGraph>) {
+    use itertools::Itertools;
+    let output = format!(
+        "{}\n{}",
+        graph.nodes.iter().join("\n"),
+        graph
+            .edges
+            .iter()
+            .map(|e| format!("{} {} {}", e.0, e.1, e.2))
+            .join("\n")
+    );
+    println!("{output}");
 }
 
 #[derive(Component)]
@@ -253,3 +326,15 @@ pub struct PlayerBody {
     pub mesh: Entity,
     pub collider: Entity,
 }
+
+#[derive(Action)]
+pub struct Interact;
+
+#[derive(Action)]
+pub struct OpenQuestScreen;
+
+#[derive(Action)]
+pub struct OpenInventory;
+
+#[derive(Action)]
+pub struct OpenStaff;

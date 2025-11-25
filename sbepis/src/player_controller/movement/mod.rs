@@ -1,9 +1,4 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
-use bevy_butler::*;
-
-use crate::player_controller::PlayerControllerPlugin;
 
 pub mod charge;
 pub mod crouch;
@@ -19,18 +14,9 @@ pub mod stand;
 pub mod trip;
 pub mod walk;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = CoyoteTimeSettings {
-	input_buffer_time: Duration::from_secs_f32(0.5),
-	coyote_time: Duration::from_secs_f32(0.2),
-})]
-pub struct CoyoteTimeSettings {
-    pub input_buffer_time: Duration,
-    pub coyote_time: Duration,
-}
-
+// TODO: remove
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum MovementControlSet {
+pub enum MovementControlSystems {
     UpdateDi,
     UpdateGrounded,
     UpdateState,

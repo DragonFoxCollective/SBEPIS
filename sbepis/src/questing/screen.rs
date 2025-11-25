@@ -1,12 +1,11 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
-use leafwing_input_manager::prelude::InputMap;
+use bevy_pretty_nice_input::{binding1d, input};
+use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
-use crate::input::input_manager_bundle;
-use crate::menus::*;
-use crate::player_controller::PlayerAction;
+use crate::player_controller::OpenQuestScreen;
 use crate::questing::{AcceptQuest, EndQuest, QuestId, QuestingPlugin, Quests};
 use crate::util::MapRangeBetween;
 
@@ -27,17 +26,8 @@ pub struct QuestScreenNode {
     pub progress_bar: Entity,
 }
 
-pub struct OpenQuestScreenBinding;
-impl OpenMenuBinding for OpenQuestScreenBinding {
-    type Action = PlayerAction;
-    type Menu = QuestScreen;
-    fn action() -> Self::Action {
-        PlayerAction::OpenQuestScreen
-    }
-}
-
-#[add_observer(plugin = QuestingPlugin, generics = <OpenQuestScreenBinding>)]
-use crate::menus::show_menu_on_action;
+#[add_observer(plugin = QuestingPlugin, generics = <OpenQuestScreen, QuestScreen>)]
+use bevy_pretty_nice_menus::show_menu_on_action;
 
 #[add_system(
 	plugin = QuestingPlugin, schedule = Startup,
@@ -52,14 +42,10 @@ fn spawn_quest_screen(mut commands: Commands) {
             },
             BackgroundColor(bevy::color::palettes::css::GRAY.with_alpha(0.5).into()),
             Visibility::Hidden,
-            input_manager_bundle(
-                InputMap::default().with(CloseMenuAction, KeyCode::KeyJ),
-                false,
-            ),
+            input!(CloseMenuAction, Axis1D[binding1d::key(KeyCode::KeyV)]),
             PlayerCameraNode,
-            Menu,
             MenuWithMouse,
-            MenuWithInputManager,
+            MenuWithInput,
             MenuHidesWhenClosed,
             QuestScreen,
         ))

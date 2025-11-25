@@ -2,24 +2,28 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, JustPressed};
 use bevy_rapier3d::prelude::Velocity;
-use leafwing_input_manager::prelude::ActionState;
-use return_ok::ok_or_return;
 
 use crate::entity::Movement;
 use crate::gravity::{AffectedByGravity, ComputedGravity};
-use crate::input::{button_just_pressed, button_pressed};
-use crate::player_controller::movement::MovementControlSet;
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::stamina::Stamina;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
 
-use super::CoyoteTimeSettings;
 use super::dash::Dashing;
 use super::grounded::Grounded;
 use super::slide::Sliding;
 use super::sprint::Sprinting;
 use super::stand::Standing;
 use super::walk::Walking;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct Trip;
+
+#[derive(Action)]
+pub struct GroundParry;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin, init = PlayerTripSettings {
@@ -36,6 +40,10 @@ pub struct PlayerTripSettings {
     pub trip_speed_threshold: f32,
     pub ground_parry_stamina_gain: f32,
 }
+
+/// Marker component to insert the real Tripping component
+#[derive(Component, Default)]
+pub struct StartTripping;
 
 #[derive(Component)]
 pub struct Tripping {
@@ -54,20 +62,8 @@ impl Tripping {
     }
 }
 
-#[derive(Component, Default)]
-pub struct TripRecoverInAir;
-
-/// Coyote time
-#[derive(Component, Default)]
-pub struct TripRecoverOnGround {
-    pub duration: Duration,
-}
-
-/// Input buffer
-#[derive(Component, Default)]
-pub struct TryingToGroundParry {
-    pub duration: Duration,
-}
+#[derive(Component)]
+pub struct TripRecover;
 
 #[derive(Component)]
 pub struct HitStop {
@@ -86,9 +82,9 @@ pub struct HitStopSettings {
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
+	in_set = MovementControlSystems::UpdateState,
 )]
-fn tripping_to_trip_recover_air(
+fn tripping_to_trip_recover(
     mut players: Query<(Entity, &mut Tripping)>,
     time: Res<Time>,
     settings: Res<PlayerTripSettings>,
@@ -100,7 +96,7 @@ fn tripping_to_trip_recover_air(
             commands
                 .entity(player)
                 .remove::<Tripping>()
-                .insert(TripRecoverInAir)
+                .insert(TripRecover)
                 .insert(AffectedByGravity);
         }
     }
@@ -108,7 +104,7 @@ fn tripping_to_trip_recover_air(
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::DoHorizontalMovement,
+	in_set = MovementControlSystems::DoHorizontalMovement,
 )]
 fn update_tripping_velocity(
     mut movement: Query<(&mut Movement, &mut Velocity, &mut Tripping)>,
@@ -125,150 +121,44 @@ fn update_tripping_velocity(
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-)]
-fn trip_recover_air_to_trip_recover_ground(
-    mut players: Query<Entity, (With<Grounded>, With<TripRecoverInAir>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<TripRecoverInAir>()
-            .insert(TripRecoverOnGround::default());
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	before = trip_recover_air_to_trip_recover_ground,
-)]
-fn update_trip_recover_ground(
-    mut players: Query<(Entity, &mut TripRecoverOnGround)>,
-    time: Res<Time>,
-    coyote_time_settings: Res<CoyoteTimeSettings>,
-    mut commands: Commands,
-    input: Query<&ActionState<PlayerAction>>,
-) {
-    let input = ok_or_return!(input.single());
-    for (player, mut trip_recover_ground) in players.iter_mut() {
-        trip_recover_ground.duration += time.delta();
-        if trip_recover_ground.duration >= coyote_time_settings.coyote_time {
-            commands.entity(player).remove::<TripRecoverOnGround>();
-
-            if button_pressed(input, &PlayerAction::Move) {
-                commands.entity(player).insert(Walking);
-            } else {
-                commands.entity(player).insert(Standing);
-            }
-        }
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-pub fn add_trying_to_ground_parry(
-    players: Query<
-        Entity,
-        Or<(
-            With<Tripping>,
-            With<TripRecoverOnGround>,
-            With<TripRecoverInAir>,
-        )>,
-    >,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .insert(TryingToGroundParry::default());
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	before = add_trying_to_ground_parry,
-)]
-fn update_trying_to_ground_parry(
-    mut players: Query<(Entity, &mut TryingToGroundParry)>,
-    time: Res<Time>,
-    coyote_time_settings: Res<CoyoteTimeSettings>,
-    mut commands: Commands,
-) {
-    for (player, mut trying_to_ground_parry) in players.iter_mut() {
-        trying_to_ground_parry.duration += time.delta();
-        debug!(
-            "Trying to ground parry: {:.2?} / {:.2?}",
-            trying_to_ground_parry.duration.as_secs_f32(),
-            coyote_time_settings.input_buffer_time.as_secs_f32()
-        );
-        if trying_to_ground_parry.duration >= coyote_time_settings.input_buffer_time {
-            commands.entity(player).remove::<TryingToGroundParry>();
-        }
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	after = add_trying_to_ground_parry,
-	before = update_trip_recover_ground,
-)]
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn ground_parry(
-    mut players: Query<
-        (
-            Entity,
-            &mut Movement,
-            &Transform,
-            &mut Stamina,
-            &mut Velocity,
-        ),
-        (With<TryingToGroundParry>, With<TripRecoverOnGround>),
-    >,
+    parry: On<JustPressed<GroundParry>>,
+    mut players: Query<(&mut Movement, &Transform, &mut Stamina, &mut Velocity)>,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
     parry_sound: Res<ParrySound>,
     hit_stop_settings: Res<HitStopSettings>,
-) {
-    for (player, mut movement, transform, mut stamina, mut velocity) in players.iter_mut() {
-        debug!("GROUND PARRY!!!!!");
+) -> Result {
+    debug!("GROUND PARRY!!!!!");
 
-        stamina.current += trip_settings.ground_parry_stamina_gain;
+    let (mut movement, transform, mut stamina, mut velocity) = players.get_mut(parry.input)?;
 
-        commands
-            .entity(player)
-            .remove::<TryingToGroundParry>()
-            .remove::<TripRecoverOnGround>()
-            .insert(Sliding::default());
+    stamina.current += trip_settings.ground_parry_stamina_gain;
 
-        let ground_parry_velocity =
-            transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
-        movement.0 += ground_parry_velocity;
-        velocity.linvel += ground_parry_velocity;
+    commands.entity(parry.input).insert(Sliding::default());
 
-        commands.spawn((
-            Name::new("Parry Sound"),
-            AudioPlayer::new(parry_sound.0.clone()),
-        ));
+    let ground_parry_velocity = transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+    movement.0 += ground_parry_velocity;
+    velocity.linvel += ground_parry_velocity;
 
-        commands.entity(player).insert(HitStop {
-            duration: hit_stop_settings.ground_parry_duration,
-            velocity: velocity.linvel,
-            movement: movement.0,
-        });
-    }
+    commands.spawn((
+        Name::new("Parry Sound"),
+        AudioPlayer::new(parry_sound.0.clone()),
+    ));
+
+    commands.entity(parry.input).insert(HitStop {
+        duration: hit_stop_settings.ground_parry_duration,
+        velocity: velocity.linvel,
+        movement: movement.0,
+    });
+
+    Ok(())
 }
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
+	in_set = MovementControlSystems::UpdateState,
 )]
 fn walking_too_fast_to_tripping(
     mut players: Query<
@@ -306,6 +196,24 @@ fn walking_too_fast_to_tripping(
     }
 }
 
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn start_tripping(
+    add: On<Add, StartTripping>,
+    mut players: Query<(Entity, &ComputedGravity)>,
+    mut commands: Commands,
+    settings: Res<PlayerTripSettings>,
+) -> Result {
+    let (player, gravity) = players.get_mut(add.entity)?;
+    commands
+        .entity(player)
+        .remove::<StartTripping>()
+        .insert(Tripping::new(
+            gravity.up,
+            gravity.up * settings.upward_speed,
+        ));
+    Ok(())
+}
+
 #[derive(Resource)]
 pub struct ParrySound(pub Handle<AudioSource>);
 
@@ -316,9 +224,9 @@ fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	before = MovementControlSet::DoHorizontalMovement,
-	before = MovementControlSet::DoVerticalMovement,
-	after = MovementControlSet::UpdateState,
+	before = MovementControlSystems::DoHorizontalMovement,
+	before = MovementControlSystems::DoVerticalMovement,
+	after = MovementControlSystems::UpdateState,
 )]
 fn hit_stop_reset(mut players: Query<(&mut Movement, &mut Velocity), With<HitStop>>) {
     for (mut movement, mut velocity) in players.iter_mut() {
@@ -329,8 +237,8 @@ fn hit_stop_reset(mut players: Query<(&mut Movement, &mut Velocity), With<HitSto
 
 #[add_system(
 	plugin = PlayerControllerPlugin, schedule = Update,
-	after = MovementControlSet::DoHorizontalMovement,
-	after = MovementControlSet::DoVerticalMovement,
+	after = MovementControlSystems::DoHorizontalMovement,
+	after = MovementControlSystems::DoVerticalMovement,
 )]
 fn hit_stop_update(
     mut players: Query<(Entity, &mut HitStop, &mut Movement, &mut Velocity)>,

@@ -1,21 +1,29 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
-use leafwing_input_manager::prelude::ActionState;
+use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
-use crate::input::{button_just_pressed, button_just_released, button_pressed};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
+use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::PlayerBody;
 
-use super::crouch::Crouching;
-use super::dash::Dashing;
-use super::slide::Sliding;
-use super::sneak::Sneaking;
-use super::sprint::Sprinting;
-use super::stand::Standing;
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct CrouchRoll;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct SprintRoll;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct NeutralCrouchRoll;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct RollNeutral;
 
 #[derive(Resource)]
 #[insert_resource(plugin = PlayerControllerPlugin)]
@@ -60,6 +68,18 @@ fn to_rolling_assets(
 }
 
 #[add_observer(plugin = PlayerControllerPlugin)]
+fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> Result {
+    let mut rolling = ok_or_return_ok!(players.get_mut(di.input));
+    rolling.di = di
+        .data
+        .as_2d()
+        .ok_or::<BevyError>("RollNeutral didn't have 2D data".into())?
+        .clamp_length_max(1.0)
+        * Vec2::new(1.0, -1.0);
+    Ok(())
+}
+
+#[add_observer(plugin = PlayerControllerPlugin)]
 fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
     commands
         .entity(add.entity)
@@ -80,77 +100,10 @@ fn readd_movement(
     Ok(())
 }
 
-#[derive(Component)]
-pub struct Rolling;
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn sliding_or_sneaking_or_crouching_to_rolling(
-    mut players: Query<Entity, Or<(With<Sliding>, With<Sneaking>, With<Crouching>)>>,
-    mut commands: Commands,
-) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Sliding>()
-            .remove::<Sneaking>()
-            .remove::<Crouching>()
-            .insert(Rolling);
-    }
+#[derive(Component, Default)]
+pub struct Rolling {
+    di: Vec2,
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_pressed(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn sprinting_to_rolling(mut players: Query<Entity, With<Sprinting>>, mut commands: Commands) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Sprinting>()
-            .remove::<Dashing>()
-            .insert(Rolling);
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Sprint),
-	in_set = MovementControlSet::UpdateState,
-	after = rolling_to_sprinting_or_standing,
-)]
-fn rolling_to_sliding(mut players: Query<Entity, With<Rolling>>, mut commands: Commands) {
-    for player in players.iter_mut() {
-        commands
-            .entity(player)
-            .remove::<Rolling>()
-            .insert(Sliding::default());
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	run_if = button_just_released(PlayerAction::Crouch),
-	in_set = MovementControlSet::UpdateState,
-)]
-fn rolling_to_sprinting_or_standing(
-    mut players: Query<Entity, With<Rolling>>,
-    mut commands: Commands,
-    input: Query<&ActionState<PlayerAction>>,
-) -> Result {
-    let input = input.single()?;
-    for player in players.iter_mut() {
-        commands.entity(player).remove::<Rolling>();
-
-        if button_pressed(input, &PlayerAction::Move) {
-            commands.entity(player).insert(Sprinting);
-        } else {
-            commands.entity(player).insert(Standing);
-        }
-    }
-    Ok(())
-}
+#[derive(Component, Default)]
+pub struct NeutralRolling;

@@ -1,22 +1,20 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::*;
+use bevy_pretty_nice_input::{Action, JustPressed};
+use bevy_pretty_nice_menus::{MenuDespawnsWhenClosed, MenuStack, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
-use crate::input::input_manager_bundle;
-use crate::menus::*;
 
 pub struct DialogueInfo {
     pub root: Entity,
     options: Entity,
 }
 
-pub fn spawn_dialogue<Input: Actionlike>(
+pub fn spawn_dialogue(
     commands: &mut Commands,
     menu_stack: &mut MenuStack,
     text: String,
     bundle: impl Bundle,
-    input_map: InputMap<Input>,
 ) -> DialogueInfo {
     let root = commands
         .spawn((
@@ -30,10 +28,8 @@ pub fn spawn_dialogue<Input: Actionlike>(
             },
             BackgroundColor(css::GRAY.into()),
             PlayerCameraNode,
-            input_manager_bundle(input_map, false),
-            Menu,
             MenuWithMouse,
-            MenuWithInputManager,
+            MenuWithInput,
             MenuDespawnsWhenClosed,
             bundle,
         ))
@@ -70,19 +66,26 @@ pub fn spawn_dialogue<Input: Actionlike>(
 }
 
 impl DialogueInfo {
-    pub fn add_option(&mut self, commands: &mut Commands, text: String, bundle: impl Bundle) {
+    pub fn add_option<'a, 'b>(
+        &mut self,
+        commands: &'b mut Commands,
+        text: String,
+        bundle: impl Bundle,
+        event: impl Event<Trigger<'a>: Default> + Clone,
+    ) -> EntityCommands<'b> {
+        let mut commands = commands.spawn((
+            Button,
+            Node {
+                padding: UiRect::all(Val::Px(10.0)),
+                flex_grow: 1.0,
+                ..default()
+            },
+            BackgroundColor(css::DARK_GRAY.into()),
+            bundle,
+            ChildOf(self.options),
+        ));
+        let event_2 = event.clone();
         commands
-            .spawn((
-                Button,
-                Node {
-                    padding: UiRect::all(Val::Px(10.0)),
-                    flex_grow: 1.0,
-                    ..default()
-                },
-                BackgroundColor(css::DARK_GRAY.into()),
-                bundle,
-                ChildOf(self.options),
-            ))
             .with_children(|parent| {
                 parent.spawn((
                     Text(text),
@@ -92,6 +95,18 @@ impl DialogueInfo {
                         ..default()
                     },
                 ));
+            })
+            .observe(
+                move |_: On<JustPressed<PickDialogueOption>>, mut commands: Commands| {
+                    commands.trigger(event_2.clone());
+                },
+            )
+            .observe(move |_: On<Pointer<Click>>, mut commands: Commands| {
+                commands.trigger(event.clone());
             });
+        commands
     }
 }
+
+#[derive(Action)]
+pub struct PickDialogueOption;

@@ -4,7 +4,6 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Collider;
-use proposal::*;
 use rand::Rng;
 use rand::distr::{Distribution, StandardUniform};
 use return_ok::some_or_return_ok;
@@ -12,7 +11,6 @@ use uuid::Uuid;
 
 use crate::entity::Kill;
 use crate::gridbox_material;
-use crate::input::InputManagerReference;
 use crate::inventory::{ChangeInventory, Inventory, Item};
 use crate::main_bundles::Box;
 use crate::npcs::imp::Imp;
@@ -33,9 +31,6 @@ impl Plugin for QuestingPlugin {
 		app.register_type_data::<QuestId, bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl>();
     }
 }
-
-#[add_plugin(to_plugin = QuestingPlugin, generics = <QuestProposalAction>)]
-use crate::menus::InputManagerMenuPlugin;
 
 #[derive(Resource, Default, Debug, Reflect)]
 #[reflect(Resource)]
@@ -168,27 +163,19 @@ pub struct QuestGiver {
     quest_marker: Option<Entity>,
 }
 
-#[derive(Event)]
+#[derive(EntityEvent, Clone)]
 pub struct AcceptQuest {
+    #[event_target]
     pub quest_proposal: Entity,
     pub quest_id: QuestId,
-}
-impl InputManagerReference for AcceptQuest {
-    fn input_manager(&self) -> Entity {
-        self.quest_proposal
-    }
 }
 
 /// Quest has been declined, and will end.
-#[derive(Event)]
+#[derive(EntityEvent, Clone)]
 pub struct DeclineQuest {
+    #[event_target]
     pub quest_proposal: Entity,
     pub quest_id: QuestId,
-}
-impl InputManagerReference for DeclineQuest {
-    fn input_manager(&self) -> Entity {
-        self.quest_proposal
-    }
 }
 
 /// Quest has ended, either by being completed, declined, or something else.

@@ -1,46 +1,45 @@
 use bevy::prelude::*;
 use bevy_butler::*;
+use bevy_pretty_nice_input::{Action, Updated};
+use return_ok::ok_or_return_ok;
 
-use crate::input::{button_just_pressed, button_just_released};
-use crate::player_controller::movement::MovementControlSet;
-use crate::player_controller::{PlayerAction, PlayerControllerPlugin};
-use crate::prelude::PlayerBody;
+use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::di::DIUpdate;
+use crate::player_controller::movement::walk::PlayerWalkSettings;
 
-use super::walk::Walking;
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct Sprint;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct SprintWalk;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct UnSprintWalk;
+
+#[derive(Component, Default)]
+pub struct SprintStanding;
 
 #[derive(Component, Default)]
 pub struct Sprinting;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_pressed(PlayerAction::Sprint),
-)]
-fn walking_to_sprinting(
-    players: Query<Entity, (With<PlayerBody>, With<Walking>)>,
+#[add_observer(plugin = PlayerControllerPlugin)]
+fn update_di_sprintwalk(
+    di: On<Updated<SprintWalk>>,
+    mut players: Query<&mut Sprinting>,
     mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Walking>()
-            .insert(Sprinting);
-    }
-}
-
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-	in_set = MovementControlSet::UpdateState,
-	run_if = button_just_released(PlayerAction::Sprint),
-)]
-fn sprinting_to_walking(
-    players: Query<Entity, (With<PlayerBody>, With<Sprinting>)>,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        commands
-            .entity(player)
-            .remove::<Sprinting>()
-            .insert(Walking);
-    }
+    walk_settings: Res<PlayerWalkSettings>,
+) -> Result {
+    let mut _sprinting = ok_or_return_ok!(players.get_mut(di.input));
+    commands.trigger(DIUpdate {
+        entity: di.input,
+        value: di
+            .data
+            .as_2d()
+            .ok_or::<BevyError>("SprintWalk didn't have 2D data".into())?,
+        speed: walk_settings.sprint_speed,
+    });
+    Ok(())
 }

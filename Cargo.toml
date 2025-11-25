@@ -1,5 +1,10 @@
 [workspace]
-members = ["sbepis", "jack-noir", "state-machine", "bevy-marching-cubes"]
+members = [
+	"sbepis",
+	"jack-noir",
+	"state-machine",
+	"bevy-marching-cubes",
+]
 default-members = ["sbepis"]
 resolver = "2"
 
