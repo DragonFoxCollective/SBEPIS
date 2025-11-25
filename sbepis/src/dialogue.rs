@@ -1,9 +1,7 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_pretty_nice_input::{Action, JustPressed};
-use bevy_pretty_nice_menus::{
-    Menu, MenuDespawnsWhenClosed, MenuStack, MenuWithInput, MenuWithMouse,
-};
+use bevy_pretty_nice_menus::{MenuDespawnsWhenClosed, MenuStack, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
 
@@ -30,7 +28,6 @@ pub fn spawn_dialogue(
             },
             BackgroundColor(css::GRAY.into()),
             PlayerCameraNode,
-            Menu,
             MenuWithMouse,
             MenuWithInput,
             MenuDespawnsWhenClosed,

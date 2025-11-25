@@ -62,10 +62,8 @@ bevy_skein = "0.3.0"
 bevy-marching-cubes = { path = "../bevy-marching-cubes" }
 crossbeam-channel = "0.5.15"
 fake = "4.4.0"
-bevy-pretty-nice-input = { path = "../bevy-pretty-nice-input", features = [
-	"debug_graph",
-] }
-bevy-pretty-nice-menus = { path = "../bevy-pretty-nice-menus" }
+bevy-pretty-nice-input = { version = "0.1.0", features = ["debug_graph"] }
+bevy-pretty-nice-menus = { version = "0.1.0", features = ["pretty_nice_input"] }
 paste = "1.0.15"
 
 [build-dependencies]

@@ -2,7 +2,7 @@ use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{Action, binding1d, input};
-use bevy_pretty_nice_menus::{Menu, MenuHidesWhenClosed, MenuWithInput, MenuWithoutMouse};
+use bevy_pretty_nice_menus::{MenuHidesWhenClosed, MenuWithInput, MenuWithoutMouse};
 
 use crate::camera::PlayerCameraNode;
 use crate::player_commands::PlayerCommandsPlugin;
@@ -92,7 +92,6 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ),
                 input!(CloseStaff, Axis1D[binding1d::key(KeyCode::Backquote)]),
             ),
-            Menu,
             MenuWithInput,
             MenuWithoutMouse,
             MenuHidesWhenClosed,

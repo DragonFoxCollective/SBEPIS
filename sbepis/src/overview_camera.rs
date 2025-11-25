@@ -1,7 +1,7 @@
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy_butler::*;
-use bevy_pretty_nice_menus::{ActivateMenu, DeactivateMenu, Menu, MenuStack, MenuWithMouse};
+use bevy_pretty_nice_menus::{ActivateMenu, DeactivateMenu, MenuStack, MenuWithMouse};
 
 use crate::camera::PlayerCamera;
 use crate::prelude::*;
@@ -35,7 +35,6 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         OverviewCamera,
-        Menu,
         MenuWithMouse,
         #[cfg(feature = "inspector")]
         bevy_inspector_egui::bevy_egui::PrimaryEguiContext,

@@ -4,9 +4,6 @@ members = [
 	"jack-noir",
 	"state-machine",
 	"bevy-marching-cubes",
-	"bevy-pretty-nice-input",
-	"bevy-pretty-nice-input-derive",
-	"bevy-pretty-nice-menus",
 ]
 default-members = ["sbepis"]
 resolver = "2"

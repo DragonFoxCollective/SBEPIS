@@ -7,7 +7,7 @@ use bevy_pretty_nice_input::{
     Action, ButtonPress, ComponentBuffer, Cooldown, FilterBuffered, InputBuffer, ResetBuffer,
     binding1d, binding2d, input, input_transition,
 };
-use bevy_pretty_nice_menus::{Menu, MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
+use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
 use movement::MovementControlSystems;
 use movement::di::WalkDI;
@@ -177,7 +177,6 @@ fn setup(
 
     let input = commands
         .spawn((
-            Menu,
             MenuWithInput,
             MenuWithoutMouse,
             DespawnOnExit(GameState::InGame),

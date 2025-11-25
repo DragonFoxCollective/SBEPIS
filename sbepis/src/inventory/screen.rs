@@ -2,9 +2,7 @@ use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_pretty_nice_input::{binding1d, input};
-use bevy_pretty_nice_menus::{
-    CloseMenuAction, Menu, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse,
-};
+use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
 use crate::inventory::{InventoryPlugin, Item, PickUpItem};
@@ -31,7 +29,6 @@ fn spawn_inventory_screen(mut commands: Commands) {
             Visibility::Hidden,
             input!(CloseMenuAction, Axis1D[binding1d::key(KeyCode::KeyV)]),
             PlayerCameraNode,
-            Menu,
             MenuWithMouse,
             MenuWithInput,
             MenuHidesWhenClosed,
