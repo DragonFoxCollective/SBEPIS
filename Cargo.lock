@@ -591,38 +591,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy-pretty-nice-input"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5702417c413cbfbab014ce031a6cca436a9e1120eb34a9aaa6748eaf7b373e8d"
-dependencies = [
- "bevy",
- "bevy-pretty-nice-input-derive",
- "paste",
-]
-
-[[package]]
-name = "bevy-pretty-nice-input-derive"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da762cfeb5840effb142ec0e19fb8bbfd1346726c18fec267b43cb7f6f2f69bf"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "bevy-pretty-nice-menus"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1eb12b4756ff81450d958bf1d8bb105d52f91d4747931ec95c9b9141483863eb"
-dependencies = [
- "bevy",
- "bevy-pretty-nice-input",
-]
-
-[[package]]
 name = "bevy_a11y"
 version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1479,6 +1447,38 @@ dependencies = [
  "smallvec",
  "thiserror 2.0.17",
  "tracing",
+]
+
+[[package]]
+name = "bevy_pretty_nice_input"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ca79f75e79d9d338c0c128fa0d666c7cf9fccbbeee7bc2b5d9c0afab333c46"
+dependencies = [
+ "bevy",
+ "bevy_pretty_nice_input_derive",
+ "paste",
+]
+
+[[package]]
+name = "bevy_pretty_nice_input_derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cae3c19662a2c2eb6330795a5d532e0ac8e1e9f625ba6ec0dc318ca5bd3ae497"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "bevy_pretty_nice_menus"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e503f581804831928de46d5e358fa6eb2311656915ae98e6984c24cab32d782"
+dependencies = [
+ "bevy",
+ "bevy_pretty_nice_input",
 ]
 
 [[package]]
@@ -5811,11 +5811,11 @@ dependencies = [
  "bevy-butler",
  "bevy-inspector-egui",
  "bevy-marching-cubes",
- "bevy-pretty-nice-input",
- "bevy-pretty-nice-menus",
  "bevy_common_assets",
  "bevy_hanabi",
  "bevy_panorbit_camera",
+ "bevy_pretty_nice_input",
+ "bevy_pretty_nice_menus",
  "bevy_rapier3d",
  "bevy_skein",
  "crossbeam-channel",
