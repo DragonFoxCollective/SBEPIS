@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_butler::*;
 use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
+use rand::distr::weighted::WeightedIndex;
 use rand::distr::{Distribution, StandardUniform};
 use return_ok::some_or_return_ok;
 use uuid::Uuid;
@@ -82,12 +83,14 @@ impl bevy_inspector_egui::inspector_egui_impls::InspectorPrimitive for QuestId {
 pub enum QuestType {
     Fetch { done: bool },
     Kill { amount: u32, done: u32 },
+    FindMyPages,
 }
 impl QuestType {
     pub fn is_completed(&self) -> bool {
         match self {
             QuestType::Fetch { done } => *done,
             QuestType::Kill { amount, done } => *done >= *amount,
+            QuestType::FindMyPages => false,
         }
     }
 
@@ -95,6 +98,7 @@ impl QuestType {
         match self {
             QuestType::Fetch { .. } => 0,
             QuestType::Kill { .. } => 0,
+            QuestType::FindMyPages => 0,
         }
     }
 
@@ -102,6 +106,7 @@ impl QuestType {
         match self {
             QuestType::Fetch { .. } => 1,
             QuestType::Kill { amount, .. } => *amount,
+            QuestType::FindMyPages => 8,
         }
     }
 
@@ -109,6 +114,7 @@ impl QuestType {
         match self {
             QuestType::Fetch { done } => *done as u32,
             QuestType::Kill { done, amount } => (*done).min(*amount),
+            QuestType::FindMyPages => 0,
         }
     }
 
@@ -118,12 +124,15 @@ impl QuestType {
 }
 impl Distribution<QuestType> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> QuestType {
-        match rng.random_range(0..=1) {
+        let dist = WeightedIndex::new([10, 10, 1]).unwrap();
+        match dist.sample(rng) {
             0 => QuestType::Fetch { done: false },
-            _ => QuestType::Kill {
+            1 => QuestType::Kill {
                 amount: rng.random_range(1..=5),
                 done: 0,
             },
+            2 => QuestType::FindMyPages,
+            _ => unreachable!(),
         }
     }
 }
@@ -152,6 +161,12 @@ impl Distribution<Quest> for StandardUniform {
                 name: "Awesome Fetch Quest".to_string(),
                 quest_type,
                 description: "imps stole my orange cube... pwease go get it back!!".to_string(),
+            },
+            QuestType::FindMyPages => Quest {
+                id: QuestId::new(),
+                name: "Find my pages.".to_string(),
+                quest_type,
+                description: "Find my pages.".to_string(),
             },
         }
     }
