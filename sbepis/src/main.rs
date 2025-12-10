@@ -66,8 +66,19 @@ fn main() {
 		})).add_plugins(SbepisPlugin).run();
 }
 
-#[butler_plugin]
 pub struct SbepisPlugin;
+
+// TODO: migrate to bevy_auto_plugin
+#[butler_plugin]
+impl Plugin for SbepisPlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(feature = "inspector")]
+        app.add_plugins((
+            bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
+            bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
+        ));
+    }
+}
 
 #[add_plugin(to_plugin = SbepisPlugin, generics = <NoUserData>)]
 use bevy_rapier3d::prelude::RapierPhysicsPlugin;
@@ -82,14 +93,6 @@ use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
 	..default()
 })]
 use bevy_inspector_egui::bevy_egui::EguiGlobalSettings;
-
-#[cfg(feature = "inspector")]
-#[add_plugin(to_plugin = SbepisPlugin)]
-use bevy_inspector_egui::bevy_egui::EguiPlugin;
-
-#[cfg(feature = "inspector")]
-#[add_plugin(to_plugin = SbepisPlugin)]
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 #[add_plugin(to_plugin = SbepisPlugin, init = HanabiPlugin)]
 use bevy_hanabi::HanabiPlugin;
