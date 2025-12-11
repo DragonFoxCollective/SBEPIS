@@ -30,16 +30,18 @@ fn update_di(
     di.input = walk.value.clamp_length_max(1.0) * Vec2::new(1.0, -1.0) * walk.speed;
     di.local_space = Vec3::new(di.input.x, 0.0, di.input.y);
     di.world_space = transform.rotation() * di.local_space;
+    di.forward = transform.rotation() * -Vec3::Z;
     Ok(())
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
-fn update_di_forward(
+fn update_di_update(
     mut players: Query<(&mut WalkDI, &PlayerBody)>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
 ) -> Result {
     for (mut di, body) in players.iter_mut() {
         let transform = player_cameras.get(body.camera)?;
+        di.world_space = transform.rotation() * di.local_space;
         di.forward = transform.rotation() * -Vec3::Z;
     }
     Ok(())
