@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
+use bevy_pretty_nice_input::bevy_event_chain::*;
 use bevy_pretty_nice_input::bundles::observe;
 use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
 use bevy_rapier3d::prelude::*;
@@ -182,7 +183,7 @@ impl Condition for HasEnoughStaminaToDash {
                     settings.stamina_cost
                 };
                 if update.data.is_zero() || stamina.current >= required_stamina {
-                    commands.trigger(update.next());
+                    update.trigger_next(&mut commands);
                 }
                 Ok(())
             },

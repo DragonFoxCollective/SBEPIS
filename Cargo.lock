@@ -1037,6 +1037,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_event_chain"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_event_chain_derive",
+]
+
+[[package]]
+name = "bevy_event_chain_derive"
+version = "0.1.0"
+dependencies = [
+ "bevy_macro_utils",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bevy_gilrs"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1491,10 +1510,9 @@ dependencies = [
 [[package]]
 name = "bevy_pretty_nice_input"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52ac064ce9f68205cfbd13377dc198dbd39ef8c75f5fa5cd2a76abf76e5feb32"
 dependencies = [
  "bevy",
+ "bevy_event_chain",
  "bevy_pretty_nice_input_derive",
  "paste",
 ]
@@ -1502,8 +1520,6 @@ dependencies = [
 [[package]]
 name = "bevy_pretty_nice_input_derive"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae3c19662a2c2eb6330795a5d532e0ac8e1e9f625ba6ec0dc318ca5bd3ae497"
 dependencies = [
  "proc-macro2",
  "quote",

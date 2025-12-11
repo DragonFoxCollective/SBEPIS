@@ -1,12 +1,11 @@
 [workspace]
-members = [
-	"sbepis",
-	"jack-noir",
-	"state-machine",
-	"bevy-marching-cubes",
-]
+members = ["sbepis", "jack-noir", "state-machine", "bevy-marching-cubes"]
 default-members = ["sbepis"]
 resolver = "2"
+
+[patch.crates-io]
+bevy_pretty_nice_input = { path = "../bevy_pretty_nice_input/bevy_pretty_nice_input" }
+bevy_pretty_nice_input_derive = { path = "../bevy_pretty_nice_input/bevy_pretty_nice_input_derive" }
 
 # Enable max optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]

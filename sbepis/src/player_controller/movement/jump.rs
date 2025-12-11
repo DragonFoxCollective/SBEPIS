@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
+use bevy_pretty_nice_input::bevy_event_chain::*;
 use bevy_pretty_nice_input::bundles::observe;
 use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
 use bevy_rapier3d::prelude::*;
@@ -215,7 +216,7 @@ impl Condition for HasEnoughStaminaToJump {
              -> Result {
                 let stamina = players.get(update.input)?;
                 if update.data.is_zero() || stamina.current >= settings.jump_stamina_cost {
-                    commands.trigger(update.next());
+                    update.trigger_next(&mut commands);
                 }
                 Ok(())
             },
@@ -236,7 +237,7 @@ impl Condition for HasEnoughStaminaToCrouchJump {
              -> Result {
                 let stamina = players.get(update.input)?;
                 if update.data.is_zero() || stamina.current >= settings.high_jump_stamina_cost {
-                    commands.trigger(update.next());
+                    update.trigger_next(&mut commands);
                 }
                 Ok(())
             },
@@ -258,7 +259,7 @@ impl Condition for HasEnoughStaminaToChargeJump {
                 let stamina = players.get(update.input)?;
                 if update.data.is_zero() || stamina.current >= settings.charge_jump_min_stamina_cost
                 {
-                    commands.trigger(update.next());
+                    update.trigger_next(&mut commands);
                 }
                 Ok(())
             },
@@ -281,7 +282,7 @@ impl Condition for HasEnoughStaminaToChargeCrouchJump {
                 if update.data.is_zero()
                     || stamina.current >= settings.unreal_air_jump_min_stamina_cost
                 {
-                    commands.trigger(update.next());
+                    update.trigger_next(&mut commands);
                 }
                 Ok(())
             },
