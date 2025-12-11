@@ -4,7 +4,7 @@ use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animat
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Filter, binding1d, input};
 use bevy_pretty_nice_menus::MenuInputOf;
 
@@ -17,12 +17,12 @@ use crate::player_controller::weapons::{
 };
 use crate::prelude::*;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 struct HammerPivot {
     pub head: Entity,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 struct Hammer {
     pub damage: f32,
     pub wielder: Entity,
@@ -151,7 +151,7 @@ struct HammerStart;
 #[derive(AnimationEvent, Clone)]
 struct HammerSmash;
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn on_hammer_start(
     start: On<HammerStart>,
     hammer_pivots: Query<&HammerPivot>,
@@ -179,7 +179,7 @@ fn on_hammer_start(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn on_hammer_smash(
     smash: On<HammerSmash>,
     hammer_pivots: Query<&HammerPivot>,

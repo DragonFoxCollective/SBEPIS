@@ -1,6 +1,6 @@
 use bevy::audio::PlaybackMode;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use serde::Deserialize;
 
@@ -8,12 +8,19 @@ use crate::camera::PlayerCamera;
 use crate::prelude::*;
 use crate::worldgen::desert::DesertWorldGen;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
 struct MainMenuPlugin;
 
-#[insert_state(plugin = MainMenuPlugin)]
-#[derive(States, Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[auto_plugin(plugin = MainMenuPlugin)]
+fn build(app: &mut App) {
+    app.add_plugins((
+        bevy_common_assets::ron::RonAssetPlugin::<Supporters>::new(&["supporters.ron"]),
+        bevy_common_assets::ron::RonAssetPlugin::<Developers>::new(&["developers.ron"]),
+    ));
+}
+
+#[auto_states(plugin = MainMenuPlugin, derive, reflect, register, init)]
 #[states(scoped_entities)]
 pub enum GameState {
     #[default]
@@ -22,13 +29,12 @@ pub enum GameState {
 }
 
 #[cfg(feature = "skip_main_menu")]
-#[add_system(plugin = MainMenuPlugin, schedule = Startup)]
+#[auto_system(plugin = MainMenuPlugin, schedule = Startup)]
 fn insert_game_state(mut next_state: ResMut<NextState<GameState>>) {
     next_state.set(GameState::InGame);
 }
 
-#[add_sub_state(plugin = MainMenuPlugin)]
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
+#[auto_sub_states(plugin = MainMenuPlugin, derive, reflect, register, init)]
 #[source(GameState = GameState::MainMenu)]
 #[states(scoped_entities)]
 pub enum MenuState {
@@ -37,12 +43,12 @@ pub enum MenuState {
     Credits,
 }
 
-#[add_system(plugin = MainMenuPlugin, schedule = Startup)]
+#[auto_system(plugin = MainMenuPlugin, schedule = Startup)]
 fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(DenySound(asset_server.load("deny.mp3")));
 }
 
-#[add_system(plugin = MainMenuPlugin, schedule = OnEnter(GameState::MainMenu))]
+#[auto_system(plugin = MainMenuPlugin, schedule = OnEnter(GameState::MainMenu))]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     commands.spawn((
         Name::new("Sun"),
@@ -87,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     Ok(())
 }
 
-#[add_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Home))]
+#[auto_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Home))]
 fn setup_home(
     mut commands: Commands,
     title_font: Option<Res<TitleFont>>,
@@ -183,6 +189,7 @@ fn setup_home(
         ))
         .observe(
             |_: On<Pointer<Click>>, mut next_state: ResMut<NextState<GameState>>| {
+                debug!("Next state is InGame");
                 next_state.set(GameState::InGame);
             },
         );
@@ -335,7 +342,7 @@ fn setup_home(
     Ok(())
 }
 
-#[add_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Credits))]
+#[auto_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Credits))]
 fn setup_credits(
     mut commands: Commands,
     main_menu_names: Res<MainMenuNames>,
@@ -1134,7 +1141,7 @@ fn setup_credits(
     Ok(())
 }
 
-#[add_system(plugin = MainMenuPlugin, schedule = Update)]
+#[auto_system(plugin = MainMenuPlugin, schedule = Update)]
 fn button_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor, Has<UselessButton>),
@@ -1160,10 +1167,10 @@ fn button_system(
     }
 }
 
-#[derive(Resource)]
+#[auto_resource(plugin = MainMenuPlugin, derive, reflect, register)]
 pub struct DenySound(pub Handle<AudioSource>);
 
-#[derive(Component)]
+#[auto_component(plugin = MainMenuPlugin, derive, reflect, register)]
 struct UselessButton;
 
 #[derive(Asset, Clone, Deserialize, TypePath)]
@@ -1177,7 +1184,7 @@ pub struct Supporter {
     pub tier: SupporterTier,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Reflect)]
 pub enum SupporterTier {
     Past,
     Pgo,
@@ -1187,23 +1194,19 @@ pub enum SupporterTier {
     Master,
 }
 
-#[derive(Resource)]
+#[auto_resource(plugin = MainMenuPlugin, derive, reflect, register)]
 struct MainMenuNames {
     pub supporters: Handle<Supporters>,
     pub developers: Handle<Developers>,
 }
 
-#[add_system(plugin = MainMenuPlugin, schedule = Startup)]
+#[auto_system(plugin = MainMenuPlugin, schedule = Startup)]
 fn load_names(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(MainMenuNames {
         supporters: asset_server.load("supporters.supporters.ron"),
         developers: asset_server.load("developers.developers.ron"),
     });
 }
-
-#[add_plugin(to_plugin = MainMenuPlugin, generics = <Supporters>, init = RonAssetPlugin::<Supporters>::new(&["supporters.ron"]))]
-#[add_plugin(to_plugin = MainMenuPlugin, generics = <Developers>, init = RonAssetPlugin::<Developers>::new(&["developers.ron"]))]
-use bevy_common_assets::ron::RonAssetPlugin;
 
 #[derive(Asset, Clone, Deserialize, TypePath)]
 pub struct Developers {
@@ -1226,5 +1229,5 @@ pub enum DeveloperArea {
     Contributor,
 }
 
-#[derive(Resource)]
+#[auto_resource(plugin = MainMenuPlugin, derive, reflect, register)]
 pub struct TitleFont(pub Handle<Font>);

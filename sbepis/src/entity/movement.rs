@@ -1,21 +1,20 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 use return_ok::some_or_return;
 
 use crate::entity::EntityPlugin;
 use crate::prelude::PlayerBody;
 
-#[derive(Component, Deref, DerefMut, Default)]
+#[auto_component(plugin = EntityPlugin, derive(Deref, DerefMut, Default), reflect, register)]
 /// The desired velocity in world-space. Will be projected onto the entity's floor plane.
 pub struct Movement(pub Vec3);
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
+#[auto_system(plugin = EntityPlugin, schedule = Update, config(
 	in_set = ExecuteMovementSet,
-)]
+))]
 fn strafe(mut bodies: Query<(&mut Velocity, &Transform, &Movement)>) {
     for (mut velocity, transform, input) in bodies.iter_mut() {
         velocity.linvel = velocity.linvel.project_onto(transform.up().into())
@@ -23,13 +22,12 @@ fn strafe(mut bodies: Query<(&mut Velocity, &Transform, &Movement)>) {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct RotateTowardMovement;
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
+#[auto_system(plugin = EntityPlugin, schedule = Update, config(
 	in_set = ExecuteMovementSet,
-)]
+))]
 fn rotate_toward_movement(
     mut bodies: Query<(&mut Transform, &Movement), With<RotateTowardMovement>>,
 ) {
@@ -45,17 +43,16 @@ fn rotate_toward_movement(
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExecuteMovementSet;
 
-#[derive(Component, Default)]
+#[auto_component(plugin = EntityPlugin, derive(Default), reflect, register)]
 pub struct RandomInput {
     pub input: Vec3,
     pub time_since_last_change: Duration,
     pub time_to_change: Duration,
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
+#[auto_system(plugin = EntityPlugin, schedule = Update, config(
 	before = ExecuteMovementSet,
-)]
+))]
 fn random_vec2(mut input: Query<(&mut RandomInput, &mut Movement)>, time: Res<Time>) {
     for (mut random_input, mut movement_input) in input.iter_mut() {
         random_input.time_since_last_change += time.delta();
@@ -73,13 +70,12 @@ fn random_vec2(mut input: Query<(&mut RandomInput, &mut Movement)>, time: Res<Ti
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct TargetPlayer;
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
+#[auto_system(plugin = EntityPlugin, schedule = Update, config(
 	before = ExecuteMovementSet,
-)]
+))]
 fn target_player(
     mut target_players: Query<(&Transform, &mut Movement), With<TargetPlayer>>,
     player: Query<&Transform, With<PlayerBody>>,

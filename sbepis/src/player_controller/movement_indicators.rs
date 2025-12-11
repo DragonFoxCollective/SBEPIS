@@ -1,6 +1,6 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::ComponentBuffer;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
@@ -27,17 +27,15 @@ use super::movement::stand::Standing;
 use super::movement::trip::Tripping;
 use super::movement::walk::Walking;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = PlayerControllerPlugin)]
-#[derive(Default)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = PlayerControllerPlugin)]
+#[auto_plugin(impl_plugin_trait)]
 pub struct MovementIndicatorsPlugin;
 
-#[derive(Component)]
+#[auto_component(plugin = MovementIndicatorsPlugin, derive, reflect, register)]
 pub struct SpeedIndicator;
 
-#[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
-)]
+#[auto_system(plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup_speed_indicator(mut commands: Commands) {
     commands
         .spawn((
@@ -54,9 +52,7 @@ fn setup_speed_indicator(mut commands: Commands) {
         .with_child((SpeedIndicator, Text::new("Speed: None")));
 }
 
-#[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Update,
-)]
+#[auto_system(plugin = MovementIndicatorsPlugin, schedule = Update)]
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
     player: Query<(&Transform, &Velocity), With<PlayerBody>>,
@@ -70,12 +66,10 @@ fn update_speed_indicator(
     indicator.0 = format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}");
 }
 
-#[derive(Component)]
+#[auto_component(plugin = MovementIndicatorsPlugin, derive, reflect, register)]
 pub struct DebugState;
 
-#[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame),
-)]
+#[auto_system(plugin = MovementIndicatorsPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup_debug_state(mut commands: Commands) {
     commands.spawn((
         Name::new("Debug State"),
@@ -93,11 +87,10 @@ fn setup_debug_state(mut commands: Commands) {
     ));
 }
 
-#[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Update,
+#[auto_system(plugin = MovementIndicatorsPlugin, schedule = Update, config(
 	after = MovementControlSystems::DoHorizontalMovement,
 	after = MovementControlSystems::DoVerticalMovement,
-)]
+))]
 fn check_states(
     players: Query<
         (
@@ -163,20 +156,17 @@ fn check_states(
     }
 }
 
-#[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = MovementIndicatorsPlugin, schedule = Startup)]
 fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
     for (_, config, _) in config_store.iter_mut() {
         config.depth_bias = -1.0;
     }
 }
 
-#[add_system(
-	plugin = MovementIndicatorsPlugin, schedule = Update,
+#[auto_system(plugin = MovementIndicatorsPlugin, schedule = Update, config(
 	after = MovementControlSystems::DoHorizontalMovement,
 	after = MovementControlSystems::DoVerticalMovement,
-)]
+))]
 fn movement_direction_gizmos(
     mut gizmos: Gizmos,
     players: Query<(&GlobalTransform, &Velocity, Option<&Movement>), With<PlayerBody>>,

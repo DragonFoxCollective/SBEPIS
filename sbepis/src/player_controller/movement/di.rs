@@ -1,10 +1,10 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 
 use crate::camera::PlayerCamera;
 use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
-#[derive(Component, Default, Debug)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default, Debug), reflect, register)]
 pub struct WalkDI {
     pub input: Vec2,
     pub local_space: Vec3,
@@ -12,14 +12,14 @@ pub struct WalkDI {
     pub forward: Vec3,
 }
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
 pub struct DIUpdate {
     pub entity: Entity,
     pub value: Vec2,
     pub speed: f32,
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_di(
     walk: On<DIUpdate>,
     mut players: Query<(&mut WalkDI, &PlayerBody)>,
@@ -33,7 +33,7 @@ fn update_di(
     Ok(())
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_di_forward(
     mut players: Query<(&mut WalkDI, &PlayerBody)>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,

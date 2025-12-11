@@ -1,6 +1,6 @@
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
@@ -10,8 +10,7 @@ use super::charge::ChargeStanding;
 use super::sprint::Sprinting;
 use super::walk::Walking;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin)]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct StandingAssets {
     pub mesh: Mesh3d,
     pub mesh_transform: Transform,
@@ -43,7 +42,7 @@ impl FromWorld for StandingAssets {
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets(
     add: On<Add, (Standing, ChargeStanding, Walking, Sprinting)>,
     players: Query<&PlayerBody>,
@@ -62,5 +61,5 @@ fn to_standing_assets(
     Ok(())
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Standing;

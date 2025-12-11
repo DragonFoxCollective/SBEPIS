@@ -2,11 +2,11 @@ use std::time::Duration;
 
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 
 use crate::entity::{EntityPlugin, Kill};
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct Spawner {
     pub max_amount: usize,
     pub spawn_delay: Duration,
@@ -14,7 +14,7 @@ pub struct Spawner {
     pub entities: HashSet<Entity>,
 }
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = EntityPlugin, target(entity), derive, reflect, register)]
 pub struct ActivateSpawner {
     #[event_target]
     pub spawner: Entity,
@@ -22,12 +22,12 @@ pub struct ActivateSpawner {
     pub position: Vec3,
 }
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = EntityPlugin, target(entity), derive, reflect, register)]
 pub struct Spawn {
     pub entity: Entity,
 }
 
-#[add_system(plugin = EntityPlugin, schedule = Update)]
+#[auto_system(plugin = EntityPlugin, schedule = Update)]
 fn spawn_entities(
     mut spawners: Query<(Entity, &mut Spawner, &GlobalTransform)>,
     time: Res<Time>,
@@ -50,7 +50,7 @@ fn spawn_entities(
     }
 }
 
-#[add_observer(plugin = EntityPlugin)]
+#[auto_observer(plugin = EntityPlugin)]
 fn remove_entity(kill: On<Kill>, mut spawners: Query<&mut Spawner>) {
     for mut spawner in spawners.iter_mut() {
         spawner.entities.remove(&kill.victim);

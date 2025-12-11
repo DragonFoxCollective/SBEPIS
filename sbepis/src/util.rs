@@ -1,10 +1,12 @@
 use bevy::ecs::query::{QueryData, QueryFilter, ROQueryItem};
 use bevy::prelude::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::math::Real;
 use return_ok::ok_or_return;
 use std::array::IntoIter;
 use std::ops::{Add, Mul, Range, Sub};
 
+use crate::SbepisPlugin;
 use crate::camera::PlayerCamera;
 use crate::prelude::PlayerBody;
 
@@ -69,7 +71,7 @@ impl IterElements<f32, 3> for Vec3 {
     }
 }
 
-#[derive(Component, Deref, DerefMut)]
+#[auto_component(plugin = SbepisPlugin, derive(Deref, DerefMut), reflect, register)]
 pub struct DespawnTimer(Timer);
 
 impl DespawnTimer {
@@ -78,7 +80,8 @@ impl DespawnTimer {
     }
 }
 
-pub fn despawn_after_timer(
+#[auto_system(plugin = SbepisPlugin, schedule = Update)]
+fn despawn_after_timer(
     mut commands: Commands,
     time: Res<Time>,
     mut query: Query<(Entity, &mut DespawnTimer)>,
@@ -91,11 +94,12 @@ pub fn despawn_after_timer(
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = SbepisPlugin, derive, reflect, register)]
 #[require(Transform, Visibility)]
 pub struct Billboard;
 
-pub fn billboard(
+#[auto_system(plugin = SbepisPlugin, schedule = Update)]
+fn billboard(
     mut transforms: Query<&mut Transform, With<Billboard>>,
     player_camera: Query<&GlobalTransform, With<PlayerCamera>>,
     player_body: Query<&GlobalTransform, With<PlayerBody>>,
@@ -183,5 +187,5 @@ pub fn find_in_ancestors<'w, 's: 'w, 'a: 'w, D: QueryData, F: QueryFilter>(
     None
 }
 
-#[derive(Component)]
+#[auto_component(plugin = SbepisPlugin, derive, reflect, register)]
 pub struct AnimationRootReference(pub Entity);

@@ -26,17 +26,18 @@ use bevy::render::view::{
     prepare_view_targets,
 };
 use bevy::render::{Render, RenderApp, RenderSystems};
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 
 use crate::prelude::*;
 
 const SHADER_ASSET_PATH: &str = "post_processing.wgsl";
 
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
 struct PostProcessPlugin;
 
-#[butler_plugin]
 impl Plugin for PostProcessPlugin {
+    #[auto_plugin]
     fn build(&self, app: &mut App) {
         app.add_plugins((
             // The settings will be a component that lives in the main world but will
@@ -464,7 +465,7 @@ impl ViewNode for PostProcessNode {
 }
 
 // This contains global data used by the render pipeline. This will be created once on startup.
-#[derive(Resource)]
+#[auto_resource(plugin = PostProcessPlugin, derive)]
 struct PostProcessPipeline {
     layout: BindGroupLayout,
     sampler: Sampler,
@@ -633,13 +634,13 @@ impl FromWorld for PostProcessPipeline {
     }
 }
 
-#[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
+#[auto_component(plugin = PostProcessPlugin, derive(Default, Clone, Copy, ExtractComponent, ShaderType), reflect, register)]
 pub struct PostProcessSettings {
     pub intensity: f32,
     pub radius: f32,
 }
 
-#[add_system(plugin = PostProcessPlugin, schedule = Update)]
+#[auto_system(plugin = PostProcessPlugin, schedule = Update)]
 fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time>) {
     for mut setting in &mut settings {
         let mut intensity = ops::sin(time.elapsed_secs());
@@ -672,7 +673,7 @@ pub fn configure_view_targets(mut view_targets: Query<&mut Camera3d, With<PostPr
 }
 
 /// The extra texture used as the second render target for the blur.
-#[derive(Component)]
+#[auto_component(plugin = PostProcessPlugin, derive)]
 pub struct PostProcessTextures {
     horizontal_blur_texture: CachedTexture,
     vertical_blur_texture: CachedTexture,

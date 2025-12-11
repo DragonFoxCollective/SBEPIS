@@ -1,7 +1,7 @@
 use bevy::color::palettes::css;
 use bevy::ecs::entity::EntityHashSet;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, JustPressed};
 use bevy_rapier3d::na::Vector3;
 use bevy_rapier3d::parry::shape::{self, SharedShape};
@@ -17,7 +17,7 @@ pub mod hammer;
 pub mod rifle;
 pub mod sword;
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
 pub struct Hit {
     #[event_target]
     pub victim: Entity,
@@ -27,7 +27,7 @@ pub struct Hit {
     pub fray_modifier: f32,
 }
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
 pub struct Damage {
     #[event_target]
     pub victim: Entity,
@@ -35,10 +35,10 @@ pub struct Damage {
     pub fray_modifier: f32,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct DamageNumbers;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 #[relationship_target(relationship = WeaponOf)]
 pub struct Weapons {
     #[relationship]
@@ -46,17 +46,17 @@ pub struct Weapons {
     pub active_weapon: Option<Entity>,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 #[relationship(relationship_target = Weapons)]
 pub struct WeaponOf(pub Entity);
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct UninitializedWeaponSet;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct ActiveWeapon;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct DamageSweep {
     pub hit_entities: EntityHashSet,
     pub last_transform: GlobalTransform,
@@ -65,13 +65,13 @@ pub struct DamageSweep {
     pub owner: Entity,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct EndDamageSweep {
     pub damage: f32,
     pub fray_modifier: f32,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 #[require(Transform, Visibility)]
 pub struct SweepPivot {
     pub sweeper_length: f32,
@@ -96,14 +96,14 @@ impl DamageSweep {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 #[require(Transform, Visibility)]
 pub struct DebugColliderVisualizer;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct WeaponAnimation(pub AnimationNodeIndex);
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn attack(
     attack: On<JustPressed<Attack>>,
     mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer)>,
@@ -122,7 +122,7 @@ fn attack(
     Ok(())
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn correct_animation_speed(
     fray_music: Query<&FrayMusic>,
     mut weapons: Query<(&WeaponAnimation, &mut AnimationPlayer)>,
@@ -135,7 +135,7 @@ fn correct_animation_speed(
     }
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn sweep_dealers(
     mut commands: Commands,
     mut dealers: Query<(
@@ -209,7 +209,7 @@ fn sweep_dealers(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn hit_to_damage(
     hit: On<Hit>,
     parents: Query<&ChildOf>,
@@ -226,7 +226,7 @@ fn hit_to_damage(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn deal_all_damage(
     damage: On<Damage>,
     mut healths: Query<&mut GelViscosity>,
@@ -243,7 +243,7 @@ fn deal_all_damage(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_damage_numbers(
     damage: On<Damage>,
     mut damage_numbers: Query<Entity, With<DamageNumbers>>,
@@ -268,7 +268,7 @@ fn update_damage_numbers(
     }
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn initialize_weapon_sets(
     mut commands: Commands,
     mut weapon_sets: Query<(Entity, &mut Weapons), With<UninitializedWeaponSet>>,
@@ -291,7 +291,7 @@ fn initialize_weapon_sets(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn switch_weapon_next(
     next: On<JustPressed<NextWeapon>>,
     mut commands: Commands,
@@ -319,7 +319,7 @@ fn switch_weapon_next(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn switch_weapon_prev(
     prev: On<JustPressed<PrevWeapon>>,
     mut commands: Commands,
@@ -358,10 +358,10 @@ fn show_weapon(commands: &mut Commands, weapon: Entity) {
         .insert(Visibility::Inherited);
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct AddActiveWeaponLater;
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = PostUpdate)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = PostUpdate)]
 fn add_active_weapon_later(
     mut commands: Commands,
     weapons: Query<Entity, With<AddActiveWeaponLater>>,

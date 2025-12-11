@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
 use return_ok::ok_or_return_ok;
@@ -25,8 +25,7 @@ pub struct NeutralCrouchRoll;
 #[action(invalidate = false)]
 pub struct RollNeutral;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin)]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct RollingAssets {
     pub mesh: Mesh3d,
     pub mesh_transform: Transform,
@@ -49,7 +48,7 @@ impl FromWorld for RollingAssets {
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_rolling_assets(
     add: On<Add, (Rolling,)>,
     players: Query<&PlayerBody>,
@@ -67,7 +66,7 @@ fn to_rolling_assets(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> Result {
     let mut rolling = ok_or_return_ok!(players.get_mut(di.input));
     rolling.di = di
@@ -79,7 +78,7 @@ fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> 
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
     commands
         .entity(add.entity)
@@ -87,7 +86,7 @@ fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
         .insert(AffectedByGravity);
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn readd_movement(
     add: On<Add, Rolling>,
     velocities: Query<&Velocity>,
@@ -100,10 +99,10 @@ fn readd_movement(
     Ok(())
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Rolling {
     di: Vec2,
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct NeutralRolling;

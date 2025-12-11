@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
     Action, ButtonPress, ComponentBuffer, Cooldown, FilterBuffered, InputBuffer, ResetBuffer,
@@ -56,27 +56,25 @@ mod movement_indicators;
 pub mod stamina;
 pub mod weapons;
 
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
 pub struct PlayerControllerPlugin;
-#[butler_plugin]
-impl Plugin for PlayerControllerPlugin {
-    fn build(&self, app: &mut App) {
-        app.configure_sets(
-            Update,
-            (
-                MovementControlSystems::UpdateDi.before(MovementControlSystems::UpdateState),
-                MovementControlSystems::UpdateGrounded.before(MovementControlSystems::UpdateState),
-                MovementControlSystems::DoHorizontalMovement
-                    .after(MovementControlSystems::UpdateState),
-                MovementControlSystems::DoVerticalMovement
-                    .after(MovementControlSystems::UpdateState),
-            ),
-        );
-    }
+
+#[auto_plugin(plugin = PlayerControllerPlugin)]
+fn build(app: &mut App) {
+    app.configure_sets(
+        Update,
+        (
+            MovementControlSystems::UpdateDi.before(MovementControlSystems::UpdateState),
+            MovementControlSystems::UpdateGrounded.before(MovementControlSystems::UpdateState),
+            MovementControlSystems::DoHorizontalMovement.after(MovementControlSystems::UpdateState),
+            MovementControlSystems::DoVerticalMovement.after(MovementControlSystems::UpdateState),
+        ),
+    );
 }
 
 // TODO: figure out how to UNIT TEST this stuff
-#[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -191,7 +189,6 @@ fn setup(
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
             },
-            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -199,7 +196,6 @@ fn setup(
         .spawn((
             Name::new("Player Mesh"),
             MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
-            DespawnOnExit(GameState::InGame),
         ))
         .id();
 
@@ -214,7 +210,6 @@ fn setup(
             PlayerCamera,
             Pitch(0.0),
             SpatialListener::new(-0.25),
-            DespawnOnExit(GameState::InGame),
             PostProcessSettings {
                 intensity: 0.02,
                 radius: 4.0,
@@ -301,11 +296,15 @@ fn setup(
         CollisionGroups::new(Group::NONE, Group::NONE),
     ));
 
+    debug!("Character up!");
+
     Ok(())
 }
 
 #[cfg(feature = "debug_movement_graph")]
-#[add_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame), after = setup)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame), config(
+	after = setup,
+))]
 fn debug_graph(graph: Res<bevy_pretty_nice_input::debug_graph::DebugGraph>) {
     use itertools::Itertools;
     let output = format!(
@@ -320,7 +319,7 @@ fn debug_graph(graph: Res<bevy_pretty_nice_input::debug_graph::DebugGraph>) {
     println!("{output}");
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct PlayerBody {
     pub camera: Entity,
     pub mesh: Entity,

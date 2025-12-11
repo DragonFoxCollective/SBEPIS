@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, JustPressed, JustReleased};
 
 use crate::gravity::{AffectedByGravity, ComputedGravity};
@@ -28,27 +28,32 @@ pub struct ChargeWalk;
 #[action(invalidate = false)]
 pub struct ChargeDash;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerChargeSettings {
-	max_time: Duration::from_secs_f32(1.0),
-})]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerChargeSettings {
     pub max_time: Duration,
 }
 
-#[derive(Resource)]
+impl Default for PlayerChargeSettings {
+    fn default() -> Self {
+        Self {
+            max_time: Duration::from_secs_f32(1.0),
+        }
+    }
+}
+
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct ChargeAssets {
     pub sound: Handle<AudioSource>,
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(ChargeAssets {
         sound: asset_server.load("worms bazooka charge.mp3"),
     });
 }
 
-#[derive(Component, Debug, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct ChargingTime {
     pub charge_time: Duration,
 }
@@ -92,19 +97,19 @@ impl ChargingTime {
     }
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct ChargeStanding;
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct ChargeCrouching;
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct ChargeWalking;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 struct ChargingSound(pub Entity);
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn spawn_charging_sound(
     charge: On<JustPressed<Charge>>,
     mut commands: Commands,
@@ -119,7 +124,7 @@ fn spawn_charging_sound(
     commands.entity(charge.input).insert(ChargingSound(sound));
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn despawn_charging_sound(
     charge: On<JustReleased<Charge>>,
     sounds: Query<&ChargingSound>,
@@ -134,7 +139,7 @@ fn despawn_charging_sound(
     commands.entity(charge.input).remove::<ChargingSound>();
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut commands: Commands) {
     // TODO: replace this with another event with params
     commands.trigger(JustPressed::<Dash> {
@@ -144,7 +149,7 @@ fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut comma
     });
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouching_to_tripping(
     sprint: On<JustReleased<Trip>>,
     players: Query<(Option<&ChargingSound>, &ComputedGravity)>,
@@ -170,7 +175,7 @@ fn charge_crouching_to_tripping(
     Ok(())
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_charge_time(mut players: Query<&mut ChargingTime>, time: Res<Time>) {
     for mut charging_time in players.iter_mut() {
         charging_time.charge_time += time.delta();

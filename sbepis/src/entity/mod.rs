@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 
 use crate::prelude::*;
 
@@ -12,17 +12,18 @@ pub mod movement;
 pub mod orientation;
 pub mod spawner;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
+#[auto_plugin(impl_plugin_trait)]
 pub struct EntityPlugin;
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = EntityPlugin, target(entity), derive, reflect, register)]
 pub struct Kill {
     #[event_target]
     pub victim: Entity,
 }
 
-#[add_observer(plugin = EntityPlugin)]
+#[auto_observer(plugin = EntityPlugin)]
 fn kill_entities(kill: On<Kill>, mut commands: Commands) {
     commands.entity(kill.victim).despawn();
 }

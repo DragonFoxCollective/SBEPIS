@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::bundles::observe;
 use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
 use bevy_rapier3d::prelude::*;
@@ -23,18 +23,7 @@ use super::walk::{PlayerWalkSettings, Walking};
 #[action(invalidate = false)]
 pub struct Dash;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerDashSettings {
-	speed_addon: 12.0,
-	dash_time: Duration::from_secs_f32(0.3),
-	stamina_cost: 0.33,
-
-	charge_min_speed_addon: 12.0,
-	charge_max_speed_addon: 40.0,
-	charge_dash_time: Duration::from_secs_f32(0.3),
-	charge_min_stamina_cost: 0.33,
-	charge_max_stamina_cost: 0.66,
-})]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerDashSettings {
     pub speed_addon: f32,
     pub dash_time: Duration,
@@ -47,19 +36,35 @@ pub struct PlayerDashSettings {
     pub charge_max_stamina_cost: f32,
 }
 
-#[derive(Resource)]
+impl Default for PlayerDashSettings {
+    fn default() -> Self {
+        Self {
+            speed_addon: 12.0,
+            dash_time: Duration::from_secs_f32(0.3),
+            stamina_cost: 0.33,
+
+            charge_min_speed_addon: 12.0,
+            charge_max_speed_addon: 40.0,
+            charge_dash_time: Duration::from_secs_f32(0.3),
+            charge_min_stamina_cost: 0.33,
+            charge_max_stamina_cost: 0.66,
+        }
+    }
+}
+
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct DashAssets {
     pub sound: Handle<AudioSource>,
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(DashAssets {
         sound: asset_server.load("ultrakill dash sound.mp3"),
     });
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Dashing {
     pub duration: Duration,
     pub max_duration: Duration,
@@ -67,7 +72,7 @@ pub struct Dashing {
     pub speed_addon: f32,
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
     mut players: Query<
@@ -123,11 +128,10 @@ fn walking_to_dashing(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::UpdateState,
 	before = walking_to_dashing,
-)]
+))]
 fn update_dashing(
     mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,
     time: Res<Time>,
@@ -150,10 +154,9 @@ fn update_dashing(
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::DoHorizontalMovement,
-)]
+))]
 fn update_dash_velocity(mut movement: Query<(&mut Movement, &mut Velocity, &Dashing)>) {
     for (mut movement, mut velocity, dashing) in movement.iter_mut() {
         velocity.linvel = dashing.velocity;
@@ -161,7 +164,7 @@ fn update_dash_velocity(mut movement: Query<(&mut Movement, &mut Velocity, &Dash
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HasEnoughStaminaToDash;
 
 impl Condition for HasEnoughStaminaToDash {

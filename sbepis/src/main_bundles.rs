@@ -1,10 +1,12 @@
 use bevy::prelude::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
+use crate::SbepisPlugin;
 use crate::entity::{GelViscosity, GravityOrientation, Movement};
 use crate::gravity::AffectedByGravity;
 
-#[derive(Component)]
+#[auto_component(plugin = SbepisPlugin, derive, reflect, register)]
 #[require(
 	Name::new("Box"),
 	Collider::cuboid(0.5, 0.5, 0.5),
@@ -20,7 +22,7 @@ use crate::gravity::AffectedByGravity;
 )]
 pub struct Box;
 
-#[derive(Component)]
+#[auto_component(plugin = SbepisPlugin, derive, reflect, register)]
 #[require(
 	Name::new("Mob"),
 	AffectedByGravity,

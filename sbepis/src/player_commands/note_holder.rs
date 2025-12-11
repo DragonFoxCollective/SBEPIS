@@ -1,12 +1,16 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use soundyrust::Note;
 
-use crate::player_commands::notes::PlayNote;
-use crate::player_commands::{ClearNotes, PlayerCommandsPlugin, staff::*};
+use crate::player_commands::PlayerCommandsPlugin;
+use crate::player_commands::notes::{ClearNotes, PlayNote};
+use crate::player_commands::staff::{
+    F5_LINE_TOP, QUARTER_NOTE_HEIGHT, QUARTER_NOTE_LEFT_SPACING, QUARTER_NOTE_LEFT_START,
+    QUARTER_NOTE_TOP_OFFSET, QUARTER_NOTE_WEIRD_SPACING_OFFSET, STAFF_HEIGHT,
+};
 use crate::util::MapRangeBetween;
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerCommandsPlugin, derive(Default), reflect, register)]
 pub struct NoteNodeHolder {
     note_entities: Vec<Entity>,
 }
@@ -25,7 +29,7 @@ impl NoteNodeHolder {
     }
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn add_note_to_holder(
     play_note: On<PlayNote>,
     mut commands: Commands,
@@ -62,7 +66,7 @@ fn add_note_to_holder(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn clear_holder_notes(
     _: On<ClearNotes>,
     mut commands: Commands,

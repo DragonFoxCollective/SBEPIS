@@ -1,9 +1,10 @@
 use crate::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 
 pub mod desert;
 pub mod terrain;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
+#[auto_plugin(impl_plugin_trait)]
 pub struct WorldGenPlugin;

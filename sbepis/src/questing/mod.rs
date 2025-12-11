@@ -2,7 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
+use bevy_pretty_nice_menus::{close_menu_on_event, show_menu_on_action};
 use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rand::distr::weighted::WeightedIndex;
@@ -15,7 +16,9 @@ use crate::gridbox_material;
 use crate::inventory::{ChangeInventory, Inventory, Item};
 use crate::main_bundles::Box;
 use crate::npcs::imp::Imp;
+use crate::player_controller::OpenQuestScreen;
 use crate::prelude::*;
+use crate::questing::screen::QuestScreen;
 
 mod proposal;
 mod quest_markers;
@@ -23,19 +26,22 @@ mod screen;
 
 pub use quest_markers::SpawnQuestMarker;
 
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
 pub struct QuestingPlugin;
-#[butler_plugin]
-impl Plugin for QuestingPlugin {
-    fn build(&self, app: &mut App) {
-        #[cfg(feature = "inspector")]
-		app.register_type_data::<QuestId, bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl>();
-    }
+
+#[auto_plugin(plugin = QuestingPlugin)]
+fn build(app: &mut App) {
+    #[cfg(feature = "inspector")]
+	app.register_type_data::<QuestId, bevy_inspector_egui::inspector_egui_impls::InspectorEguiImpl>();
+
+    app.add_observer(close_menu_on_event::<AcceptQuest>);
+    app.add_observer(close_menu_on_event::<DeclineQuest>);
+    app.add_observer(interact_with::<QuestGiver>);
+    app.add_observer(show_menu_on_action::<OpenQuestScreen, QuestScreen>);
 }
 
-#[derive(Resource, Default, Debug, Reflect)]
-#[reflect(Resource)]
-#[insert_resource(plugin = QuestingPlugin)]
+#[auto_resource(plugin = QuestingPlugin, derive(Default, Debug), reflect, register, init)]
 pub struct Quests(pub HashMap<QuestId, Quest>);
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Reflect)]
@@ -172,13 +178,13 @@ impl Distribution<Quest> for StandardUniform {
     }
 }
 
-#[derive(Component, Default, Reflect)]
+#[auto_component(plugin = QuestingPlugin, derive(Default), reflect, register)]
 pub struct QuestGiver {
     pub given_quest: Option<QuestId>,
     quest_marker: Option<Entity>,
 }
 
-#[derive(EntityEvent, Clone)]
+#[auto_event(plugin = QuestingPlugin, target(entity), derive(Clone), reflect, register)]
 pub struct AcceptQuest {
     #[event_target]
     pub quest_proposal: Entity,
@@ -186,7 +192,7 @@ pub struct AcceptQuest {
 }
 
 /// Quest has been declined, and will end.
-#[derive(EntityEvent, Clone)]
+#[auto_event(plugin = QuestingPlugin, target(entity), derive(Clone), reflect, register)]
 pub struct DeclineQuest {
     #[event_target]
     pub quest_proposal: Entity,
@@ -194,31 +200,31 @@ pub struct DeclineQuest {
 }
 
 /// Quest has ended, either by being completed, declined, or something else.
-#[derive(Event)]
+#[auto_event(plugin = QuestingPlugin, target(global), derive, reflect, register)]
 pub struct EndQuest {
     pub quest_id: QuestId,
 }
 
 /// Quest has been completed successfully, and will end.
-#[derive(Event, Clone)]
+#[auto_event(plugin = QuestingPlugin, target(global), derive(Clone), reflect, register)]
 pub struct CompleteQuest {
     pub quest_id: QuestId,
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn complete_to_end(complete: On<CompleteQuest>, mut commands: Commands) {
     commands.trigger(EndQuest {
         quest_id: complete.quest_id,
     });
 }
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn decline_to_end(decline: On<DeclineQuest>, mut commands: Commands) {
     commands.trigger(EndQuest {
         quest_id: decline.quest_id,
     });
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn complete_quest_if_done(
     interact: On<InteractWith<QuestGiver>>,
     mut commands: Commands,
@@ -235,7 +241,7 @@ fn complete_quest_if_done(
     Ok(())
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn end_quest_if_giver_killed(
     kill: On<Kill>,
     mut commands: Commands,
@@ -248,7 +254,7 @@ fn end_quest_if_giver_killed(
     }
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn remove_quest(
     end: On<EndQuest>,
     mut quests: ResMut<Quests>,
@@ -265,7 +271,7 @@ fn remove_quest(
     Ok(())
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn update_killed_imps(kill: On<Kill>, mut quests: ResMut<Quests>, imps: Query<(), With<Imp>>) {
     if imps.get(kill.victim).is_ok() {
         for (_, quest) in quests.0.iter_mut() {
@@ -276,7 +282,7 @@ fn update_killed_imps(kill: On<Kill>, mut quests: ResMut<Quests>, imps: Query<()
     }
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn update_picked_up_items(
     _change: On<ChangeInventory>,
     inventories: Query<&Inventory>,
@@ -290,7 +296,7 @@ fn update_picked_up_items(
     }
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn spawn_quest_drops(
     kill: On<Kill>,
     mut commands: Commands,
@@ -329,7 +335,7 @@ fn spawn_quest_drops(
     }
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn consume_quest_drop(
     complete: On<CompleteQuest>,
     mut inventories: Query<&mut Inventory>,

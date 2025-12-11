@@ -1,33 +1,29 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use return_ok::{ok_or_continue, some_or_continue, some_or_return};
 
 use crate::questing::{QuestGiver, QuestingPlugin, Quests};
 
-#[derive(Component)]
+#[auto_component(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct SpawnQuestMarker;
 
-#[derive(Component)]
+#[auto_component(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct QuestMarker {
     entity: Entity,
     new_marker: Entity,
     updated_marker: Entity,
 }
 
-#[derive(Resource)]
+#[auto_resource(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct QuestMarkerAsset(Handle<Gltf>);
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = QuestingPlugin, schedule = Startup)]
 fn load_quest_markers(mut commands: Commands, asset_server: Res<AssetServer>) {
     let asset = asset_server.load("quest markers.glb");
     commands.insert_resource(QuestMarkerAsset(asset));
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-)]
+#[auto_system(plugin = QuestingPlugin, schedule = Update)]
 fn spawn_quest_markers(
     mut commands: Commands,
     mut quest_givers: Query<(Entity, &mut QuestGiver), With<SpawnQuestMarker>>,
@@ -74,7 +70,7 @@ fn spawn_quest_markers(
     }
 }
 
-#[add_system(plugin = QuestingPlugin, schedule = PostUpdate)]
+#[auto_system(plugin = QuestingPlugin, schedule = PostUpdate)]
 fn despawn_invalid_quest_markers(
     mut commands: Commands,
     quest_markers: Query<(Entity, &QuestMarker)>,
@@ -87,9 +83,7 @@ fn despawn_invalid_quest_markers(
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-)]
+#[auto_system(plugin = QuestingPlugin, schedule = Update)]
 fn update_quest_markers(
     quests: Res<Quests>,
     quest_givers: Query<&QuestGiver>,

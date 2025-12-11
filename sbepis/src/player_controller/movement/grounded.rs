@@ -1,20 +1,19 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Grounded;
 
-#[derive(Component, Deref, DerefMut, Debug)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Deref, DerefMut, Debug))]
 pub struct GroundedContact(pub RayIntersection);
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::UpdateGrounded,
-)]
+))]
 fn update_is_grounded(
     mut bodies: Query<(Entity, &GlobalTransform, &PlayerBody)>,
     rapier_context: ReadRapierContext,

@@ -1,6 +1,6 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, binding1d, input};
 use bevy_pretty_nice_menus::{MenuHidesWhenClosed, MenuWithInput, MenuWithoutMouse};
 
@@ -8,9 +8,8 @@ use crate::camera::PlayerCameraNode;
 use crate::player_commands::PlayerCommandsPlugin;
 use crate::player_commands::note_holder::NoteNodeHolder;
 use crate::player_commands::notes::*;
-use crate::player_controller::OpenStaff;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerCommandsPlugin, derive, reflect, register)]
 pub struct CommandStaff;
 
 // This should be enough information to map all notes
@@ -27,9 +26,7 @@ pub const QUARTER_NOTE_LEFT_SPACING: f32 = 20.0;
 // Does top + height not actually equal bottom???
 pub const QUARTER_NOTE_WEIRD_SPACING_OFFSET: f32 = 18.0;
 
-#[add_system(
-	plugin = PlayerCommandsPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = PlayerCommandsPlugin, schedule = Startup)]
 fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Background
     commands
@@ -138,11 +135,5 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin, generics = <OpenStaff, CommandStaff>)]
-use bevy_pretty_nice_menus::show_menu_on_action;
-
 #[derive(Action)]
 pub struct CloseStaff;
-
-#[add_observer(plugin = PlayerCommandsPlugin, generics = <CloseStaff>)]
-use bevy_pretty_nice_menus::close_menu_on_action;

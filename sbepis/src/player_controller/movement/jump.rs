@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::bundles::observe;
 use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
 use bevy_rapier3d::prelude::*;
@@ -28,31 +28,14 @@ pub struct ChargeJump;
 #[action(invalidate = false)]
 pub struct ChargeCrouchJump;
 
-#[derive(EntityEvent)]
+#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
 pub struct DoJump {
     pub entity: Entity,
     pub speed: f32,
     pub stamina_cost: f32,
 }
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerJumpSettings {
-	jump_speed: 5.0,
-	jump_stamina_cost: 0.0,
-
-	high_jump_speed: 7.0,
-	high_jump_stamina_cost: 0.0,
-
-	charge_jump_min_speed: 5.0,
-	charge_jump_max_speed: 10.0,
-	charge_jump_min_stamina_cost: 0.0,
-	charge_jump_max_stamina_cost: 0.33,
-
-	unreal_air_jump_min_speed: 7.0,
-	unreal_air_jump_max_speed: 15.0,
-	unreal_air_jump_min_stamina_cost: 0.0,
-	unreal_air_jump_max_stamina_cost: 0.66,
-})]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerJumpSettings {
     pub jump_speed: f32,
     pub jump_stamina_cost: f32,
@@ -71,19 +54,41 @@ pub struct PlayerJumpSettings {
     pub unreal_air_jump_max_stamina_cost: f32,
 }
 
-#[derive(Resource)]
+impl Default for PlayerJumpSettings {
+    fn default() -> Self {
+        Self {
+            jump_speed: 5.0,
+            jump_stamina_cost: 0.0,
+
+            high_jump_speed: 7.0,
+            high_jump_stamina_cost: 0.0,
+
+            charge_jump_min_speed: 5.0,
+            charge_jump_max_speed: 10.0,
+            charge_jump_min_stamina_cost: 0.0,
+            charge_jump_max_stamina_cost: 0.33,
+
+            unreal_air_jump_min_speed: 7.0,
+            unreal_air_jump_max_speed: 15.0,
+            unreal_air_jump_min_stamina_cost: 0.0,
+            unreal_air_jump_max_stamina_cost: 0.66,
+        }
+    }
+}
+
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct JumpAssets {
     pub charge_jump_sound: Handle<AudioSource>,
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(JumpAssets {
         charge_jump_sound: asset_server.load("worms bazooka shoot.mp3"),
     });
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn jump(jump: On<JustPressed<Jump>>, mut commands: Commands, settings: Res<PlayerJumpSettings>) {
     commands.trigger(DoJump {
         entity: jump.input,
@@ -92,7 +97,7 @@ fn jump(jump: On<JustPressed<Jump>>, mut commands: Commands, settings: Res<Playe
     });
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn crouch_jump(
     jump: On<JustPressed<CrouchJump>>,
     mut commands: Commands,
@@ -105,7 +110,7 @@ fn crouch_jump(
     });
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_jump(
     jump: On<JustPressed<ChargeJump>>,
     mut commands: Commands,
@@ -139,7 +144,7 @@ fn charge_jump(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouch_jump(
     jump: On<JustPressed<ChargeCrouchJump>>,
     mut commands: Commands,
@@ -174,7 +179,7 @@ fn charge_crouch_jump(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn do_jump(
     jump: On<DoJump>,
     mut player_bodies: Query<(&mut Velocity, &Transform, &mut Stamina)>,
@@ -197,7 +202,7 @@ fn do_jump(
     Ok(())
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HasEnoughStaminaToJump;
 
 impl Condition for HasEnoughStaminaToJump {
@@ -218,7 +223,7 @@ impl Condition for HasEnoughStaminaToJump {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HasEnoughStaminaToCrouchJump;
 
 impl Condition for HasEnoughStaminaToCrouchJump {
@@ -239,7 +244,7 @@ impl Condition for HasEnoughStaminaToCrouchJump {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HasEnoughStaminaToChargeJump;
 
 impl Condition for HasEnoughStaminaToChargeJump {
@@ -261,7 +266,7 @@ impl Condition for HasEnoughStaminaToChargeJump {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HasEnoughStaminaToChargeCrouchJump;
 
 impl Condition for HasEnoughStaminaToChargeCrouchJump {

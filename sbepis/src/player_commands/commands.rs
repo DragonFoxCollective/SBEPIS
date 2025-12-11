@@ -1,26 +1,24 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use soundyrust::Note;
 
-use crate::player_commands::{ClearNotes, PlayerCommandsPlugin};
+use crate::player_commands::PlayerCommandsPlugin;
+use crate::player_commands::notes::{ClearNotes, PlayNote};
 
-use crate::player_commands::notes::PlayNote;
-
-#[derive(Resource, Default)]
-#[insert_resource(plugin = PlayerCommandsPlugin)]
+#[auto_resource(plugin = PlayerCommandsPlugin, derive(Default), reflect, register, init)]
 pub struct NotePatternPlayer {
     pub current_pattern: Vec<Note>,
 }
 
-#[derive(Event)]
+#[auto_event(plugin = PlayerCommandsPlugin, target(global), derive, reflect, register)]
 pub struct ChangeNotePattern {
     pub notes: Vec<Note>,
 }
 
-#[derive(Event)]
+#[auto_event(plugin = PlayerCommandsPlugin, target(global), derive, reflect, register)]
 pub struct SendCommand;
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn add_note_to_player_and_check(
     play_note: On<PlayNote>,
     mut player: ResMut<NotePatternPlayer>,
@@ -32,7 +30,7 @@ fn add_note_to_player_and_check(
     });
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn clear_player_notes(_: On<ClearNotes>, mut player: ResMut<NotePatternPlayer>) {
     player.current_pattern.clear();
 }
@@ -74,7 +72,7 @@ impl NoteSequenceTyped<bool> for &[Note] {
     }
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn ping(pattern: On<ChangeNotePattern>, mut commands: Commands, asset_server: Res<AssetServer>) {
     if let Some(()) = (|| {
         let _notes = pattern.notes.eat(&[Note::D4, Note::D4, Note::D5])?;
@@ -89,7 +87,7 @@ fn ping(pattern: On<ChangeNotePattern>, mut commands: Commands, asset_server: Re
     }
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn kill(pattern: On<ChangeNotePattern>, mut commands: Commands, mut exit: MessageWriter<AppExit>) {
     if let Some(actually_kill) = (|| {
         let notes = pattern.notes.eat(&[Note::D4, Note::D4, Note::D5])?;

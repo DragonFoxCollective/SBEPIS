@@ -1,16 +1,18 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, JustPressed};
 use soundyrust::Note;
 
-use crate::player_commands::{CloseStaff, PlayerCommandsPlugin, SendCommand};
+use crate::player_commands::PlayerCommandsPlugin;
+use crate::player_commands::commands::SendCommand;
+use crate::player_commands::staff::CloseStaff;
 
-#[derive(Event)]
+#[auto_event(plugin = PlayerCommandsPlugin, target(global), derive, reflect, register)]
 pub struct PlayNote {
     pub note: Note,
 }
 
-#[derive(Event)]
+#[auto_event(plugin = PlayerCommandsPlugin, target(global), derive, reflect, register)]
 pub struct ClearNotes;
 
 macro_rules! note_action {
@@ -20,7 +22,7 @@ macro_rules! note_action {
             pub struct [<Play $note $id>];
 
             #[allow(non_snake_case)]
-            #[add_observer(plugin = PlayerCommandsPlugin)]
+            #[auto_observer(plugin = PlayerCommandsPlugin)]
             fn [<map_to_enum_ $note _ $id>](_: On<JustPressed<[<Play $note $id>]>>, mut commands: Commands) {
                 commands.trigger(PlayNote { note: Note::$note });
             }
@@ -64,7 +66,7 @@ note_action!(D6, Up);
 note_action!(DS6, Up);
 note_action!(E6, Up);
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn spawn_note_audio(
     play_note: On<PlayNote>,
     mut commands: Commands,
@@ -76,12 +78,12 @@ fn spawn_note_audio(
     ));
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn clear_notes_on_close(_: On<JustPressed<CloseStaff>>, mut commands: Commands) {
     commands.trigger(ClearNotes);
 }
 
-#[add_observer(plugin = PlayerCommandsPlugin)]
+#[auto_observer(plugin = PlayerCommandsPlugin)]
 fn clear_notes_after_command(_: On<SendCommand>, mut commands: Commands) {
     commands.trigger(ClearNotes);
 }

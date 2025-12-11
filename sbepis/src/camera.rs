@@ -1,21 +1,20 @@
 use crate::prelude::*;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use return_ok::ok_or_return;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
+#[auto_plugin(impl_plugin_trait)]
 pub struct PlayerCameraPlugin;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct PlayerCamera;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct PlayerCameraNode;
 
-#[add_system(
-	plugin = PlayerCameraPlugin, schedule = Update,
-)]
+#[auto_system(plugin = PlayerCameraPlugin, schedule = Update)]
 fn setup_player_camera_added_node(
     mut commands: Commands,
     nodes: Query<Entity, Added<PlayerCameraNode>>,
@@ -27,9 +26,7 @@ fn setup_player_camera_added_node(
     }
 }
 
-#[add_system(
-	plugin = PlayerCameraPlugin, schedule = Update,
-)]
+#[auto_system(plugin = PlayerCameraPlugin, schedule = Update)]
 fn setup_player_camera_added_camera(
     mut commands: Commands,
     nodes: Query<Entity, With<PlayerCameraNode>>,

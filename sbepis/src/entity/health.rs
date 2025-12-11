@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
 
 use crate::entity::EntityPlugin;
@@ -7,16 +7,16 @@ use crate::gravity::AffectedByGravity;
 use crate::util::{Billboard, DespawnTimer};
 use crate::{gridbox_material, gridbox_material_extra, util::MapRange};
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct GelViscosity {
     pub value: f32,
     pub max: f32,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct SpawnHealthBar;
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct GelVial {
     pub entity: Entity,
     pub health: f32,
@@ -27,9 +27,7 @@ pub struct GelVial {
     pub height: f32,
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = Update,
-)]
+#[auto_system(plugin = EntityPlugin, schedule = Update)]
 fn spawn_health_bars(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -93,7 +91,7 @@ fn spawn_health_bars(
     }
 }
 
-#[add_system(plugin = EntityPlugin, schedule = PostUpdate)]
+#[auto_system(plugin = EntityPlugin, schedule = PostUpdate)]
 fn despawn_invalid_health_bars(
     mut commands: Commands,
     health_bars: Query<&GelVial>,
@@ -127,7 +125,7 @@ fn despawn_invalid_health_bars(
     Ok(())
 }
 
-#[add_system(plugin = EntityPlugin, schedule = PostUpdate)]
+#[auto_system(plugin = EntityPlugin, schedule = PostUpdate)]
 fn update_health_bars_health(mut health_bars: Query<&mut GelVial>, healths: Query<&GelViscosity>) {
     for mut health_bar in health_bars.iter_mut() {
         let Ok(health) = healths.get(health_bar.entity) else {
@@ -138,10 +136,9 @@ fn update_health_bars_health(mut health_bars: Query<&mut GelVial>, healths: Quer
     }
 }
 
-#[add_system(
-	plugin = EntityPlugin, schedule = PostUpdate,
+#[auto_system(plugin = EntityPlugin, schedule = PostUpdate, config(
 	after = update_health_bars_health,
-)]
+))]
 fn update_health_bars_size(
     mut health_bars: Query<(&GelVial, &mut Transform)>,
     mut transforms: Query<&mut Transform, Without<GelVial>>,
@@ -163,10 +160,10 @@ fn update_health_bars_size(
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct Healing(pub f32);
 
-#[add_system(plugin = EntityPlugin, schedule = Update)]
+#[auto_system(plugin = EntityPlugin, schedule = Update)]
 fn heal(mut healings: Query<(&Healing, &mut GelViscosity)>, time: Res<Time>) {
     for (healing, mut health) in healings.iter_mut() {
         health.value += healing.0 * time.delta_secs();

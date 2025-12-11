@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_menus::MenuStack;
 use soundyrust::{MidiAudio, MidiAudioTrackHandle};
 
@@ -7,11 +7,10 @@ use crate::dialogue::spawn_dialogue;
 use crate::fray::FrayPlugin;
 use crate::prelude::*;
 
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[auto_component(plugin = FrayPlugin, derive, reflect, register)]
 pub struct TrackSwitcher;
 
-#[derive(Resource)]
+#[auto_resource(plugin = FrayPlugin, derive, reflect, register)]
 pub struct FrayTracks {
     pub midi: Handle<MidiAudio>,
     pub player: Track,
@@ -45,10 +44,7 @@ impl FrayTracks {
     }
 }
 
-#[add_observer(plugin = FrayPlugin, generics = <TrackSwitcher>)]
-use crate::player_controller::camera_controls::interact_with;
-
-#[add_observer(plugin = FrayPlugin)]
+#[auto_observer(plugin = FrayPlugin)]
 fn open_track_switch_dialogue(
     _: On<InteractWith<TrackSwitcher>>,
     mut commands: Commands,
@@ -80,21 +76,18 @@ fn open_track_switch_dialogue(
     );
 }
 
-#[add_observer(plugin = FrayPlugin)]
+#[auto_observer(plugin = FrayPlugin)]
 fn switch_track(switch_track: On<SwitchTrack>, mut fray_tracks: ResMut<FrayTracks>) {
     fray_tracks.set_player_track(switch_track.track);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Reflect)]
 pub enum Track {
     FourFour,
     SixEight,
 }
 
-#[add_observer(plugin = FrayPlugin, generics = <SwitchTrack>)]
-use bevy_pretty_nice_menus::close_menu_on_event;
-
-#[derive(EntityEvent, Clone)]
+#[auto_event(plugin = FrayPlugin, target(entity), derive(Clone), reflect, register)]
 pub struct SwitchTrack {
     pub track: Track,
     #[event_target]

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{binding1d, input};
 use bevy_pretty_nice_menus::MenuStack;
 
@@ -7,14 +7,7 @@ use crate::dialogue::{PickDialogueOption, spawn_dialogue};
 use crate::player_controller::camera_controls::InteractWith;
 use crate::questing::{AcceptQuest, DeclineQuest, Quest, QuestGiver, QuestingPlugin, Quests};
 
-#[add_observer(plugin = QuestingPlugin, generics = <AcceptQuest>)]
-#[add_observer(plugin = QuestingPlugin, generics = <DeclineQuest>)]
-use bevy_pretty_nice_menus::close_menu_on_event;
-
-#[add_observer(plugin = QuestingPlugin, generics = <QuestGiver>)]
-use crate::prelude::interact_with;
-
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn propose_quest_if_none(
     interact: On<InteractWith<QuestGiver>>,
     mut commands: Commands,

@@ -4,7 +4,7 @@ use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animat
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Filter, binding1d, input};
 use bevy_pretty_nice_menus::MenuInputOf;
 use bevy_rapier3d::math::Real;
@@ -20,12 +20,12 @@ use crate::player_controller::weapons::{
 };
 use crate::prelude::*;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct RiflePivot {
     barrel: Entity,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Rifle {
     pub damage: f32,
     pub wielder: Entity,
@@ -172,7 +172,7 @@ struct RifleFire;
 #[derive(AnimationEvent, Clone)]
 struct RifleStartCharging;
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn on_rifle_fire(
     fire: On<RifleFire>,
     rifle_pivots: Query<&RiflePivot>,
@@ -226,7 +226,7 @@ fn on_rifle_fire(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn on_rifle_start_charging(
     charging: On<RifleStartCharging>,
     rifle_pivots: Query<&RiflePivot>,
@@ -246,9 +246,7 @@ fn on_rifle_start_charging(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn charge_rifle(
     mut commands: Commands,
     mut rifle_barrels: Query<&mut Rifle>,

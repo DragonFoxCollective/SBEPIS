@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, JustPressed};
 use bevy_rapier3d::prelude::Velocity;
 
@@ -25,14 +25,7 @@ pub struct Trip;
 #[derive(Action)]
 pub struct GroundParry;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerTripSettings {
-	upward_speed: 5.0,
-	stun_time: Duration::from_secs_f32(1.0),
-	ground_parry_speed: 40.0,
-	trip_speed_threshold: 25.0,
-	ground_parry_stamina_gain: 0.25,
-})]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerTripSettings {
     pub upward_speed: f32,
     pub stun_time: Duration,
@@ -41,11 +34,23 @@ pub struct PlayerTripSettings {
     pub ground_parry_stamina_gain: f32,
 }
 
+impl Default for PlayerTripSettings {
+    fn default() -> Self {
+        Self {
+            upward_speed: 5.0,
+            stun_time: Duration::from_secs_f32(1.0),
+            ground_parry_speed: 40.0,
+            trip_speed_threshold: 25.0,
+            ground_parry_stamina_gain: 0.25,
+        }
+    }
+}
+
 /// Marker component to insert the real Tripping component
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct StartTripping;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Tripping {
     pub duration: Duration,
     pub up: Vec3,
@@ -62,28 +67,32 @@ impl Tripping {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct TripRecover;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HitStop {
     pub duration: Duration,
     pub velocity: Vec3,
     pub movement: Vec3,
 }
 
-#[insert_resource(plugin = PlayerControllerPlugin, init = HitStopSettings {
-	ground_parry_duration: Duration::from_secs_f32(0.1),
-})]
-#[derive(Resource)]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct HitStopSettings {
     pub ground_parry_duration: Duration,
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+impl Default for HitStopSettings {
+    fn default() -> Self {
+        Self {
+            ground_parry_duration: Duration::from_secs_f32(0.1),
+        }
+    }
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::UpdateState,
-)]
+))]
 fn tripping_to_trip_recover(
     mut players: Query<(Entity, &mut Tripping)>,
     time: Res<Time>,
@@ -102,10 +111,9 @@ fn tripping_to_trip_recover(
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::DoHorizontalMovement,
-)]
+))]
 fn update_tripping_velocity(
     mut movement: Query<(&mut Movement, &mut Velocity, &mut Tripping)>,
     time: Res<Time>,
@@ -121,7 +129,7 @@ fn update_tripping_velocity(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn ground_parry(
     parry: On<JustPressed<GroundParry>>,
     mut players: Query<(&mut Movement, &Transform, &mut Stamina, &mut Velocity)>,
@@ -156,10 +164,9 @@ fn ground_parry(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::UpdateState,
-)]
+))]
 fn walking_too_fast_to_tripping(
     mut players: Query<
         (Entity, &ComputedGravity, &Velocity, &Transform),
@@ -196,7 +203,7 @@ fn walking_too_fast_to_tripping(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn start_tripping(
     add: On<Add, StartTripping>,
     mut players: Query<(Entity, &ComputedGravity)>,
@@ -214,20 +221,19 @@ fn start_tripping(
     Ok(())
 }
 
-#[derive(Resource)]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct ParrySound(pub Handle<AudioSource>);
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(ParrySound(asset_server.load("parry-ultrakill.mp3")));
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	before = MovementControlSystems::DoHorizontalMovement,
 	before = MovementControlSystems::DoVerticalMovement,
 	after = MovementControlSystems::UpdateState,
-)]
+))]
 fn hit_stop_reset(mut players: Query<(&mut Movement, &mut Velocity), With<HitStop>>) {
     for (mut movement, mut velocity) in players.iter_mut() {
         movement.0 = Vec3::ZERO;
@@ -235,11 +241,10 @@ fn hit_stop_reset(mut players: Query<(&mut Movement, &mut Velocity), With<HitSto
     }
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	after = MovementControlSystems::DoHorizontalMovement,
 	after = MovementControlSystems::DoVerticalMovement,
-)]
+))]
 fn hit_stop_update(
     mut players: Query<(Entity, &mut HitStop, &mut Movement, &mut Velocity)>,
     time: Res<Time>,

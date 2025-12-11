@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::Velocity;
 use return_ok::ok_or_return_ok;
@@ -25,17 +25,7 @@ pub struct SlideNeutral;
 #[action(invalidate = false)]
 pub struct SlideStand;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerSlideSettings {
-	speed_cap: 1.0,
-	friction: 1.0,
-	forward_friction: 0.0,
-	brake_friction: 10.0,
-	turn_factor: 2.0,
-	turn_friction: 0.0,
-	direction_physics_resistance: 0.9,
-	speed_physics_resistance: 0.0,
-})]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerSlideSettings {
     pub speed_cap: f32,
     pub friction: f32,
@@ -48,32 +38,47 @@ pub struct PlayerSlideSettings {
     pub speed_physics_resistance: f32,
 }
 
-#[derive(Resource)]
+impl Default for PlayerSlideSettings {
+    fn default() -> Self {
+        Self {
+            speed_cap: 1.0,
+            friction: 1.0,
+            forward_friction: 0.0,
+            brake_friction: 10.0,
+            turn_factor: 2.0,
+            turn_friction: 0.0,
+            direction_physics_resistance: 0.9,
+            speed_physics_resistance: 0.0,
+        }
+    }
+}
+
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct SlideAssets {
     pub sound: Handle<AudioSource>,
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Startup)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(SlideAssets {
         sound: asset_server.load("slide.mp3"),
     });
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Sliding {
     di: Vec2,
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct NeutralSliding;
 
-#[derive(Component, Debug)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Debug), reflect, register)]
 pub struct SlidingSound {
     entity: Entity,
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_di(di: On<Updated<SlideNeutral>>, mut players: Query<&mut Sliding>) -> Result {
     let mut sliding = ok_or_return_ok!(players.get_mut(di.input));
     sliding.di = di
@@ -85,7 +90,7 @@ fn update_di(di: On<Updated<SlideNeutral>>, mut players: Query<&mut Sliding>) ->
     Ok(())
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_sliding_sound(
     mut slidings: Query<
         (Entity, Option<&SlidingSound>, Has<Grounded>),
@@ -112,7 +117,7 @@ fn update_sliding_sound(
     }
 }
 
-#[add_system(plugin = PlayerControllerPlugin, schedule = Update)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn remove_sliding_sound(
     slidings: Query<(Entity, &SlidingSound), (Without<Sliding>, Without<NeutralSliding>)>,
     mut commands: Commands,
@@ -123,7 +128,7 @@ fn remove_sliding_sound(
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn readd_movement(remove: On<Remove, Sliding>, mut commands: Commands, players: Query<&Velocity>) {
     commands.entity(remove.entity).insert_if_new(
         players
@@ -133,11 +138,10 @@ fn readd_movement(remove: On<Remove, Sliding>, mut commands: Commands, players: 
     );
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::DoHorizontalMovement,
 	before = ExecuteMovementSet,
-)]
+))]
 fn update_slide_velocity(
     mut players: Query<(&mut Movement, &Transform, &Velocity, &Sliding)>,
     slide_settings: Res<PlayerSlideSettings>,

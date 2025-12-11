@@ -1,18 +1,16 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{binding1d, input};
 use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
 use crate::inventory::{InventoryPlugin, Item, PickUpItem};
 
-#[derive(Component)]
+#[auto_component(plugin = InventoryPlugin, derive, reflect, register)]
 pub struct InventoryScreen;
 
-#[add_system(
-	plugin = InventoryPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = InventoryPlugin, schedule = Startup)]
 fn spawn_inventory_screen(mut commands: Commands) {
     commands
         .spawn((
@@ -37,7 +35,7 @@ fn spawn_inventory_screen(mut commands: Commands) {
         .insert(Name::new("Inventory Screen"));
 }
 
-#[add_observer(plugin = InventoryPlugin)]
+#[auto_observer(plugin = InventoryPlugin)]
 fn add_item_to_inventory_screen(
     pick_up: On<PickUpItem>,
     mut commands: Commands,

@@ -1,16 +1,17 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools;
 
 use crate::prelude::*;
 use crate::util::{IterElements, TransformEx};
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
+#[auto_plugin(impl_plugin_trait)]
 pub struct GravityPlugin;
 
-#[derive(Component, Reflect)]
+#[auto_component(plugin = GravityPlugin, derive, reflect, register)]
 pub struct GravityPriority(pub u32);
 
 pub trait GravitationalField {
@@ -19,7 +20,7 @@ pub trait GravitationalField {
     fn get_acceleration_at(&self, local_position: Vec3) -> Vec3;
 }
 
-#[derive(Component, Reflect)]
+#[auto_component(plugin = GravityPlugin, derive, reflect, register)]
 pub struct GravityPoint {
     pub standard_radius: f32,
     pub acceleration_at_radius: f32,
@@ -37,11 +38,11 @@ impl GravitationalField for GravityPoint {
     }
 }
 
-#[derive(Component, Debug, Default)]
+#[auto_component(plugin = GravityPlugin, derive(Debug, Default), reflect, register)]
 #[require(ComputedGravity, GravityFactor, RigidBody, Velocity)]
 pub struct AffectedByGravity;
 
-#[derive(Component, Debug)]
+#[auto_component(plugin = GravityPlugin, derive(Debug), reflect, register)]
 pub struct GravityFactor(pub f32);
 
 impl Default for GravityFactor {
@@ -50,7 +51,7 @@ impl Default for GravityFactor {
     }
 }
 
-#[derive(Component, Debug)]
+#[auto_component(plugin = GravityPlugin, derive(Debug), reflect, register)]
 pub struct ComputedGravity {
     pub acceleration: Vec3,
     pub up: Vec3,
@@ -65,9 +66,7 @@ impl Default for ComputedGravity {
     }
 }
 
-#[add_system(
-	plugin = GravityPlugin, schedule = Update,
-)]
+#[auto_system(plugin = GravityPlugin, schedule = Update)]
 fn calculate_gravity(
     mut rigidbodies: Query<(&Transform, &mut ComputedGravity), With<AffectedByGravity>>,
     gravity_fields: Query<(&GlobalTransform, &GravityPriority, &GravityPoint)>,
@@ -126,10 +125,9 @@ fn calculate_gravity(
     }
 }
 
-#[add_system(
-	plugin = GravityPlugin, schedule = Update,
+#[auto_system(plugin = GravityPlugin, schedule = Update, config(
 	after = calculate_gravity,
-)]
+))]
 fn apply_gravity(
     mut rigidbodies: Query<
         (&mut Velocity, &GravityFactor, &ComputedGravity, &RigidBody),

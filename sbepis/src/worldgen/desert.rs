@@ -1,9 +1,10 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache, ChunkMaterial,
+    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache,
+    ChunkGeneratorSettings, ChunkMaterial, MarchingCubesPlugin,
 };
 use bevy_marching_cubes::{
     AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
@@ -12,19 +13,18 @@ use bevy_marching_cubes::{
 use crate::gridbox_material;
 use crate::prelude::*;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = crate::worldgen::WorldGenPlugin)]
 pub struct DesertWorldGenPlugin;
 
-#[add_plugin(to_plugin = DesertWorldGenPlugin, generics = <DesertWorldGen, StandardMaterial>)]
-use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
-
-#[insert_resource(
-	plugin = DesertWorldGenPlugin, generics = <DesertWorldGen>,
-	init = ChunkGeneratorSettings::<DesertWorldGen>::new(50, 50.0)
-		.with_bounds(vec3(-50.0, -50.0, -50.0), vec3(1100.0, 50.0, 1100.0))
-)]
-use bevy_marching_cubes::chunk_generator::ChunkGeneratorSettings;
+#[auto_plugin(plugin = DesertWorldGenPlugin)]
+fn build(app: &mut App) {
+    app.add_plugins(MarchingCubesPlugin::<DesertWorldGen, StandardMaterial>::default());
+    app.insert_resource(
+        ChunkGeneratorSettings::<DesertWorldGen>::new(50, 50.0)
+            .with_bounds(vec3(-50.0, -50.0, -50.0), vec3(1100.0, 50.0, 1100.0)),
+    );
+}
 
 #[derive(TypePath)]
 pub struct DesertWorldGen;
@@ -44,7 +44,7 @@ impl ChunkComputeShader for DesertWorldGen {
     }
 }
 
-#[add_system(plugin = DesertWorldGenPlugin, schedule = Startup)]
+#[auto_system(plugin = DesertWorldGenPlugin, schedule = Startup)]
 fn setup_materials(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -55,7 +55,9 @@ fn setup_materials(
     ));
 }
 
-#[add_system(plugin = DesertWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[auto_system(plugin = DesertWorldGenPlugin, schedule = Update, config(
+	after = ChunkGenSystems,
+))]
 fn add_components(
     mut commands: Commands,
     chunks: Query<Entity, (With<Chunk<DesertWorldGen>>, Without<FinalizedChunk>)>,
@@ -67,7 +69,7 @@ fn add_components(
     }
 }
 
-#[derive(Component, Debug)]
+#[auto_component(plugin = DesertWorldGenPlugin, derive(Debug), reflect, register)]
 struct FinalizedChunk;
 
 #[derive(Resource, Debug)]
@@ -75,7 +77,7 @@ struct DesertPOIStructures {
     command_station: Handle<Scene>,
 }
 
-#[add_system(plugin = DesertWorldGenPlugin, schedule = Startup)]
+#[auto_system(plugin = DesertWorldGenPlugin, schedule = Startup)]
 fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(DesertPOIStructures {
         command_station: asset_server
@@ -83,7 +85,9 @@ fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-#[add_system(plugin = DesertWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[auto_system(plugin = DesertWorldGenPlugin, schedule = Update, config(
+	after = ChunkGenSystems,
+))]
 fn place_poi_structures(
     compute_worker: Res<ChunkComputeWorker<DesertWorldGen>>,
     mut done: Local<bool>,
@@ -122,12 +126,12 @@ fn place_poi_structures(
     }
 }
 
-#[add_system(plugin = DesertWorldGenPlugin, schedule = OnEnter(GameState::MainMenu))]
+#[auto_system(plugin = DesertWorldGenPlugin, schedule = OnEnter(GameState::MainMenu))]
 fn add_cache(mut commands: Commands) {
     commands.init_resource::<ChunkGeneratorCache<DesertWorldGen>>();
 }
 
-#[add_system(plugin = DesertWorldGenPlugin, schedule = OnExit(GameState::MainMenu))]
+#[auto_system(plugin = DesertWorldGenPlugin, schedule = OnExit(GameState::MainMenu))]
 fn remove_cache(mut commands: Commands) {
     commands.remove_resource::<ChunkGeneratorCache<DesertWorldGen>>();
 }

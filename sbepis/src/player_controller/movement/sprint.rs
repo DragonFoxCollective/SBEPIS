@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use return_ok::ok_or_return_ok;
 
@@ -19,13 +19,13 @@ pub struct SprintWalk;
 #[action(invalidate = false)]
 pub struct UnSprintWalk;
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct SprintStanding;
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Sprinting;
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_di_sprintwalk(
     di: On<Updated<SprintWalk>>,
     mut players: Query<&mut Sprinting>,

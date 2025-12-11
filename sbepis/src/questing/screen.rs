@@ -1,24 +1,23 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{binding1d, input};
 use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
 use crate::camera::PlayerCameraNode;
-use crate::player_controller::OpenQuestScreen;
 use crate::questing::{AcceptQuest, EndQuest, QuestId, QuestingPlugin, Quests};
 use crate::util::MapRangeBetween;
 
-#[derive(Component)]
+#[auto_component(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct QuestScreen;
 
-#[derive(Component)]
+#[auto_component(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct QuestScreenNodeList;
 
-#[derive(Component)]
+#[auto_component(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct QuestScreenNodeDisplay(Option<Entity>);
 
-#[derive(Component)]
+#[auto_component(plugin = QuestingPlugin, derive, reflect, register)]
 pub struct QuestScreenNode {
     pub quest_id: QuestId,
     pub display: Entity,
@@ -26,12 +25,7 @@ pub struct QuestScreenNode {
     pub progress_bar: Entity,
 }
 
-#[add_observer(plugin = QuestingPlugin, generics = <OpenQuestScreen, QuestScreen>)]
-use bevy_pretty_nice_menus::show_menu_on_action;
-
-#[add_system(
-	plugin = QuestingPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = QuestingPlugin, schedule = Startup)]
 fn spawn_quest_screen(mut commands: Commands) {
     commands
         .spawn((
@@ -76,7 +70,7 @@ fn spawn_quest_screen(mut commands: Commands) {
         });
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn add_quest_nodes(
     accept_quest: On<AcceptQuest>,
     mut commands: Commands,
@@ -184,7 +178,7 @@ fn add_quest_nodes(
     Ok(())
 }
 
-#[add_observer(plugin = QuestingPlugin)]
+#[auto_observer(plugin = QuestingPlugin)]
 fn remove_quest_nodes(
     end: On<EndQuest>,
     mut commands: Commands,
@@ -199,9 +193,7 @@ fn remove_quest_nodes(
     }
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
-)]
+#[auto_system(plugin = QuestingPlugin, schedule = Update)]
 fn change_displayed_node(
     quest_nodes: Query<(&QuestScreenNode, &Interaction), Changed<Interaction>>,
     mut quest_node_displays: Query<&mut Node>,
@@ -228,10 +220,9 @@ fn change_displayed_node(
     Ok(())
 }
 
-#[add_system(
-	plugin = QuestingPlugin, schedule = Update,
+#[auto_system(plugin = QuestingPlugin, schedule = Update, config(
 	after = QuestProgressUpdatedSet,
-)]
+))]
 fn update_quest_node_progress(
     quests: Res<Quests>,
     mut quest_nodes: Query<&QuestScreenNode>,

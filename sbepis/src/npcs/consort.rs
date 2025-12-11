@@ -1,6 +1,6 @@
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
 
 use crate::entity::spawner::{ActivateSpawner, Spawn};
@@ -12,13 +12,13 @@ use crate::questing::{QuestGiver, SpawnQuestMarker};
 
 use super::name_tags::SpawnNameTag;
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct Consort;
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct ConsortSpawner;
 
-#[add_observer(plugin = NpcPlugin)]
+#[auto_observer(plugin = NpcPlugin)]
 fn spawn_consort(
     spawn: On<ActivateSpawner>,
     spawners: Query<(), With<ConsortSpawner>>,

@@ -3,11 +3,13 @@ use std::time::Duration;
 
 use bevy::audio::Volume;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
+use bevy_pretty_nice_menus::close_menu_on_event;
 use return_ok::ok_or_return_ok;
 use soundyrust::*;
 use tracks::{FrayTracks, Track};
 
+use crate::fray::tracks::{SwitchTrack, TrackSwitcher};
 use crate::npcs::imp::Imp;
 use crate::player_controller::weapons::Hit;
 use crate::prelude::*;
@@ -15,14 +17,18 @@ use crate::util::MapRangeBetween;
 
 mod tracks;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
 pub struct FrayPlugin;
 
-#[add_plugin(to_plugin = FrayPlugin)]
-use soundyrust::SoundyPlugin;
+#[auto_plugin(plugin = FrayPlugin)]
+fn build(app: &mut App) {
+    app.add_plugins(soundyrust::SoundyPlugin);
+    app.add_observer(interact_with::<TrackSwitcher>);
+    app.add_observer(close_menu_on_event::<SwitchTrack>);
+}
 
-#[add_system(plugin = FrayPlugin, schedule = Startup)]
+#[auto_system(plugin = FrayPlugin, schedule = Startup)]
 fn load_background_music(mut commands: Commands, mut assets: ResMut<Assets<MidiAudio>>) {
     let mut midi = MidiAudio::from_bytes(include_bytes!("../../assets/hl4mgm.sf2"));
     let backing_track = midi.add_track(
@@ -77,7 +83,7 @@ fn load_background_music(mut commands: Commands, mut assets: ResMut<Assets<MidiA
     });
 }
 
-#[add_system(plugin = FrayPlugin, schedule = OnEnter(GameState::InGame))]
+#[auto_system(plugin = FrayPlugin, schedule = OnEnter(GameState::InGame))]
 fn spawn_background_music(mut commands: Commands, tracks: Res<FrayTracks>) {
     commands.spawn((
         AudioPlayer(tracks.midi.clone()),
@@ -104,7 +110,7 @@ fn spawn_background_music(mut commands: Commands, tracks: Res<FrayTracks>) {
     ));
 }
 
-#[derive(Component)]
+#[auto_component(plugin = FrayPlugin, derive, reflect, register)]
 pub struct FrayMusic {
     beat: f64,
     beats_per_bar: f64,
@@ -164,14 +170,12 @@ impl FrayMusic {
     }
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = FrayPlugin, derive(Default), reflect, register)]
 pub struct BeatCounter {
     pub beat: u32,
 }
 
-#[add_system(
-	plugin = FrayPlugin, schedule = Update,
-)]
+#[auto_system(plugin = FrayPlugin, schedule = Update)]
 fn tick_fray_music(
     #[cfg(feature = "metronome")] mut commands: Commands,
     #[cfg(feature = "metronome")] asset_server: Res<AssetServer>,
@@ -222,7 +226,7 @@ fn tick_fray_music(
     Ok(())
 }
 
-#[add_observer(plugin = FrayPlugin)]
+#[auto_observer(plugin = FrayPlugin)]
 fn queue_tracks_on_hit(
     hit: On<Hit>,
     imps: Query<(), With<Imp>>,

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
 use return_ok::ok_or_return_ok;
@@ -17,17 +17,7 @@ use super::grounded::Grounded;
 #[action(invalidate = false)]
 pub struct Walk;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = PlayerWalkSettings {
-	speed: 6.0,
-	sneak_speed: 3.0,
-	sprint_speed: 9.0,
-
-	friction: 6.0,
-	air_friction: 0.0,
-	acceleration: 8.0,
-	air_acceleration: 2.0,
-})]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerWalkSettings {
     pub speed: f32,
     pub sneak_speed: f32,
@@ -39,10 +29,25 @@ pub struct PlayerWalkSettings {
     pub air_acceleration: f32,
 }
 
-#[derive(Component, Default)]
+impl Default for PlayerWalkSettings {
+    fn default() -> Self {
+        Self {
+            speed: 6.0,
+            sneak_speed: 3.0,
+            sprint_speed: 9.0,
+
+            friction: 6.0,
+            air_friction: 0.0,
+            acceleration: 8.0,
+            air_acceleration: 2.0,
+        }
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Walking;
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_di_walk(
     di: On<Updated<Walk>>,
     mut players: Query<&mut Walking>,
@@ -61,11 +66,10 @@ fn update_di_walk(
     Ok(())
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::DoHorizontalMovement,
 	before = ExecuteMovementSet,
-)]
+))]
 fn update_walk_velocity(
     mut movement: Query<(&mut Movement, &Velocity, &Transform, &WalkDI, Has<Grounded>)>,
     walk_settings: Res<PlayerWalkSettings>,

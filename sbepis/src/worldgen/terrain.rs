@@ -1,7 +1,8 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache, ChunkMaterial,
+    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache,
+    ChunkGeneratorSettings, ChunkMaterial, MarchingCubesPlugin,
 };
 use bevy_marching_cubes::{
     AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
@@ -12,19 +13,18 @@ use rand::{Rng, SeedableRng as _};
 use crate::gridbox_material;
 use crate::prelude::*;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = crate::worldgen::WorldGenPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = crate::worldgen::WorldGenPlugin)]
 pub struct TerrainWorldGenPlugin;
 
-#[add_plugin(to_plugin = TerrainWorldGenPlugin, generics = <WorldGen, StandardMaterial>)]
-use bevy_marching_cubes::chunk_generator::MarchingCubesPlugin;
-
-#[insert_resource(
-	plugin = TerrainWorldGenPlugin, generics = <WorldGen>,
-	init = ChunkGeneratorSettings::<WorldGen>::new(50, 50.0)
-		.with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0))
-)]
-use bevy_marching_cubes::chunk_generator::ChunkGeneratorSettings;
+#[auto_plugin(plugin = TerrainWorldGenPlugin)]
+fn build(app: &mut App) {
+    app.add_plugins(MarchingCubesPlugin::<WorldGen, StandardMaterial>::default());
+    app.insert_resource(
+        ChunkGeneratorSettings::<WorldGen>::new(50, 50.0)
+            .with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0)),
+    );
+}
 
 #[derive(TypePath)]
 pub struct WorldGen;
@@ -54,7 +54,7 @@ impl ChunkComputeShader for WorldGen {
     }
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
 fn setup_materials(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -65,7 +65,9 @@ fn setup_materials(
     ));
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
+	after = ChunkGenSystems,
+))]
 fn add_components(
     mut commands: Commands,
     chunks: Query<(Entity, &Mesh3d), (With<Chunk<WorldGen>>, Without<FinalizedChunk>)>,
@@ -83,13 +85,15 @@ fn add_components(
     }
 }
 
-#[derive(Component, Debug)]
+#[auto_component(plugin = TerrainWorldGenPlugin, derive(Debug), reflect, register)]
 struct FinalizedChunk;
 
-#[derive(Component, Debug)]
+#[auto_component(plugin = TerrainWorldGenPlugin, derive(Debug), reflect, register)]
 struct SleepingFromUnloaded;
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems, run_if = in_state(GameState::InGame))]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
+	after = ChunkGenSystems, run_if = in_state(GameState::InGame),
+))]
 fn sleep_unloaded_entities(
     mut commands: Commands,
     sleeping_entities: Query<(Entity, &GlobalTransform, &RigidBody), Without<SleepingFromUnloaded>>,
@@ -108,7 +112,9 @@ fn sleep_unloaded_entities(
     }
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems, run_if = in_state(GameState::InGame))]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
+	after = ChunkGenSystems, run_if = in_state(GameState::InGame),
+))]
 fn wake_loaded_entities(
     mut commands: Commands,
     sleeping_entities: Query<(Entity, &GlobalTransform), With<SleepingFromUnloaded>>,
@@ -131,7 +137,7 @@ struct POIStructures {
     imp_arena: Handle<Scene>,
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
 fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(POIStructures {
         consort_village: asset_server
@@ -140,7 +146,9 @@ fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = Update, after = ChunkGenSystems)]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
+	after = ChunkGenSystems,
+))]
 fn place_poi_structures(
     compute_worker: Res<ChunkComputeWorker<WorldGen>>,
     mut done: Local<bool>,
@@ -186,12 +194,12 @@ fn place_poi_structures(
     }
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
 fn add_cache(mut commands: Commands) {
     commands.init_resource::<ChunkGeneratorCache<WorldGen>>();
 }
 
-#[add_system(plugin = TerrainWorldGenPlugin, schedule = OnExit(GameState::InGame))]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnExit(GameState::InGame))]
 fn remove_cache(mut commands: Commands) {
     commands.remove_resource::<ChunkGeneratorCache<WorldGen>>();
 }

@@ -1,21 +1,19 @@
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use return_ok::ok_or_return;
 
 use crate::camera::PlayerCameraNode;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::*;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Stamina {
     pub current: f32,
     pub max: f32,
     pub recovery_rate: f32,
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_stamina(mut players: Query<&mut Stamina>, time: Res<Time>) {
     for mut stamina in players.iter_mut() {
         stamina.current =
@@ -23,12 +21,10 @@ fn update_stamina(mut players: Query<&mut Stamina>, time: Res<Time>) {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct StaminaBar;
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame),
-)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup_stamina_bar(mut commands: Commands) {
     commands
         .spawn((
@@ -69,9 +65,7 @@ fn setup_stamina_bar(mut commands: Commands) {
         });
 }
 
-#[add_system(
-	plugin = PlayerControllerPlugin, schedule = Update,
-)]
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_stamina_bar(
     staminas: Query<&Stamina, With<PlayerBody>>,
     mut stamina_bars: Query<&mut Node, With<StaminaBar>>,

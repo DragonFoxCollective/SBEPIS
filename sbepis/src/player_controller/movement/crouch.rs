@@ -1,6 +1,6 @@
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::*;
 
@@ -15,8 +15,7 @@ use super::slide::Sliding;
 #[action(invalidate = false)]
 pub struct Crouch;
 
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin)]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct CrouchingAssets {
     pub mesh: Mesh3d,
     pub mesh_transform: Transform,
@@ -48,7 +47,7 @@ impl FromWorld for CrouchingAssets {
     }
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_crouching_assets(
     add: On<Add, (Crouching, Sliding, ChargeCrouching, Sneaking)>,
     players: Query<&PlayerBody>,
@@ -67,5 +66,5 @@ fn to_crouching_assets(
     Ok(())
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Crouching;

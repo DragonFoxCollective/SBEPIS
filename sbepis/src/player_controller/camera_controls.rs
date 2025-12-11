@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 use std::marker::PhantomData;
 
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, JustPressed, Pressed};
 use bevy_rapier3d::prelude::*;
 
@@ -15,15 +15,20 @@ use super::PlayerBody;
 #[derive(Action)]
 pub struct Look;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Pitch(pub f32);
 
 /// Probably in radians per mouse sensor pixel?
-#[derive(Resource)]
-#[insert_resource(plugin = PlayerControllerPlugin, init = MouseSensitivity(0.0015))]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct MouseSensitivity(pub f32);
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+impl Default for MouseSensitivity {
+    fn default() -> Self {
+        Self(0.0015)
+    }
+}
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn rotate_camera_and_body(
     look: On<Pressed<Look>>,
     sensitivity: Res<MouseSensitivity>,

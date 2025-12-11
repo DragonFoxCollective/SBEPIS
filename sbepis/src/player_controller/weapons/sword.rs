@@ -4,7 +4,7 @@ use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animat
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Filter, binding1d, input};
 use bevy_pretty_nice_menus::MenuInputOf;
 
@@ -17,12 +17,12 @@ use crate::player_controller::weapons::{
 };
 use crate::prelude::*;
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct SwordPivot {
     pub blade: Entity,
 }
 
-#[derive(Component)]
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Sword {
     pub damage: f32,
     pub wielder: Entity,
@@ -58,6 +58,7 @@ impl Sword {
     }
 }
 
+#[derive(Reflect)]
 enum SwordSide {
     Left,
     Right,
@@ -209,7 +210,7 @@ struct SwordStart;
 #[derive(AnimationEvent, Clone)]
 struct SwordEnd;
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn on_sword_start(
     start: On<SwordStart>,
     sword_pivots: Query<&SwordPivot>,
@@ -243,7 +244,7 @@ fn on_sword_start(
     Ok(())
 }
 
-#[add_observer(plugin = PlayerControllerPlugin)]
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn on_sword_end(
     end: On<SwordEnd>,
     mut sword_pivots: Query<(&SwordPivot, &mut WeaponAnimation)>,

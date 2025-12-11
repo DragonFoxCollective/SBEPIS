@@ -5,11 +5,12 @@ use std::io::Cursor;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 use winit::window::Icon;
 
 use crate::gravity::{GravityPoint, GravityPriority};
+use crate::prelude::GameState;
 
 mod blenvy;
 mod camera;
@@ -66,46 +67,36 @@ fn main() {
 		})).add_plugins(SbepisPlugin).run();
 }
 
+#[derive(AutoPlugin)]
 pub struct SbepisPlugin;
 
-// TODO: migrate to bevy_auto_plugin
-#[butler_plugin]
-impl Plugin for SbepisPlugin {
-    fn build(&self, app: &mut App) {
-        #[cfg(feature = "inspector")]
+#[auto_plugin(plugin = SbepisPlugin)]
+fn build(app: &mut App) {
+    app.add_plugins(bevy_rapier3d::prelude::RapierPhysicsPlugin::<NoUserData>::default());
+    #[cfg(feature = "rapier_debug")]
+    app.add_plugins(bevy_rapier3d::prelude::RapierDebugRenderPlugin::default());
+
+    #[cfg(feature = "inspector")]
+    {
+        app.insert_resource(bevy_inspector_egui::bevy_egui::EguiGlobalSettings {
+            auto_create_primary_context: false,
+            ..default()
+        });
         app.add_plugins((
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
             bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
         ));
     }
+
+    app.add_plugins(bevy_hanabi::HanabiPlugin);
+
+    app.add_plugins((
+        bevy_pretty_nice_input::PrettyNiceInputPlugin,
+        bevy_pretty_nice_menus::PrettyNiceMenusPlugin,
+    ));
 }
 
-#[add_plugin(to_plugin = SbepisPlugin, generics = <NoUserData>)]
-use bevy_rapier3d::prelude::RapierPhysicsPlugin;
-
-#[cfg(feature = "rapier_debug")]
-#[add_plugin(to_plugin = SbepisPlugin)]
-use bevy_rapier3d::prelude::RapierDebugRenderPlugin;
-
-#[cfg(feature = "inspector")]
-#[insert_resource(plugin = SbepisPlugin, init = EguiGlobalSettings {
-	auto_create_primary_context: false,
-	..default()
-})]
-use bevy_inspector_egui::bevy_egui::EguiGlobalSettings;
-
-#[add_plugin(to_plugin = SbepisPlugin, init = HanabiPlugin)]
-use bevy_hanabi::HanabiPlugin;
-
-#[add_plugin(to_plugin = SbepisPlugin)]
-use bevy_pretty_nice_input::PrettyNiceInputPlugin;
-
-#[add_plugin(to_plugin = SbepisPlugin)]
-use bevy_pretty_nice_menus::PrettyNiceMenusPlugin;
-
-#[add_system(
-	plugin = SbepisPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = SbepisPlugin, schedule = Startup)]
 fn set_window_icon() -> Result {
     let icon_buf = Cursor::new(include_bytes!("../assets/house.png"));
     let image = image::load(icon_buf, image::ImageFormat::Png)?;
@@ -159,13 +150,13 @@ fn gridbox_material_direct_extra(
     }
 }
 
-#[add_system(plugin = SbepisPlugin, schedule = Startup)]
+#[auto_system(plugin = SbepisPlugin, schedule = Startup)]
 fn setup_global(mut rapier_config: Query<&mut RapierConfiguration>) -> Result {
     rapier_config.single_mut()?.gravity = Vec3::ZERO;
     Ok(())
 }
 
-#[add_system(plugin = SbepisPlugin, schedule = OnEnter(GameState::InGame))]
+#[auto_system(plugin = SbepisPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup_in_game(mut commands: Commands) {
     commands.spawn((
         Name::new("Gravity"),
@@ -193,21 +184,9 @@ fn setup_in_game(mut commands: Commands) {
     ));
 }
 
-#[add_system(
-	plugin = SbepisPlugin, schedule = Update,
-	run_if = input_just_pressed(KeyCode::Escape),
-)]
+#[auto_system(plugin = SbepisPlugin, schedule = Update, config(
+	run_if = input_just_pressed(KeyCode::Escape)
+))]
 fn exit(mut exit: MessageWriter<AppExit>) {
     exit.write(AppExit::Success);
 }
-
-use crate::prelude::GameState;
-#[add_system(
-	plugin = SbepisPlugin, schedule = Update,
-)]
-use crate::util::despawn_after_timer;
-
-#[add_system(
-	plugin = SbepisPlugin, schedule = Update,
-)]
-use crate::util::billboard;

@@ -1,24 +1,24 @@
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_menus::{ActivateMenu, DeactivateMenu, MenuStack, MenuWithMouse};
 
 use crate::camera::PlayerCamera;
 use crate::prelude::*;
 
-#[butler_plugin]
-#[add_plugin(to_plugin = SbepisPlugin)]
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = SbepisPlugin)]
 pub struct OverviewCameraPlugin;
 
-#[add_plugin(to_plugin = OverviewCameraPlugin, init = PanOrbitCameraPlugin)]
-use bevy_panorbit_camera::PanOrbitCameraPlugin;
+#[auto_plugin(plugin = OverviewCameraPlugin)]
+fn build(app: &mut App) {
+    app.add_plugins(bevy_panorbit_camera::PanOrbitCameraPlugin);
+}
 
-#[derive(Component)]
+#[auto_component(plugin = OverviewCameraPlugin, derive, reflect, register)]
 pub struct OverviewCamera;
 
-#[add_system(
-	plugin = OverviewCameraPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = OverviewCameraPlugin, schedule = Startup)]
 fn setup(mut commands: Commands) {
     commands.spawn((
         Name::new("Overview Camera"),
@@ -41,10 +41,9 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-#[add_system(
-	plugin = OverviewCameraPlugin, schedule = Update,
+#[auto_system(plugin = OverviewCameraPlugin, schedule = Update, config(
 	run_if = input_just_pressed(KeyCode::Tab),
-)]
+))]
 fn toggle_camera(
     mut menu_stack: ResMut<MenuStack>,
     overview_camera: Query<Entity, With<OverviewCamera>>,
@@ -54,7 +53,7 @@ fn toggle_camera(
     Ok(())
 }
 
-#[add_observer(plugin = OverviewCameraPlugin)]
+#[auto_observer(plugin = OverviewCameraPlugin)]
 fn enable_overview_camera(
     activate: On<ActivateMenu>,
     mut overview_camera: Query<&mut Camera, (With<OverviewCamera>, Without<PlayerCamera>)>,
@@ -70,7 +69,7 @@ fn enable_overview_camera(
     }
 }
 
-#[add_observer(plugin = OverviewCameraPlugin)]
+#[auto_observer(plugin = OverviewCameraPlugin)]
 fn disable_overview_camera(
     deactivate: On<DeactivateMenu>,
     mut overview_camera: Query<&mut Camera, (With<OverviewCamera>, Without<PlayerCamera>)>,

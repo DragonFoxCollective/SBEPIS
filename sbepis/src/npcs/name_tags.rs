@@ -4,7 +4,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
 use bevy::scene::SceneInstance;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use fake::Fake;
 use fake::faker::name::en::FirstName;
 use meshtext::{Face, MeshGenerator, MeshText, TextSection};
@@ -15,10 +15,10 @@ use crate::entity::Kill;
 use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
 
-// #[add_plugin(to_plugin = NpcPlugin, generics = <CandyMaterial>, init = MaterialPlugin::<CandyMaterial>::default())]
+// #[auto_add_plugin(plugin = NpcPlugin, generics(CandyMaterial>, init = MaterialPlugin::<CandyMaterial)::default())]
 // use bevy::pbr::MaterialPlugin;
 
-#[derive(Resource)]
+#[auto_resource(plugin = NpcPlugin, derive, reflect, register)]
 pub struct NameTagAssets {
     pub names: Handle<Supporters>,
 
@@ -39,7 +39,7 @@ pub struct NameTagAssets {
     // pub master_particles_trails: [Handle<EffectAsset>; 2],
 }
 
-#[derive(Resource)]
+#[auto_resource(plugin = NpcPlugin, derive, reflect, register)]
 pub struct AvailableNames {
     names: Vec<NameTag>,
 }
@@ -54,13 +54,13 @@ impl From<Supporters> for AvailableNames {
 
 /// Marks an entity that should have a name tag spawned for it.
 /// This isn't an observer because the names might not be loaded when the entity is spawned.
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct SpawnNameTag;
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct NameTagged(pub NameTag);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct NameTag {
     name: String,
     tier: Option<SupporterTier>,
@@ -84,8 +84,7 @@ impl From<Supporter> for NameTag {
     }
 }
 
-#[derive(Resource)]
-#[insert_resource(plugin = NpcPlugin)]
+#[auto_resource(plugin = NpcPlugin, derive, init)]
 pub struct FontMeshGenerator {
     regular: MeshGenerator<Face<'static>>,
     bold: MeshGenerator<Face<'static>>,
@@ -272,9 +271,7 @@ fn create_particles_trails(color: Color) -> EffectAsset {
 }
         */
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = NpcPlugin, schedule = Startup)]
 fn load_names(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -321,7 +318,7 @@ fn load_names(
     Ok(())
 }
 
-#[add_system(plugin = NpcPlugin, schedule = Update)]
+#[auto_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_name_tags(
     mut commands: Commands,
     asset: Res<NameTagAssets>,
@@ -432,10 +429,12 @@ fn spawn_name_tags(
     Ok(())
 }
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 struct RemoveCandyMaterials;
 
-#[add_system(plugin = NpcPlugin, schedule = Update, after = spawn_name_tags)]
+#[auto_system(plugin = NpcPlugin, schedule = Update, config(
+	after = spawn_name_tags,
+))]
 fn remove_candy_materials(
     material_names: Query<&GltfMaterialName>,
     mut commands: Commands,
@@ -474,10 +473,9 @@ fn get_name(available_names: Option<&mut ResMut<AvailableNames>>) -> Option<Name
     opt.map(|(_, name_tag)| name_tag)
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
+#[auto_system(plugin = NpcPlugin, schedule = Update, config(
 	run_if = not(resource_exists::<AvailableNames>),
-)]
+))]
 fn add_available_names(
     mut commands: Commands,
     assets: Res<NameTagAssets>,
@@ -487,7 +485,7 @@ fn add_available_names(
     commands.insert_resource(AvailableNames::from(names.clone()));
 }
 
-#[add_observer(plugin = NpcPlugin)]
+#[auto_observer(plugin = NpcPlugin)]
 fn add_killed_name_back(
     kill: On<Kill>,
     mut names: Option<ResMut<AvailableNames>>,

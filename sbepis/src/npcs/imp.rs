@@ -4,7 +4,7 @@ use std::time::Duration;
 use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
-use bevy_butler::*;
+use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
 use return_ok::{ok_or_return, some_or_return_ok};
 
@@ -19,16 +19,16 @@ use crate::util::AnimationRootReference;
 
 use super::name_tags::{NameTagAssets, SpawnNameTag};
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct Imp;
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct ImpSpawner;
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct InsertImpAssets;
 
-#[derive(Resource)]
+#[auto_resource(plugin = NpcPlugin, derive, reflect, register)]
 pub struct ImpAssets {
     pub model: Handle<Gltf>,
     pub ambient_sound_1: Handle<AudioSource>,
@@ -64,16 +64,14 @@ impl ImpAssets {
     }
 }
 
-#[derive(Component)]
+#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct ImpAnimations {
     pub idle: AnimationNodeIndex,
     pub run: AnimationNodeIndex,
     pub _attack: AnimationNodeIndex,
 }
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Startup,
-)]
+#[auto_system(plugin = NpcPlugin, schedule = Startup)]
 fn setup_imp_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(ImpAssets {
         model: asset_server.load("imp.glb"),
@@ -88,7 +86,7 @@ fn setup_imp_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-#[add_observer(plugin = NpcPlugin)]
+#[auto_observer(plugin = NpcPlugin)]
 fn queue_spawning_imp(
     spawn: On<ActivateSpawner>,
     mut commands: Commands,
@@ -105,7 +103,7 @@ fn queue_spawning_imp(
     ));
 }
 
-#[add_system(plugin = NpcPlugin, schedule = Update)]
+#[auto_system(plugin = NpcPlugin, schedule = Update)]
 fn spawn_imp(
     imps: Query<Entity, With<InsertImpAssets>>,
     mut commands: Commands,
@@ -207,7 +205,7 @@ fn spawn_imp(
     Ok(())
 }
 
-#[add_system(plugin = NpcPlugin, schedule = Update)]
+#[auto_system(plugin = NpcPlugin, schedule = Update)]
 fn update_imp_animations(
     mut imps: Query<(&Movement, &AnimationRootReference), With<Imp>>,
     mut animations: Query<(
@@ -250,7 +248,7 @@ fn update_imp_animations(
     }
 }
 
-#[add_observer(plugin = NpcPlugin)]
+#[auto_observer(plugin = NpcPlugin)]
 fn imp_hurt_sound(
     damage: On<Damage>,
     mut imps: Query<(&GelViscosity, &GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
@@ -275,7 +273,7 @@ fn imp_hurt_sound(
     sound_timer.0 = imp_assets.random_ambient_sound_time();
 }
 
-#[add_observer(plugin = NpcPlugin)]
+#[auto_observer(plugin = NpcPlugin)]
 fn imp_kill_sound(
     kill: On<Kill>,
     mut imps: Query<(&GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
@@ -295,12 +293,10 @@ fn imp_kill_sound(
     sound_timer.0 = imp_assets.random_ambient_sound_time();
 }
 
-#[derive(Component, Default)]
+#[auto_component(plugin = NpcPlugin, derive(Default), reflect, register)]
 pub struct AmbientSoundTimer(pub Duration);
 
-#[add_system(
-	plugin = NpcPlugin, schedule = Update,
-)]
+#[auto_system(plugin = NpcPlugin, schedule = Update)]
 fn imp_ambient_sound(
     mut imps: Query<(&GlobalTransform, &mut AmbientSoundTimer), With<Imp>>,
     mut commands: Commands,
