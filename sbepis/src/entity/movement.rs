@@ -6,6 +6,7 @@ use bevy_rapier3d::prelude::*;
 use return_ok::some_or_return;
 
 use crate::entity::EntityPlugin;
+use crate::player_controller::movement::MovementControlSystems;
 use crate::prelude::PlayerBody;
 
 #[auto_component(plugin = EntityPlugin, derive(Deref, DerefMut, Default), reflect, register)]
@@ -13,7 +14,7 @@ use crate::prelude::PlayerBody;
 pub struct Movement(pub Vec3);
 
 #[auto_system(plugin = EntityPlugin, schedule = Update, config(
-	in_set = ExecuteMovementSet,
+	in_set = MovementControlSystems::ExecuteMovement,
 ))]
 fn strafe(mut bodies: Query<(&mut Velocity, &Transform, &Movement)>) {
     for (mut velocity, transform, input) in bodies.iter_mut() {
@@ -26,7 +27,7 @@ fn strafe(mut bodies: Query<(&mut Velocity, &Transform, &Movement)>) {
 pub struct RotateTowardMovement;
 
 #[auto_system(plugin = EntityPlugin, schedule = Update, config(
-	in_set = ExecuteMovementSet,
+	in_set = MovementControlSystems::ExecuteMovement,
 ))]
 fn rotate_toward_movement(
     mut bodies: Query<(&mut Transform, &Movement), With<RotateTowardMovement>>,
@@ -40,9 +41,6 @@ fn rotate_toward_movement(
     }
 }
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ExecuteMovementSet;
-
 #[auto_component(plugin = EntityPlugin, derive(Default), reflect, register)]
 pub struct RandomInput {
     pub input: Vec3,
@@ -51,7 +49,7 @@ pub struct RandomInput {
 }
 
 #[auto_system(plugin = EntityPlugin, schedule = Update, config(
-	before = ExecuteMovementSet,
+	in_set = MovementControlSystems::DoHorizontalMovement,
 ))]
 fn random_vec2(mut input: Query<(&mut RandomInput, &mut Movement)>, time: Res<Time>) {
     for (mut random_input, mut movement_input) in input.iter_mut() {
@@ -74,7 +72,7 @@ fn random_vec2(mut input: Query<(&mut RandomInput, &mut Movement)>, time: Res<Ti
 pub struct TargetPlayer;
 
 #[auto_system(plugin = EntityPlugin, schedule = Update, config(
-	before = ExecuteMovementSet,
+	in_set = MovementControlSystems::DoHorizontalMovement,
 ))]
 fn target_player(
     mut target_players: Query<(&Transform, &mut Movement), With<TargetPlayer>>,

@@ -5,6 +5,8 @@ use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::di::DIExecute;
 use crate::player_controller::movement::sneak::Sneaking;
 use crate::prelude::PlayerBody;
 
@@ -68,3 +70,12 @@ fn to_crouching_assets(
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Crouching;
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
+	in_set = MovementControlSystems::DoHorizontalMovement,
+))]
+fn update_walk_velocity_crouch(players: Query<Entity, With<Crouching>>, mut commands: Commands) {
+    for entity in players.iter() {
+        commands.trigger(DIExecute { entity });
+    }
+}

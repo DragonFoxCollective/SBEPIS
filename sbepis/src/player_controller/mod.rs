@@ -67,8 +67,13 @@ fn build(app: &mut App) {
         (
             MovementControlSystems::UpdateDi.before(MovementControlSystems::UpdateState),
             MovementControlSystems::UpdateGrounded.before(MovementControlSystems::UpdateState),
-            MovementControlSystems::DoHorizontalMovement.after(MovementControlSystems::UpdateState),
-            MovementControlSystems::DoVerticalMovement.after(MovementControlSystems::UpdateState),
+            MovementControlSystems::UpdateState
+                .before(MovementControlSystems::DoHorizontalMovement),
+            MovementControlSystems::UpdateState.before(MovementControlSystems::DoVerticalMovement),
+            MovementControlSystems::DoHorizontalMovement
+                .before(MovementControlSystems::ExecuteMovement),
+            MovementControlSystems::DoVerticalMovement
+                .before(MovementControlSystems::ExecuteMovement),
         ),
     );
 }

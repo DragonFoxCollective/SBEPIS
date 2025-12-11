@@ -4,7 +4,8 @@ use bevy_pretty_nice_input::{Action, Updated};
 use return_ok::ok_or_return_ok;
 
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::di::DIUpdate;
+use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::di::{DIExecute, DIUpdate};
 use crate::player_controller::movement::walk::PlayerWalkSettings;
 
 #[derive(Action)]
@@ -35,4 +36,13 @@ fn update_di_sneak(
         speed: walk_settings.sneak_speed,
     });
     Ok(())
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
+	in_set = MovementControlSystems::DoHorizontalMovement,
+))]
+fn update_walk_velocity_sneak(players: Query<Entity, With<Sneaking>>, mut commands: Commands) {
+    for entity in players.iter() {
+        commands.trigger(DIExecute { entity });
+    }
 }

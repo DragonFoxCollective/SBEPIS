@@ -22,4 +22,5 @@ pub enum MovementControlSystems {
     UpdateState,
     DoHorizontalMovement,
     DoVerticalMovement,
+    ExecuteMovement,
 }

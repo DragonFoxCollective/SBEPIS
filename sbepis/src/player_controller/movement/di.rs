@@ -19,6 +19,11 @@ pub struct DIUpdate {
     pub speed: f32,
 }
 
+#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
+pub struct DIExecute {
+    pub entity: Entity,
+}
+
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn update_di(
     walk: On<DIUpdate>,

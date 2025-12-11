@@ -7,7 +7,6 @@ use bevy_rapier3d::prelude::Velocity;
 use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
-use crate::entity::movement::ExecuteMovementSet;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::grounded::Grounded;
@@ -128,19 +127,8 @@ fn remove_sliding_sound(
     }
 }
 
-#[auto_observer(plugin = PlayerControllerPlugin)]
-fn readd_movement(remove: On<Remove, Sliding>, mut commands: Commands, players: Query<&Velocity>) {
-    commands.entity(remove.entity).insert_if_new(
-        players
-            .get(remove.entity)
-            .map(|velocity| Movement(velocity.linvel))
-            .unwrap_or_default(),
-    );
-}
-
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::DoHorizontalMovement,
-	before = ExecuteMovementSet,
 ))]
 fn update_slide_velocity(
     mut players: Query<(&mut Movement, &Transform, &Velocity, &Sliding)>,
