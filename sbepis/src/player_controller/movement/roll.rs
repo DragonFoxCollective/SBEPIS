@@ -79,7 +79,7 @@ fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> 
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
+fn remove_movement(add: On<Add, (Rolling, NeutralRolling)>, mut commands: Commands) {
     commands
         .entity(add.entity)
         .remove::<Movement>()
@@ -88,7 +88,7 @@ fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn readd_movement(
-    add: On<Add, Rolling>,
+    add: On<Remove, (Rolling, NeutralRolling)>,
     velocities: Query<&Velocity>,
     mut commands: Commands,
 ) -> Result {
