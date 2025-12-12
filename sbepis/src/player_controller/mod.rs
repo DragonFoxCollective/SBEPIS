@@ -91,7 +91,7 @@ fn setup(
 ) -> Result {
     let input_bundle = (
         input_transition!(Walk: Standing <=> Walking, Axis2D[binding2d::wasd()]),
-        input_transition!(Jump: (Standing, Walking) => *, Axis1D[binding1d::space()], [
+        input_transition!(Jump: (Standing, Walking, Sprinting, SprintStanding, Sliding, Rolling) => *, Axis1D[binding1d::space()], [
             ButtonPress::default(),
             InputBuffer::new(0.2),
             FilterBuffered::<Grounded>::default(),
