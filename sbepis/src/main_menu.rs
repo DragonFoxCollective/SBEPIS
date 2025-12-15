@@ -1,5 +1,7 @@
 use bevy::audio::PlaybackMode;
+use bevy::ecs::system::{IntoObserverSystem, ObserverSystem};
 use bevy::prelude::*;
+use bevy::state::state::FreelyMutableState;
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use serde::Deserialize;
@@ -187,105 +189,73 @@ fn setup_home(
                 },
             )],
         ))
-        .observe(
-            |_: On<Pointer<Click>>, mut next_state: ResMut<NextState<GameState>>| {
-                debug!("Next state is InGame");
-                next_state.set(GameState::InGame);
-            },
-        );
-    commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_grow: 1.0,
+        .observe(change_state(GameState::InGame));
+    commands.spawn((
+        Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_grow: 1.0,
+            ..default()
+        },
+        ChildOf(content),
+        Button,
+        UselessButton,
+        children![(
+            Text::new("Join Session"),
+            TextFont {
+                font_size,
                 ..default()
             },
-            ChildOf(content),
-            Button,
-            UselessButton,
-            children![(
-                Text::new("Join Session"),
-                TextFont {
-                    font_size,
-                    ..default()
-                },
-                TextLayout {
-                    justify: Justify::Center,
-                    ..default()
-                },
-            )],
-        ))
-        .observe(
-            |_: On<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
-                commands.spawn((
-                    Name::new("Deny Sound"),
-                    AudioPlayer::new(deny_sound.0.clone()),
-                ));
-            },
-        );
-    commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_grow: 1.0,
+            TextLayout {
+                justify: Justify::Center,
                 ..default()
             },
-            ChildOf(content),
-            Button,
-            UselessButton,
-            children![(
-                Text::new("Advancement Database"),
-                TextFont {
-                    font_size,
-                    ..default()
-                },
-                TextLayout {
-                    justify: Justify::Center,
-                    ..default()
-                },
-            )],
-        ))
-        .observe(
-            |_: On<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
-                commands.spawn((
-                    Name::new("Deny Sound"),
-                    AudioPlayer::new(deny_sound.0.clone()),
-                ));
-            },
-        );
-    commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_grow: 1.0,
+        )],
+    ));
+    commands.spawn((
+        Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_grow: 1.0,
+            ..default()
+        },
+        ChildOf(content),
+        Button,
+        UselessButton,
+        children![(
+            Text::new("Advancement Database"),
+            TextFont {
+                font_size,
                 ..default()
             },
-            ChildOf(content),
-            Button,
-            UselessButton,
-            children![(
-                Text::new("Settings"),
-                TextFont {
-                    font_size,
-                    ..default()
-                },
-                TextLayout {
-                    justify: Justify::Center,
-                    ..default()
-                },
-            )],
-        ))
-        .observe(
-            |_: On<Pointer<Click>>, mut commands: Commands, deny_sound: Res<DenySound>| {
-                commands.spawn((
-                    Name::new("Deny Sound"),
-                    AudioPlayer::new(deny_sound.0.clone()),
-                ));
+            TextLayout {
+                justify: Justify::Center,
+                ..default()
             },
-        );
+        )],
+    ));
+    commands.spawn((
+        Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_grow: 1.0,
+            ..default()
+        },
+        ChildOf(content),
+        Button,
+        UselessButton,
+        children![(
+            Text::new("Settings"),
+            TextFont {
+                font_size,
+                ..default()
+            },
+            TextLayout {
+                justify: Justify::Center,
+                ..default()
+            },
+        )],
+    ));
     commands
         .spawn((
             Node {
@@ -308,11 +278,7 @@ fn setup_home(
                 },
             )],
         ))
-        .observe(
-            |_: On<Pointer<Click>>, mut state: ResMut<NextState<MenuState>>| {
-                state.set(MenuState::Credits);
-            },
-        );
+        .observe(change_state(MenuState::Credits));
     commands
         .spawn((
             Node {
@@ -1132,13 +1098,36 @@ fn setup_credits(
                 },
             )],
         ))
-        .observe(
-            |_: On<Pointer<Click>>, mut state: ResMut<NextState<MenuState>>| {
-                state.set(MenuState::Home);
-            },
-        );
+        .observe(change_state(MenuState::Home));
 
     Ok(())
+}
+
+#[auto_observer(plugin = MainMenuPlugin)]
+fn spawn_deny_sound(
+    click: On<Pointer<Click>>,
+    buttons: Query<(), With<UselessButton>>,
+    mut commands: Commands,
+    deny_sound: Res<DenySound>,
+) {
+    if buttons.get(click.entity).is_err() {
+        return;
+    }
+    commands.spawn((
+        Name::new("Deny Sound"),
+        AudioPlayer::new(deny_sound.0.clone()),
+        PlaybackSettings::DESPAWN,
+    ));
+}
+
+fn change_state<T: FreelyMutableState + Clone>(
+    next_state: T,
+) -> impl ObserverSystem<Pointer<Click>, ()> {
+    IntoObserverSystem::into_system(
+        move |_: On<Pointer<Click>>, mut state: ResMut<NextState<T>>| {
+            state.set(next_state.clone());
+        },
+    )
 }
 
 #[auto_system(plugin = MainMenuPlugin, schedule = Update)]
