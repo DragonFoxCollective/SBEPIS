@@ -164,6 +164,7 @@ fn setup_in_game(mut commands: Commands) {
         GravityPoint {
             standard_radius: 1000.0,
             acceleration_at_radius: 15.0,
+            has_volume: true,
         },
         GravityPriority(0),
         DespawnOnExit(GameState::InGame),

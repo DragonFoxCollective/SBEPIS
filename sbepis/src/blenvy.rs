@@ -67,6 +67,7 @@ fn create_planet(scenes: Query<(Entity, &PlanetBlundle)>, mut commands: Commands
             GravityPoint {
                 standard_radius: planet.radius,
                 acceleration_at_radius: planet.gravity,
+                has_volume: true,
             },
             GravityPriority(0),
         ));

@@ -24,6 +24,7 @@ pub trait GravitationalField {
 pub struct GravityPoint {
     pub standard_radius: f32,
     pub acceleration_at_radius: f32,
+    pub has_volume: bool,
 }
 
 impl GravitationalField for GravityPoint {
@@ -33,8 +34,14 @@ impl GravitationalField for GravityPoint {
     }
 
     fn get_acceleration_at(&self, local_position: Vec3) -> Vec3 {
-        let mass = self.acceleration_at_radius * self.standard_radius * self.standard_radius;
-        mass / -local_position.length_squared() * local_position.normalize()
+        if self.has_volume && local_position.length() < self.standard_radius {
+            local_position.length() / self.standard_radius
+                * self.acceleration_at_radius
+                * -local_position.normalize()
+        } else {
+            let mass = self.acceleration_at_radius * self.standard_radius * self.standard_radius;
+            mass / local_position.length_squared() * -local_position.normalize()
+        }
     }
 }
 
