@@ -9,6 +9,7 @@ use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::dash::Dash;
 use crate::player_controller::movement::trip::Trip;
+use crate::prelude::PlayerBody;
 
 use super::trip::{PlayerTripSettings, Tripping};
 
@@ -179,5 +180,33 @@ fn charge_crouching_to_tripping(
 fn update_charge_time(mut players: Query<&mut ChargingTime>, time: Res<Time>) {
     for mut charging_time in players.iter_mut() {
         charging_time.charge_time += time.delta();
+    }
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
+fn manage_charge_time(
+    players: Query<Entity, With<PlayerBody>>,
+    charge_time: Query<(), With<ChargingTime>>,
+    charging: Query<
+        (),
+        Or<(
+            With<ChargeStanding>,
+            With<ChargeCrouching>,
+            With<ChargeWalking>,
+        )>,
+    >,
+    mut commands: Commands,
+) {
+    for player in players.iter() {
+        let is_charging = charging.get(player).is_ok();
+        let has_charge_time = charge_time.get(player).is_ok();
+
+        if is_charging && !has_charge_time {
+            debug!("Adding charge time to {:?}", player);
+            commands.entity(player).insert(ChargingTime::default());
+        } else if !is_charging && has_charge_time {
+            debug!("Removing charge time from {:?}", player);
+            commands.entity(player).remove::<ChargingTime>();
+        }
     }
 }
