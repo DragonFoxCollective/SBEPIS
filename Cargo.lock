@@ -105,9 +105,9 @@ dependencies = [
 
 [[package]]
 name = "aligned"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "377e4c0ba83e4431b10df45c1d4666f178ea9c552cac93e60c3a88bf32785923"
+checksum = "ee4508988c62edf04abd8d92897fca0c2995d907ce1dfeaf369dac3716a40685"
 dependencies = [
  "as-slice",
 ]
@@ -787,8 +787,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_auto_plugin"
-version = "0.8.0"
-source = "git+https://github.com/jwright159/bevy_auto_plugin.git?branch=auto-sub-states#77e7852af2e5c76ec2776f8dbb1dbbbe4b1bce38"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7cfb9dd505ad1a1a2a43e512997411f1291d6bd909939a5e4b363b5cd90c65a"
 dependencies = [
  "bevy_auto_plugin_proc_macros",
  "bevy_auto_plugin_shared",
@@ -798,8 +799,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_auto_plugin_proc_macros"
-version = "0.8.0"
-source = "git+https://github.com/jwright159/bevy_auto_plugin.git?branch=auto-sub-states#77e7852af2e5c76ec2776f8dbb1dbbbe4b1bce38"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6713c25ca855d7a66fd508d07acab75b239951a6a8ffa2709207cc61c059d197"
 dependencies = [
  "bevy_auto_plugin_shared",
  "darling",
@@ -810,8 +812,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_auto_plugin_shared"
-version = "0.8.0"
-source = "git+https://github.com/jwright159/bevy_auto_plugin.git?branch=auto-sub-states#77e7852af2e5c76ec2776f8dbb1dbbbe4b1bce38"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f4a41ae457cd8a43b407efc654e23a96cdc01b3e58ff41cfd3aa6c6707e62ee"
 dependencies = [
  "bevy_app",
  "darling",
@@ -1513,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4590dea37bea4f95f5fca60f8a28876c57da857c5645e31f5a0f14ba8d28a010"
+checksum = "7d96d3e94c5f0c61811940bc790d7a58afbfb6df4cdde7fa13058a5cc403f125"
 dependencies = [
  "bevy",
  "bevy_event_chain",
@@ -1525,9 +1528,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input_derive"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae3c19662a2c2eb6330795a5d532e0ac8e1e9f625ba6ec0dc318ca5bd3ae497"
+checksum = "3d9b881390ed2bf9d16459e2b85ec25c9cb4ee46ecaf64b5432f841d59c3d8bb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3873,7 +3876,7 @@ dependencies = [
  "rgb",
  "tiff",
  "zune-core 0.5.0",
- "zune-jpeg 0.5.6",
+ "zune-jpeg 0.5.7",
 ]
 
 [[package]]
@@ -4309,9 +4312,9 @@ dependencies = [
 
 [[package]]
 name = "moxcms"
-version = "0.7.10"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80986bbbcf925ebd3be54c26613d861255284584501595cf418320c078945608"
+checksum = "ac9557c559cd6fc9867e122e20d2cbefc9ca29d80d027a8e39310920ed2f0a97"
 dependencies = [
  "num-traits",
  "pxfm",
@@ -7927,9 +7930,9 @@ dependencies = [
 
 [[package]]
 name = "zune-jpeg"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f520eebad972262a1dde0ec455bce4f8b298b1e5154513de58c114c4c54303e8"
+checksum = "51d915729b0e7d5fe35c2f294c5dc10b30207cc637920e5b59077bfa3da63f28"
 dependencies = [
  "zune-core 0.5.0",
 ]
