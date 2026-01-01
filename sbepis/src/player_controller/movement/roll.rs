@@ -19,7 +19,7 @@ pub struct RollingAssets {
     pub mesh_transform: Transform,
     pub collider: Collider,
     pub collider_transform: Transform,
-    pub camera_transform: Transform,
+    pub camera_position: Vec3,
 }
 
 impl FromWorld for RollingAssets {
@@ -31,15 +31,16 @@ impl FromWorld for RollingAssets {
             mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
             collider: Collider::ball(0.5),
             collider_transform: Transform::from_translation(Vec3::Y * 0.5),
-            camera_transform: Transform::from_translation(Vec3::Y * 0.5),
+            camera_position: Vec3::Y * 0.5,
         }
     }
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_rolling_assets(
-    add: On<Add, (Rolling,)>,
+    add: On<Add, Rolling>,
     players: Query<&PlayerBody>,
+    mut cameras: Query<&mut Transform>,
     assets: Res<RollingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -50,7 +51,7 @@ fn to_rolling_assets(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    commands.entity(body.camera).insert(assets.camera_transform);
+    cameras.get_mut(body.camera)?.translation = assets.camera_position;
     Ok(())
 }
 

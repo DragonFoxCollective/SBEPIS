@@ -112,7 +112,7 @@ fn setup(
             ]),
             input_transition!((Standing, Moving) => (Standing, Moving, Sprinting), Axis1D[binding1d::left_shift()]),
             input_transition!(() <= (Sprinting), Axis1D[binding1d::left_shift()]),
-            input_transition!((Standing, !Moving) <=> (Standing, Crouching), Axis1D[binding1d::left_ctrl()]),
+            input_transition!((Standing, !Moving, !Sprinting) <=> (Standing, Crouching), Axis1D[binding1d::left_ctrl()]),
             input_transition!((Standing, Crouching) => CrouchJump (Standing, Crouching), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
