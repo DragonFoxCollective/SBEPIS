@@ -4,6 +4,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::crouch::Crouching;
 use crate::prelude::PlayerBody;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
@@ -47,6 +48,25 @@ fn to_standing_assets(
     mut commands: Commands,
 ) -> Result {
     let body = players.get(add.entity)?;
+    commands
+        .entity(body.mesh)
+        .insert((assets.mesh.clone(), assets.mesh_transform));
+    commands
+        .entity(body.collider)
+        .insert((assets.collider.clone(), assets.collider_transform));
+    cameras.get_mut(body.camera)?.translation = assets.camera_position;
+    Ok(())
+}
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn to_standing_assets_2(
+    remove: On<Remove, Crouching>,
+    players: Query<&PlayerBody>,
+    mut cameras: Query<&mut Transform>,
+    assets: Res<StandingAssets>,
+    mut commands: Commands,
+) -> Result {
+    let body = players.get(remove.entity)?;
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));
