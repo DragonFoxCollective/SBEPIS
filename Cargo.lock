@@ -1516,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dc18df929db545fa36a751cbd2dc4974707af956291b3acc327455dc6db48ec"
+checksum = "542594b705cb2bbcead0ca62d81175261107272cfa30ae3433f6a644c8f282da"
 dependencies = [
  "bevy",
  "bevy_event_chain",
@@ -1528,9 +1528,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input_derive"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a12d3d79f5e3fffb67b6dc6e383a8ee5a0aad8a2a2b5c184b07e8021ad0373"
+checksum = "54743d723457ff685ca800d964b1c0b61fbf3eb04eb4662aace54f37789d3658"
 dependencies = [
  "proc-macro2",
  "quote",
