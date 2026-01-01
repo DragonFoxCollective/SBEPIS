@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::{Action, Updated};
-use bevy_rapier3d::prelude::Velocity;
+use bevy_rapier3d::prelude::*;
 use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
@@ -14,15 +14,7 @@ use crate::util::MapRange;
 
 #[derive(Action)]
 #[action(invalidate = false)]
-pub struct Slide;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct SlideNeutral;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct SlideStand;
+pub struct SlidingDI;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerSlideSettings {
@@ -69,21 +61,18 @@ pub struct Sliding {
     di: Vec2,
 }
 
-#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct NeutralSliding;
-
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug), reflect, register)]
 pub struct SlidingSound {
     entity: Entity,
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn update_di(di: On<Updated<SlideNeutral>>, mut players: Query<&mut Sliding>) -> Result {
+fn update_di(di: On<Updated<SlidingDI>>, mut players: Query<&mut Sliding>) -> Result {
     let mut sliding = ok_or_return_ok!(players.get_mut(di.input));
     sliding.di = di
         .data
         .as_2d()
-        .ok_or::<BevyError>("SlideNeutral didn't have 2D data".into())?
+        .ok_or::<BevyError>("SlidingDI didn't have 2D data".into())?
         .clamp_length_max(1.0)
         * Vec2::new(1.0, -1.0);
     Ok(())
@@ -91,10 +80,7 @@ fn update_di(di: On<Updated<SlideNeutral>>, mut players: Query<&mut Sliding>) ->
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_sliding_sound(
-    mut slidings: Query<
-        (Entity, Option<&SlidingSound>, Has<Grounded>),
-        Or<(With<Sliding>, With<NeutralSliding>)>,
-    >,
+    mut slidings: Query<(Entity, Option<&SlidingSound>, Has<Grounded>), With<Sliding>>,
     mut commands: Commands,
     slide_assets: Res<SlideAssets>,
 ) {
@@ -118,7 +104,7 @@ fn update_sliding_sound(
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn remove_sliding_sound(
-    slidings: Query<(Entity, &SlidingSound), (Without<Sliding>, Without<NeutralSliding>)>,
+    slidings: Query<(Entity, &SlidingSound), Without<Sliding>>,
     mut commands: Commands,
 ) {
     for (entity, sound) in slidings {

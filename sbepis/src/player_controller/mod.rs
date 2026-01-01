@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::chunk_generator::ChunkLoader;
 use bevy_pretty_nice_input::{
-    Action, ButtonPress, ComponentBuffer, Cooldown, FilterBuffered, InputBuffer, ResetBuffer,
-    binding1d, binding2d, input, input_transition,
+    Action, ButtonPress, ComponentBuffer, Cooldown, Filter, FilterBuffered, InputBuffer,
+    ResetBuffer, binding1d, binding2d, input, input_transition,
 };
 use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
@@ -18,28 +18,20 @@ use crate::camera::PlayerCamera;
 use crate::gridbox_material;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::player_controller::movement::charge::{
-    Charge, ChargeCrouch, ChargeCrouching, ChargeDash, ChargeStanding, ChargeWalk, ChargeWalking,
-};
-use crate::player_controller::movement::crouch::{Crouch, Crouching};
-use crate::player_controller::movement::dash::{Dash, Dashing, HasEnoughStaminaToDash};
+use crate::player_controller::movement::charge::{ChargeDash, Charging};
+use crate::player_controller::movement::crouch::Crouching;
+use crate::player_controller::movement::dash::{Dash, HasEnoughStaminaToDash};
+use crate::player_controller::movement::di::Moving;
 use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::movement::jump::{
     ChargeCrouchJump, ChargeJump, CrouchJump, HasEnoughStaminaToChargeCrouchJump,
-    HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump, Jump,
+    HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump,
+    HasEnoughStaminaToSlideJump, Jump, SlideJump,
 };
-use crate::player_controller::movement::roll::{
-    CrouchRoll, NeutralCrouchRoll, NeutralRolling, RollNeutral, Rolling, SprintRoll,
-};
-use crate::player_controller::movement::slide::{
-    NeutralSliding, Slide, SlideNeutral, SlideStand, Sliding,
-};
-use crate::player_controller::movement::sneak::{CrouchSneak, Sneaking, WalkSneak};
-use crate::player_controller::movement::sprint::{
-    Sprint, SprintStanding, SprintWalk, Sprinting, UnSprintWalk,
-};
-use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover};
-use crate::player_controller::movement::walk::{Walk, Walking};
+use crate::player_controller::movement::roll::{Rolling, RollingDI};
+use crate::player_controller::movement::slide::{Sliding, SlidingDI};
+use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover, Tripping};
+use crate::player_controller::movement::walk::{Sprinting, StandingDI};
 use crate::prelude::*;
 use crate::worldgen::terrain::WorldGen;
 
@@ -90,18 +82,27 @@ fn setup(
     mut menu_stack: ResMut<MenuStack>,
 ) -> Result {
     let input_bundle = (
-        input_transition!(Walk: Standing <=> Walking, Axis2D[binding2d::wasd()]),
-        input_transition!(Jump: (Standing, Walking, Sprinting, SprintStanding, Sliding, Rolling) => *, Axis1D[binding1d::space()], [
-            ButtonPress::default(),
-            InputBuffer::new(0.2),
-            FilterBuffered::<Grounded>::default(),
-            HasEnoughStaminaToJump,
-            Cooldown::new(0.5),
-            ResetBuffer,
-        ]),
-        input!(Look, Axis2D[binding2d::mouse_move()]),
         (
-            input_transition!(Dash: Walking => *, Axis1D[binding1d::left_shift()], [
+            // Misc
+            input!(Look, Axis2D[binding2d::mouse_move()]),
+            input!(Interact, Axis1D[binding1d::key(KeyCode::KeyE)]),
+            input!(OpenQuestScreen, Axis1D[binding1d::key(KeyCode::KeyJ)]),
+            input!(OpenInventory, Axis1D[binding1d::key(KeyCode::KeyV)]),
+            input!(OpenStaff, Axis1D[binding1d::key(KeyCode::Backquote)]),
+            ComponentBuffer::<Grounded>::observe(0.2),
+        ),
+        (
+            // Standing
+            input_transition!((Standing) <=> StandingDI (Standing, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Standing, !Crouching) => Jump (Standing), Axis1D[binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToJump,
+                Cooldown::new(0.5),
+                ResetBuffer,
+            ]),
+            input_transition!((Standing, Moving) => Dash (Standing, Moving), Axis1D[binding1d::left_shift()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
                 FilterBuffered::<Grounded>::default(),
@@ -109,11 +110,10 @@ fn setup(
                 Cooldown::new(0.5),
                 ResetBuffer,
             ]),
-            input_transition!(Sprint: Walking <=> Sprinting, Axis1D[binding1d::left_shift()]),
-            input_transition!(SprintWalk: SprintStanding <=> Sprinting, Axis2D[binding2d::wasd()]),
-            input_transition!(UnSprintWalk: Standing <= SprintStanding, Axis1D[binding1d::left_shift()]),
-            input_transition!(Crouch: Standing <=> Crouching, Axis1D[binding1d::left_ctrl()]),
-            input_transition!(CrouchJump: (Crouching, Sneaking, Sliding, Rolling) => *, Axis1D[binding1d::space()], [
+            input_transition!((Standing, Moving) => (Standing, Moving, Sprinting), Axis1D[binding1d::left_shift()]),
+            input_transition!(() <= (Sprinting), Axis1D[binding1d::left_shift()]),
+            input_transition!((Standing, !Moving) <=> (Standing, Crouching), Axis1D[binding1d::left_ctrl()]),
+            input_transition!((Standing, Crouching) => CrouchJump (Standing, Crouching), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
                 FilterBuffered::<Grounded>::default(),
@@ -121,21 +121,35 @@ fn setup(
                 Cooldown::new(0.5),
                 ResetBuffer,
             ]),
-            input_transition!(CrouchSneak: Crouching <=> Sneaking, Axis2D[binding2d::wasd()]),
-            input_transition!(WalkSneak: Walking <= Sneaking, Axis1D[binding1d::left_ctrl()]),
         ),
         (
-            input_transition!(Slide: Walking <=> Sliding, Axis1D[binding1d::left_ctrl()]),
-            input_transition!(SlideNeutral: NeutralSliding <=> Sliding, Axis2D[binding2d::wasd()]),
-            input_transition!(SlideStand: Standing <= NeutralSliding, Axis1D[binding1d::left_ctrl()]),
-            input_transition!(CrouchRoll: (Sliding <=, Sneaking) => Rolling, Axis1D[binding1d::left_shift()]),
-            input_transition!(RollNeutral: NeutralRolling <=> Rolling, Axis2D[binding2d::wasd()]),
-            input_transition!(NeutralCrouchRoll: (NeutralSliding <=, Crouching) => NeutralRolling, Axis1D[binding1d::left_shift()]),
-            input_transition!(SprintRoll: (Sprinting <=, Dashing) => Rolling, Axis1D[binding1d::left_ctrl()]),
+            // Sliding
+            input_transition!((Standing, Moving) <=> (Sliding, Moving), Axis1D[binding1d::left_ctrl()]),
+            input_transition!(
+                (Standing) <= (Sliding, !Moving),
+                Axis1D[binding1d::left_ctrl()]
+            ),
+            input_transition!((Sliding) <=> SlidingDI (Sliding, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Sliding) => SlideJump (Sliding), Axis1D[binding1d::space()], [
+                ButtonPress::default(),
+                InputBuffer::new(0.2),
+                FilterBuffered::<Grounded>::default(),
+                HasEnoughStaminaToSlideJump,
+                Cooldown::new(0.5),
+                ResetBuffer,
+            ]),
         ),
         (
-            input_transition!(Charge: Standing <=> ChargeStanding, Axis1D[binding1d::left_shift()]),
-            input_transition!(ChargeJump: ChargeStanding => Standing, Axis1D[binding1d::space()], [
+            // Rolling
+            input_transition!((Sliding) <=> (Rolling), Axis1D[binding1d::left_shift()]),
+            input_transition!((Standing, Crouching) => (Rolling), Axis1D[binding1d::left_shift()]),
+            input_transition!((Rolling) <=> RollingDI (Rolling, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Standing, Sprinting) <=> (Rolling), Axis1D[binding1d::left_ctrl()]),
+        ),
+        (
+            // Charging
+            input_transition!((Standing, !Moving, !Crouching, !Rolling) <=> (Charging, !Crouching), Axis1D[binding1d::left_shift()]),
+            input_transition!((Charging, !Crouching) => ChargeJump (Standing), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
                 FilterBuffered::<Grounded>::default(),
@@ -143,8 +157,8 @@ fn setup(
                 Cooldown::new(0.5),
                 ResetBuffer,
             ]),
-            input_transition!(ChargeCrouch: ChargeStanding <=> ChargeCrouching, Axis1D[binding1d::left_ctrl()]),
-            input_transition!(ChargeCrouchJump: ChargeCrouching => Crouching, Axis1D[binding1d::space()], [
+            input_transition!((Charging) <=> (Charging, Crouching), Axis1D[binding1d::left_ctrl()]),
+            input_transition!((Charging, Crouching) => ChargeCrouchJump (Charging, Crouching), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
                 FilterBuffered::<Grounded>::default(),
@@ -152,29 +166,30 @@ fn setup(
                 Cooldown::new(0.5),
                 ResetBuffer,
             ]),
-            input_transition!(ChargeWalk: ChargeStanding <=> ChargeWalking, Axis2D[binding2d::wasd()]),
-            input_transition!(ChargeDash: * <= ChargeWalking, Axis1D[binding1d::left_shift()]),
-            input_transition!(Trip: * <= ChargeCrouching, Axis1D[binding1d::left_shift()]),
+            input_transition!((Charging) <=> (Charging, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!(
+                ChargeDash(Charging, Moving) <= (Charging, Moving),
+                Axis1D[binding1d::left_shift()]
+            ),
+        ),
+        (
+            // Tripping
+            input_transition!(
+                Trip() <= (Charging, Crouching),
+                Axis1D[binding1d::left_shift()]
+            ),
+            input_transition!((Tripping) <=> (Tripping, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((TripRecover) <=> (TripRecover, Moving), Axis2D[binding2d::wasd()]),
             input!(
                 GroundParry,
                 Axis1D[binding1d::left_ctrl()],
                 [
                     ButtonPress::default(),
                     InputBuffer::new(0.2),
-                    FilterBuffered::<Grounded>::default(),
-                    FilterBuffered::<TripRecover>::default(),
+                    Filter::<(With<TripRecover>, With<ComponentBuffer<Grounded>>)>::default(),
                     ResetBuffer,
-                ],
+                ]
             ),
-        ),
-        input!(Interact, Axis1D[binding1d::key(KeyCode::KeyE)]),
-        // TODO: move these
-        input!(OpenQuestScreen, Axis1D[binding1d::key(KeyCode::KeyJ)]),
-        input!(OpenInventory, Axis1D[binding1d::key(KeyCode::KeyV)]),
-        input!(OpenStaff, Axis1D[binding1d::key(KeyCode::Backquote)]),
-        (
-            ComponentBuffer::<Grounded>::observe(0.2),
-            ComponentBuffer::<TripRecover>::observe(0.2),
         ),
     );
 

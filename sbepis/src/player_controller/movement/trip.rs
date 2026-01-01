@@ -14,9 +14,8 @@ use crate::player_controller::stamina::Stamina;
 use super::dash::Dashing;
 use super::grounded::Grounded;
 use super::slide::Sliding;
-use super::sprint::Sprinting;
 use super::stand::Standing;
-use super::walk::Walking;
+use super::walk::Sprinting;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -29,6 +28,7 @@ pub struct GroundParry;
 pub struct PlayerTripSettings {
     pub upward_speed: f32,
     pub stun_time: Duration,
+    pub recover_time: Duration,
     pub ground_parry_speed: f32,
     pub trip_speed_threshold: f32,
     pub ground_parry_stamina_gain: f32,
@@ -39,16 +39,13 @@ impl Default for PlayerTripSettings {
         Self {
             upward_speed: 5.0,
             stun_time: Duration::from_secs_f32(1.0),
+            recover_time: Duration::from_secs_f32(0.2),
             ground_parry_speed: 40.0,
             trip_speed_threshold: 25.0,
             ground_parry_stamina_gain: 0.25,
         }
     }
 }
-
-/// Marker component to insert the real Tripping component
-#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct StartTripping;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Tripping {
@@ -67,8 +64,10 @@ impl Tripping {
     }
 }
 
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-pub struct TripRecover;
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
+pub struct TripRecover {
+    pub grounded_duration: Duration,
+}
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct HitStop {
@@ -105,8 +104,33 @@ fn tripping_to_trip_recover(
             commands
                 .entity(player)
                 .remove::<Tripping>()
-                .insert(TripRecover)
+                .insert(TripRecover::default())
                 .insert(AffectedByGravity);
+        }
+    }
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
+	in_set = MovementControlSystems::UpdateState,
+))]
+fn trip_recover_update(
+    mut players: Query<(Entity, &mut TripRecover, Has<Grounded>)>,
+    time: Res<Time>,
+    settings: Res<PlayerTripSettings>,
+    mut commands: Commands,
+) {
+    for (player, mut trip_recover, grounded) in players.iter_mut() {
+        if grounded {
+            trip_recover.grounded_duration += time.delta();
+
+            if trip_recover.grounded_duration > settings.recover_time {
+                commands
+                    .entity(player)
+                    .remove::<TripRecover>()
+                    .insert(Standing);
+            }
+        } else {
+            trip_recover.grounded_duration = Duration::ZERO;
         }
     }
 }
@@ -144,7 +168,10 @@ fn ground_parry(
 
     stamina.current += trip_settings.ground_parry_stamina_gain;
 
-    commands.entity(parry.input).insert(Sliding::default());
+    commands
+        .entity(parry.input)
+        .remove::<TripRecover>()
+        .insert(Sliding::default());
 
     let ground_parry_velocity = transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
     movement.0 += ground_parry_velocity;
@@ -170,11 +197,7 @@ fn ground_parry(
 fn walking_too_fast_to_tripping(
     mut players: Query<
         (Entity, &ComputedGravity, &Velocity, &Transform),
-        (
-            Or<(With<Walking>, With<Standing>, With<Sprinting>)>,
-            Without<Dashing>,
-            With<Grounded>,
-        ),
+        (With<Standing>, Without<Dashing>, With<Grounded>),
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
@@ -192,7 +215,6 @@ fn walking_too_fast_to_tripping(
 
         commands
             .entity(player)
-            .remove::<Walking>()
             .remove::<Standing>()
             .remove::<Sprinting>()
             .remove::<AffectedByGravity>()
@@ -201,24 +223,6 @@ fn walking_too_fast_to_tripping(
                 gravity.up * trip_settings.upward_speed,
             ));
     }
-}
-
-#[auto_observer(plugin = PlayerControllerPlugin)]
-fn start_tripping(
-    add: On<Add, StartTripping>,
-    mut players: Query<(Entity, &ComputedGravity)>,
-    mut commands: Commands,
-    settings: Res<PlayerTripSettings>,
-) -> Result {
-    let (player, gravity) = players.get_mut(add.entity)?;
-    commands
-        .entity(player)
-        .remove::<StartTripping>()
-        .insert(Tripping::new(
-            gravity.up,
-            gravity.up * settings.upward_speed,
-        ));
-    Ok(())
 }
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]

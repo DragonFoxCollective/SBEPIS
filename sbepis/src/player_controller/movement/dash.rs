@@ -11,14 +11,12 @@ use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
-use crate::player_controller::movement::charge::{ChargingTime, PlayerChargeSettings};
+use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
+use crate::player_controller::movement::di::WalkDI;
 use crate::player_controller::stamina::Stamina;
 use crate::util::MapRangeBetween;
 
-use super::charge::ChargeWalking;
-use super::di::WalkDI;
-use super::sprint::Sprinting;
-use super::walk::{PlayerWalkSettings, Walking};
+use super::walk::PlayerWalkSettings;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -76,10 +74,7 @@ pub struct Dashing {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
-    mut players: Query<
-        (&Velocity, &WalkDI, &mut Stamina, Option<&ChargingTime>),
-        Or<(With<Walking>, With<Sprinting>, With<ChargeWalking>)>, // TODO: replace this with event input
-    >,
+    mut players: Query<(&Velocity, &WalkDI, &mut Stamina, Option<&Charging>)>,
     charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerDashSettings>,
     mut commands: Commands,
@@ -173,7 +168,7 @@ impl Condition for HasEnoughStaminaToDash {
         observe(
             |update: On<ConditionedBindingUpdate>,
              mut commands: Commands,
-             players: Query<(&Stamina, Has<ChargingTime>)>,
+             players: Query<(&Stamina, Has<Charging>)>,
              settings: Res<PlayerDashSettings>|
              -> Result {
                 let (stamina, is_charging) = players.get(update.input)?;

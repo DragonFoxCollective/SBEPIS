@@ -11,19 +11,7 @@ use crate::prelude::PlayerBody;
 
 #[derive(Action)]
 #[action(invalidate = false)]
-pub struct CrouchRoll;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct SprintRoll;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct NeutralCrouchRoll;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct RollNeutral;
+pub struct RollingDI;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct RollingAssets {
@@ -67,19 +55,19 @@ fn to_rolling_assets(
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn update_di(di: On<Updated<RollNeutral>>, mut players: Query<&mut Rolling>) -> Result {
+fn update_di(di: On<Updated<RollingDI>>, mut players: Query<&mut Rolling>) -> Result {
     let mut rolling = ok_or_return_ok!(players.get_mut(di.input));
     rolling.di = di
         .data
         .as_2d()
-        .ok_or::<BevyError>("RollNeutral didn't have 2D data".into())?
+        .ok_or::<BevyError>("RollingDI didn't have 2D data".into())?
         .clamp_length_max(1.0)
         * Vec2::new(1.0, -1.0);
     Ok(())
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn remove_movement(add: On<Add, (Rolling, NeutralRolling)>, mut commands: Commands) {
+fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
     commands
         .entity(add.entity)
         .remove::<Movement>()
@@ -88,7 +76,7 @@ fn remove_movement(add: On<Add, (Rolling, NeutralRolling)>, mut commands: Comman
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn readd_movement(
-    add: On<Remove, (Rolling, NeutralRolling)>,
+    add: On<Remove, Rolling>,
     velocities: Query<&Velocity>,
     mut commands: Commands,
 ) -> Result {
@@ -103,6 +91,3 @@ fn readd_movement(
 pub struct Rolling {
     di: Vec2,
 }
-
-#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct NeutralRolling;

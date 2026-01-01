@@ -12,16 +12,14 @@ pub struct WalkDI {
     pub forward: Vec3,
 }
 
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default, Debug), reflect, register)]
+pub struct Moving;
+
 #[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
 pub struct DIUpdate {
     pub entity: Entity,
     pub value: Vec2,
     pub speed: f32,
-}
-
-#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
-pub struct DIExecute {
-    pub entity: Entity,
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]

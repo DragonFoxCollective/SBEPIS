@@ -7,7 +7,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::charge::{ChargingTime, PlayerChargeSettings};
+use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player_controller::stamina::Stamina;
 use crate::util::MapRangeBetween;
 
@@ -20,6 +20,10 @@ pub struct Jump;
 #[derive(Action)]
 #[action(invalidate = false)]
 pub struct CrouchJump;
+
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct SlideJump;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -112,10 +116,23 @@ fn crouch_jump(
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
+fn slide_jump(
+    jump: On<JustPressed<SlideJump>>,
+    mut commands: Commands,
+    settings: Res<PlayerJumpSettings>,
+) {
+    commands.trigger(DoJump {
+        entity: jump.input,
+        speed: settings.high_jump_speed,
+        stamina_cost: settings.high_jump_stamina_cost,
+    });
+}
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_jump(
     jump: On<JustPressed<ChargeJump>>,
     mut commands: Commands,
-    players: Query<(&Stamina, &ChargingTime)>,
+    players: Query<(&Stamina, &Charging)>,
     charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerJumpSettings>,
     assets: Res<JumpAssets>,
@@ -149,7 +166,7 @@ fn charge_jump(
 fn charge_crouch_jump(
     jump: On<JustPressed<ChargeCrouchJump>>,
     mut commands: Commands,
-    players: Query<(&Stamina, &ChargingTime)>,
+    players: Query<(&Stamina, &Charging)>,
     charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerJumpSettings>,
     assets: Res<JumpAssets>,
@@ -228,6 +245,27 @@ impl Condition for HasEnoughStaminaToJump {
 pub struct HasEnoughStaminaToCrouchJump;
 
 impl Condition for HasEnoughStaminaToCrouchJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if update.data.is_zero() || stamina.current >= settings.high_jump_stamina_cost {
+                    update.trigger_next(&mut commands);
+                }
+                Ok(())
+            },
+        )
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct HasEnoughStaminaToSlideJump;
+
+impl Condition for HasEnoughStaminaToSlideJump {
     fn bundle<A: Action>(&self) -> impl Bundle {
         observe(
             |update: On<ConditionedBindingUpdate>,

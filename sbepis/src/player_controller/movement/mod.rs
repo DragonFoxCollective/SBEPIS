@@ -8,8 +8,6 @@ pub mod grounded;
 pub mod jump;
 pub mod roll;
 pub mod slide;
-pub mod sneak;
-pub mod sprint;
 pub mod stand;
 pub mod trip;
 pub mod walk;

@@ -4,13 +4,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::MovementControlSystems;
-use crate::player_controller::movement::di::DIExecute;
 use crate::prelude::PlayerBody;
-
-use super::charge::ChargeStanding;
-use super::sprint::Sprinting;
-use super::walk::Walking;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct StandingAssets {
@@ -46,7 +40,7 @@ impl FromWorld for StandingAssets {
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets(
-    add: On<Add, (Standing, ChargeStanding, Walking, Sprinting)>,
+    add: On<Add, Standing>,
     players: Query<&PlayerBody>,
     mut cameras: Query<&mut Transform>,
     assets: Res<StandingAssets>,
@@ -65,12 +59,3 @@ fn to_standing_assets(
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Standing;
-
-#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
-	in_set = MovementControlSystems::DoHorizontalMovement,
-))]
-fn update_walk_velocity_sprint(players: Query<Entity, With<Standing>>, mut commands: Commands) {
-    for entity in players.iter() {
-        commands.trigger(DIExecute { entity });
-    }
-}

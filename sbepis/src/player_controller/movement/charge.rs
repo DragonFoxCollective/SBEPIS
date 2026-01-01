@@ -9,21 +9,8 @@ use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::dash::Dash;
 use crate::player_controller::movement::trip::Trip;
-use crate::prelude::PlayerBody;
 
 use super::trip::{PlayerTripSettings, Tripping};
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct Charge;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct ChargeCrouch;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct ChargeWalk;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -55,11 +42,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
-pub struct ChargingTime {
+pub struct Charging {
     pub charge_time: Duration,
 }
 
-impl ChargingTime {
+impl Charging {
     /// Gets the maximum power and stamina cost possible from this charge and stamina.
     /// Returns None if not enough stamina to perform the charge.
     pub fn power_and_stamina_cost_from_stamina(
@@ -98,46 +85,33 @@ impl ChargingTime {
     }
 }
 
-#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct ChargeStanding;
-
-#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct ChargeCrouching;
-
-#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct ChargeWalking;
-
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 struct ChargingSound(pub Entity);
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn spawn_charging_sound(
-    charge: On<JustPressed<Charge>>,
-    mut commands: Commands,
-    assets: Res<ChargeAssets>,
-) {
+fn spawn_charging_sound(add: On<Add, Charging>, mut commands: Commands, assets: Res<ChargeAssets>) {
     debug!("Charging!");
 
     let sound = commands
         .spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN))
         .id();
 
-    commands.entity(charge.input).insert(ChargingSound(sound));
+    commands.entity(add.entity).insert(ChargingSound(sound));
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn despawn_charging_sound(
-    charge: On<JustReleased<Charge>>,
+    remove: On<Remove, Charging>,
     sounds: Query<&ChargingSound>,
     mut commands: Commands,
 ) {
-    if let Ok(charging_sound) = sounds.get(charge.input)
+    if let Ok(charging_sound) = sounds.get(remove.entity)
         && let Ok(mut sound) = commands.get_entity(charging_sound.0)
     {
         sound.despawn();
     }
 
-    commands.entity(charge.input).remove::<ChargingSound>();
+    commands.entity(remove.entity).remove::<ChargingSound>();
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
@@ -160,7 +134,7 @@ fn charge_crouching_to_tripping(
     let (charging_sound, gravity) = players.get(sprint.input)?;
     commands
         .entity(sprint.input)
-        .remove::<ChargeCrouching>()
+        .remove::<Charging>()
         .remove::<AffectedByGravity>()
         .insert(Tripping::new(
             gravity.up,
@@ -177,36 +151,8 @@ fn charge_crouching_to_tripping(
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
-fn update_charge_time(mut players: Query<&mut ChargingTime>, time: Res<Time>) {
+fn update_charge_time(mut players: Query<&mut Charging>, time: Res<Time>) {
     for mut charging_time in players.iter_mut() {
         charging_time.charge_time += time.delta();
-    }
-}
-
-#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
-fn manage_charge_time(
-    players: Query<Entity, With<PlayerBody>>,
-    charge_time: Query<(), With<ChargingTime>>,
-    charging: Query<
-        (),
-        Or<(
-            With<ChargeStanding>,
-            With<ChargeCrouching>,
-            With<ChargeWalking>,
-        )>,
-    >,
-    mut commands: Commands,
-) {
-    for player in players.iter() {
-        let is_charging = charging.get(player).is_ok();
-        let has_charge_time = charge_time.get(player).is_ok();
-
-        if is_charging && !has_charge_time {
-            debug!("Adding charge time to {:?}", player);
-            commands.entity(player).insert(ChargingTime::default());
-        } else if !is_charging && has_charge_time {
-            debug!("Removing charge time from {:?}", player);
-            commands.entity(player).remove::<ChargingTime>();
-        }
     }
 }

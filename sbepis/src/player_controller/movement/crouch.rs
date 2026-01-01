@@ -1,21 +1,12 @@
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::Action;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::MovementControlSystems;
-use crate::player_controller::movement::di::DIExecute;
-use crate::player_controller::movement::sneak::Sneaking;
 use crate::prelude::PlayerBody;
 
-use super::charge::ChargeCrouching;
 use super::slide::Sliding;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct Crouch;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct CrouchingAssets {
@@ -51,7 +42,7 @@ impl FromWorld for CrouchingAssets {
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_crouching_assets(
-    add: On<Add, (Crouching, Sliding, ChargeCrouching, Sneaking)>,
+    add: On<Add, (Crouching, Sliding)>,
     players: Query<&PlayerBody>,
     mut cameras: Query<&mut Transform>,
     assets: Res<CrouchingAssets>,
@@ -70,12 +61,3 @@ fn to_crouching_assets(
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Crouching;
-
-#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
-	in_set = MovementControlSystems::DoHorizontalMovement,
-))]
-fn update_walk_velocity_crouch(players: Query<Entity, With<Crouching>>, mut commands: Commands) {
-    for entity in players.iter() {
-        commands.trigger(DIExecute { entity });
-    }
-}

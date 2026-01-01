@@ -9,23 +9,19 @@ use return_ok::ok_or_return;
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
-use crate::player_controller::movement::roll::NeutralRolling;
-use crate::player_controller::movement::slide::NeutralSliding;
-use crate::player_controller::movement::sprint::SprintStanding;
+use crate::player_controller::movement::di::Moving;
 use crate::player_controller::movement::trip::TripRecover;
 use crate::prelude::*;
 
-use super::movement::charge::{ChargeCrouching, ChargeStanding, ChargeWalking};
+use super::movement::charge::Charging;
 use super::movement::crouch::Crouching;
 use super::movement::dash::Dashing;
 use super::movement::grounded::Grounded;
 use super::movement::roll::Rolling;
 use super::movement::slide::Sliding;
-use super::movement::sneak::Sneaking;
-use super::movement::sprint::Sprinting;
 use super::movement::stand::Standing;
 use super::movement::trip::Tripping;
-use super::movement::walk::Walking;
+use super::movement::walk::Sprinting;
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = PlayerControllerPlugin)]
@@ -95,23 +91,14 @@ fn check_states(
     players: Query<
         (
             Has<Standing>,
-            Has<Walking>,
-            (Has<SprintStanding>, Has<Sprinting>),
+            Has<Moving>,
+            Has<Sprinting>,
             Has<Crouching>,
-            Has<Sneaking>,
             Has<Dashing>,
-            (
-                Has<ChargeStanding>,
-                Has<ChargeCrouching>,
-                Has<ChargeWalking>,
-            ),
-            (
-                Has<Tripping>,
-                Has<TripRecover>,
-                Has<ComponentBuffer<TripRecover>>,
-            ),
-            (Has<NeutralSliding>, Has<Sliding>),
-            (Has<NeutralRolling>, Has<Rolling>),
+            Has<Charging>,
+            (Has<Tripping>, Has<TripRecover>),
+            Has<Sliding>,
+            Has<Rolling>,
             Has<Grounded>,
             Has<ComponentBuffer<Grounded>>,
             Has<Movement>,
@@ -123,28 +110,21 @@ fn check_states(
     let mut debug_state = ok_or_return!(debug_states.single_mut());
     for tup in players.iter() {
         let arr = [
-            tup.0, tup.1, tup.2.0, tup.2.1, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.6.2,
-            tup.7.0, tup.7.1, tup.7.2, tup.8.0, tup.8.1, tup.9.0, tup.9.1, tup.10, tup.11, tup.12,
+            tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.7, tup.8, tup.9,
+            tup.10, tup.11,
         ];
         let has = arr
             .into_iter()
             .zip([
                 ShortName::of::<Standing>(),
-                ShortName::of::<Walking>(),
-                ShortName::of::<SprintStanding>(),
+                ShortName::of::<Moving>(),
                 ShortName::of::<Sprinting>(),
                 ShortName::of::<Crouching>(),
-                ShortName::of::<Sneaking>(),
                 ShortName::of::<Dashing>(),
-                ShortName::of::<ChargeStanding>(),
-                ShortName::of::<ChargeCrouching>(),
-                ShortName::of::<ChargeWalking>(),
+                ShortName::of::<Charging>(),
                 ShortName::of::<Tripping>(),
                 ShortName::of::<TripRecover>(),
-                ShortName::of::<ComponentBuffer<TripRecover>>(),
-                ShortName::of::<NeutralSliding>(),
                 ShortName::of::<Sliding>(),
-                ShortName::of::<NeutralRolling>(),
                 ShortName::of::<Rolling>(),
                 ShortName::of::<Grounded>(),
                 ShortName::of::<ComponentBuffer<Grounded>>(),
