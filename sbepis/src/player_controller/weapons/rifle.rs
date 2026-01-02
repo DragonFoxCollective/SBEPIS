@@ -181,6 +181,7 @@ fn on_rifle_fire(
     rapier_context: ReadRapierContext,
     frays: Query<&FrayMusic>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
+    parents: Query<&ChildOf>,
 ) -> Result {
     let rifle_pivot_entity = fire.trigger().animation_player;
     let rifle_pivot = rifle_pivots.get(rifle_pivot_entity)?;
@@ -204,7 +205,14 @@ fn on_rifle_fire(
         player_camera.forward().into(),
         Real::MAX,
         false,
-        QueryFilter::new().predicate(&|entity| !rifle.allies.contains(&entity)),
+        QueryFilter::new().predicate(&|entity| {
+            for entity in std::iter::once(entity).chain(parents.iter_ancestors(entity)) {
+                if rifle.allies.contains(&entity) {
+                    return false;
+                }
+            }
+            true
+        }),
     ) {
         let charge_multiplier = if rifle.charge >= rifle.max_charge {
             rifle.full_charge_multiplier
@@ -221,6 +229,8 @@ fn on_rifle_fire(
             damage,
             fray_modifier,
         });
+    } else {
+        debug!("No hit");
     }
 
     Ok(())
