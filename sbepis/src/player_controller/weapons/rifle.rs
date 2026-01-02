@@ -285,3 +285,28 @@ fn charge_rifle(
         }
     }
 }
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
+fn setup_reticle(mut commands: Commands) {
+    commands
+        .spawn((
+            PlayerCameraNode,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            DespawnOnExit(GameState::InGame),
+        ))
+        .with_child((
+            Node {
+                width: Val::Px(4.0),
+                height: Val::Px(4.0),
+                ..default()
+            },
+            BorderRadius::MAX,
+            BackgroundColor(Color::WHITE),
+        ));
+}
