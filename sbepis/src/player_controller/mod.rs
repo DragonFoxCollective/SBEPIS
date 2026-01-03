@@ -230,10 +230,8 @@ fn setup(
             PlayerCamera,
             Pitch(0.0),
             SpatialListener::new(-0.25),
-            PostProcessSettings {
-                intensity: 0.02,
-                radius: 4.0,
-            },
+            PostProcessOutlinesSettings { radius: 4.0 },
+            PostProcessQuantizeSettings { fixed_k: 16 },
             Msaa::Off,
         ))
         .id();

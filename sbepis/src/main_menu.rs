@@ -73,10 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
         DespawnOnExit(GameState::MainMenu),
         PlayerCamera,
         ChunkLoader::<DesertWorldGen>::new(10),
-        PostProcessSettings {
-            intensity: 0.02,
-            radius: 4.0,
-        },
+        PostProcessOutlinesSettings { radius: 4.0 },
         Msaa::Off,
     ));
 

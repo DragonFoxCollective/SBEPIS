@@ -41,7 +41,8 @@ mod prelude {
     pub use crate::main_menu::GameState;
     pub use crate::player_controller::PlayerBody;
     pub use crate::player_controller::camera_controls::{InteractWith, interact_with};
-    pub use crate::post_processing::PostProcessSettings;
+    pub use crate::post_processing::outlines::PostProcessOutlinesSettings;
+    pub use crate::post_processing::quantize::PostProcessQuantizeSettings;
 }
 
 fn main() {

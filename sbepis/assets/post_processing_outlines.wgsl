@@ -4,7 +4,6 @@
 #import bevy_render::view::View
 
 struct PostProcessSettings {
-    intensity: f32,
 	radius: f32,
 }
 
