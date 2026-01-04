@@ -73,7 +73,7 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 		}
 	}
 
-	// TODO: sort candidates by luminance here
+	bitonic_sort(&candidates, true);
 
 	let bayer_value = f32(BAYER_MAP[(u32(in.position.x) % BAYER_MAP_DIM) + (u32(in.position.y) % BAYER_MAP_DIM) * BAYER_MAP_DIM]) / f32(BAYER_MAP_LENGTH);
 	let closest_cluster = candidates[u32(bayer_value * f32(candidates_current_length))];
@@ -89,6 +89,60 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 	let cluster_color = clusters[closest_cluster].color;
     return vec4<f32>(select(debug_palette, cluster_color, in.uv.y > 0.1), 1.0);
 }
+
+fn luminance_i(i: u32) -> f32 {
+    return luminance(clusters[i].color);
+}
+
+fn luminance(color: vec3<f32>) -> f32 {
+    return dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
+}
+
+// it's 10pm and i'm ill and delerious. if it doesn't work blame deepseek
+fn bitonic_sort(arr: ptr<function, array<u32, BAYER_MAP_LENGTH>>, ascending: bool) {
+    let n = BAYER_MAP_LENGTH;
+    
+    // Outer loop: size of the sorted sequences (2, 4, 8, ..., n)
+    for (var k = 2u; k <= n; k = k * 2u) {
+        // Inner loop: distance between elements to compare
+        for (var j = k / 2u; j > 0; j = j / 2u) {
+            // Compare all elements
+            for (var i = 0u; i < n; i = i + 1u) {
+                let partner = i ^ j;  // XOR gives the partner index
+                
+                // Only process each pair once
+                if (partner > i) {
+                    // Determine swap condition
+                    var swap = false;
+                    
+                    if ((i & k) == 0u) {
+                        // In an ascending sequence
+                        swap = select(
+							luminance_i((*arr)[i]) < luminance_i((*arr)[partner]),
+							luminance_i((*arr)[i]) > luminance_i((*arr)[partner]),
+							ascending,
+						);
+                    } else {
+                        // In a descending sequence
+                        swap = select(
+							luminance_i((*arr)[i]) > luminance_i((*arr)[partner]),
+							luminance_i((*arr)[i]) < luminance_i((*arr)[partner]),
+							ascending,
+						);
+                    }
+                    
+                    // Perform swap if needed
+                    if (swap) {
+                        let temp = (*arr)[i];
+                        (*arr)[i] = (*arr)[partner];
+                        (*arr)[partner] = temp;
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 const BAYER_MAP_DIM = 8u;
 const BAYER_MAP_LENGTH = 64u;
