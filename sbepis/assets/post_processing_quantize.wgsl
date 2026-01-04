@@ -38,43 +38,67 @@ struct FurthestPoint {
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 	let rgb = textureSample(screen_texture, screen_texture_sampler, in.uv).rgb;
 
-	var closest_cluster = 0u;
-	var min_distance = 10.0; // definitely greater than sqrt(3)
-	for (var i = 0u; i < k; i++) {
-		let cluster = i;
-		let distance = distance(rgb, clusters[cluster].color);
-		if distance < min_distance {
-			closest_cluster = cluster;
-			min_distance = distance;
+	const candidates_max_length = BAYER_MAP_LENGTH;
+	var candidates_current_length = 0u;
+	var candidates = array<u32, candidates_max_length>();
+	var candidates_sum = vec3<f32>();
+
+	while candidates_current_length < candidates_max_length {
+		var candidate_amount = 0u;
+		var candidate = 0u;
+		var candidate_color = vec3<f32>();
+		var candidate_max_amount = max(candidates_current_length, 1u);
+		var candidate_distance = -1.0;
+
+		for (var cluster = 0u; cluster < k; cluster++) {
+			let cluster_color = clusters[cluster].color;
+
+			for (var cluster_amount = 1u; cluster_amount <= candidate_max_amount; cluster_amount *= 2) {
+				let cluster_test = (candidates_sum + cluster_color * f32(cluster_amount)) / (f32(candidates_current_length) + f32(cluster_amount));
+				let cluster_distance = distance(rgb, cluster_test);
+
+				if cluster_distance < candidate_distance || candidate_distance < 0.0 {
+					candidate_distance = cluster_distance;
+					candidate = cluster;
+					candidate_color = cluster_color;
+					candidate_amount = cluster_amount;
+				}
+			}
+		}
+
+		for (var i = 0u; i < candidate_amount && candidates_current_length < candidates_max_length; i++) {
+			candidates[candidates_current_length] = candidate;
+			candidates_current_length++;
+			candidates_sum += candidate_color;
 		}
 	}
+
+	// TODO: sort candidates by luminance here
+
+	let bayer_value = f32(BAYER_MAP[(u32(in.position.x) % BAYER_MAP_DIM) + (u32(in.position.y) % BAYER_MAP_DIM) * BAYER_MAP_DIM]) / f32(BAYER_MAP_LENGTH);
+	let closest_cluster = candidates[u32(bayer_value * f32(candidates_current_length))];
+	let closest_cluster_color = clusters[closest_cluster].color;
 
 	atomicAdd(&clusters[closest_cluster].centroid_sum_r, u32(rgb.r * 256.0));
 	atomicAdd(&clusters[closest_cluster].centroid_sum_g, u32(rgb.g * 256.0));
 	atomicAdd(&clusters[closest_cluster].centroid_sum_b, u32(rgb.b * 256.0));
 	atomicAdd(&clusters[closest_cluster].len_centroid_sum, 1u);
 
-	let min_distance_u = u32(min_distance * 100000.0);
-	let old_furthest_distance = atomicMax(&furthest_point.distance, min_distance_u); // ehhhhhhh still very undefined but ok,,,
-	if old_furthest_distance < min_distance_u {
-		atomicStore(&furthest_point.color_r, u32(rgb.r * 256.0));
-		atomicStore(&furthest_point.color_g, u32(rgb.g * 256.0));
-		atomicStore(&furthest_point.color_b, u32(rgb.b * 256.0));
-	}
 
 	let debug_palette = clusters[u32(in.uv.x * f32(k))].color;
 	let cluster_color = clusters[closest_cluster].color;
-	let distance_color = vec3<f32>(min_distance);
-	let sum_color = vec3<f32>(
-		f32(atomicLoad(&clusters[closest_cluster].centroid_sum_r)),
-		f32(atomicLoad(&clusters[closest_cluster].centroid_sum_g)),
-		f32(atomicLoad(&clusters[closest_cluster].centroid_sum_b)),
-	) / f32(atomicLoad(&clusters[closest_cluster].len_centroid_sum)) / 256.0;
-	let furthest_color = vec3<f32>(
-		f32(atomicLoad(&furthest_point.color_r)),
-		f32(atomicLoad(&furthest_point.color_g)),
-		f32(atomicLoad(&furthest_point.color_b)),
-	) / 256.0;
-	let furthest_distance = vec3<f32>(f32(old_furthest_distance) / 256.0);
     return vec4<f32>(select(debug_palette, cluster_color, in.uv.y > 0.1), 1.0);
 }
+
+const BAYER_MAP_DIM = 8u;
+const BAYER_MAP_LENGTH = 64u;
+const BAYER_MAP = array<u32, BAYER_MAP_LENGTH>(
+	 0,48,12,60, 3,51,15,63,
+    32,16,44,28,35,19,47,31,
+     8,56, 4,52,11,59, 7,55,
+    40,24,36,20,43,27,39,23,
+     2,50,14,62, 1,49,13,61,
+    34,18,46,30,33,17,45,29,
+    10,58, 6,54, 9,57, 5,53,
+    42,26,38,22,41,25,37,21,
+);
