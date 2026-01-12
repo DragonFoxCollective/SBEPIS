@@ -2,13 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache,
-    ChunkGeneratorSettings, ChunkMaterial, MarchingCubesPlugin,
-};
-use bevy_marching_cubes::{
-    AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
-};
+use bevy_marching_cubes::*;
 
 use crate::gridbox_material;
 use crate::prelude::*;
@@ -26,14 +20,12 @@ fn build(app: &mut App) {
     );
 }
 
-#[derive(TypePath)]
 pub struct DesertWorldGen;
-impl ComputeShader for DesertWorldGen {
-    fn shader() -> ShaderRef {
+impl ChunkComputeShader for DesertWorldGen {
+    fn shader_path() -> String {
         "sample desert.wgsl".into()
     }
-}
-impl ChunkComputeShader for DesertWorldGen {
+
     fn build_worker_extra<W: ComputeWorker>(compute_worker: &mut AppComputeWorkerBuilder<W>) {
         compute_worker.add_uniform("poi_positions", &[vec3(-8.0, 0.0, -4.0); 1]);
         compute_worker.add_staging("poi_positions_final", &[Vec3::ZERO; 1]);

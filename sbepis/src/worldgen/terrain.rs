@@ -1,12 +1,6 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_marching_cubes::chunk_generator::{
-    ChunkComputeShader, ChunkComputeWorker, ChunkGenSystems, ChunkGeneratorCache,
-    ChunkGeneratorSettings, ChunkMaterial, MarchingCubesPlugin,
-};
-use bevy_marching_cubes::{
-    AppComputeWorkerBuilder, Chunk, ComputeShader, ComputeWorker, ShaderRef,
-};
+use bevy_marching_cubes::*;
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMeshFlags};
 use rand::{Rng, SeedableRng as _};
 
@@ -26,14 +20,12 @@ fn build(app: &mut App) {
     );
 }
 
-#[derive(TypePath)]
 pub struct WorldGen;
-impl ComputeShader for WorldGen {
-    fn shader() -> ShaderRef {
+impl ChunkComputeShader for WorldGen {
+    fn shader_path() -> String {
         "sample.wgsl".into()
     }
-}
-impl ChunkComputeShader for WorldGen {
+
     fn build_worker_extra<W: ComputeWorker>(compute_worker: &mut AppComputeWorkerBuilder<W>) {
         let radius = 200.0;
         let mut rand = rand::prelude::StdRng::seed_from_u64(159);

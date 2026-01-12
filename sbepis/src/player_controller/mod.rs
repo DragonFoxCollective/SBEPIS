@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_marching_cubes::chunk_generator::ChunkLoader;
+use bevy_marching_cubes::ChunkLoader;
 use bevy_pretty_nice_input::{
     Action, ButtonPress, ComponentBuffer, Cooldown, Filter, FilterBuffered, InputBuffer,
     ResetBuffer, binding1d, binding2d, input, input_transition,

@@ -58,7 +58,7 @@ bevy_hanabi = "0.17"
 typetag = "0.2.19"
 return-ok = "0.1"
 bevy_skein = "0.3.0"
-bevy-marching-cubes = { path = "../bevy-marching-cubes" }
+bevy_marching_cubes = { path = "../bevy_marching_cubes" }
 crossbeam-channel = "0.5.15"
 fake = "4.4.0"
 bevy_pretty_nice_input = { version = "0.4.3" }

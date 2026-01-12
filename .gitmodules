@@ -2,8 +2,8 @@
 	path = soundyrust
 	url = https://github.com/Dragon-Fox-Collective/soundyrust.git
 [submodule "state-machine"]
-	path = state-machine
+	path = state_machine
 	url = https://github.com/DragonFoxCollective/state-machine.git
 [submodule "bevy-marching-cubes"]
-	path = bevy-marching-cubes
+	path = bevy_marching_cubes
 	url = https://github.com/DragonFoxCollective/bevy-marching-cubes.git

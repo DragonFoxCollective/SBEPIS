@@ -3,7 +3,7 @@ use bevy::ecs::system::{IntoObserverSystem, ObserverSystem};
 use bevy::prelude::*;
 use bevy::state::state::FreelyMutableState;
 use bevy_auto_plugin::prelude::*;
-use bevy_marching_cubes::chunk_generator::ChunkLoader;
+use bevy_marching_cubes::ChunkLoader;
 use serde::Deserialize;
 
 use crate::camera::PlayerCamera;
