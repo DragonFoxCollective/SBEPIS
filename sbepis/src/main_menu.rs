@@ -25,15 +25,22 @@ fn build(app: &mut App) {
 #[auto_states(plugin = MainMenuPlugin, derive, reflect, register, init)]
 #[states(scoped_entities)]
 pub enum GameState {
+    /// Mostly to set up Startup stuff. Splash screen later?
     #[default]
+    Startup,
     MainMenu,
     InGame,
 }
 
-#[cfg(feature = "skip_main_menu")]
-#[auto_system(plugin = MainMenuPlugin, schedule = Startup)]
-fn insert_game_state(mut next_state: ResMut<NextState<GameState>>) {
-    next_state.set(GameState::InGame);
+#[auto_system(plugin = MainMenuPlugin, schedule = Update)]
+fn insert_game_state(mut next_state: ResMut<NextState<GameState>>, mut frames_passed: Local<u32>) {
+    *frames_passed += 1;
+    if *frames_passed >= 2 {
+        #[cfg(feature = "skip_main_menu")]
+        next_state.set(GameState::InGame);
+        #[cfg(not(feature = "skip_main_menu"))]
+        next_state.set(GameState::MainMenu);
+    }
 }
 
 #[auto_sub_states(plugin = MainMenuPlugin, derive, reflect, register, init)]

@@ -1,4 +1,13 @@
+use bevy::ecs::schedule::ScheduleConfigs;
+use bevy::ecs::system::ScheduleSystem;
 use bevy::prelude::*;
+use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
+use bevy::render::gpu_readback::{Readback, ReadbackComplete};
+use bevy::render::render_asset::RenderAssets;
+use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffer};
+use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, UniformBuffer};
+use bevy::render::renderer::{RenderDevice, RenderQueue};
+use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::*;
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMeshFlags};
@@ -6,6 +15,7 @@ use rand::{Rng, SeedableRng as _};
 
 use crate::gridbox_material;
 use crate::prelude::*;
+use crate::worldgen::desert::DesertWorldGen;
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = crate::worldgen::WorldGenPlugin)]
@@ -13,8 +23,11 @@ pub struct TerrainWorldGenPlugin;
 
 #[auto_plugin(plugin = TerrainWorldGenPlugin)]
 fn build(app: &mut App) {
-    app.add_plugins(MarchingCubesPlugin::<WorldGen, StandardMaterial>::default());
-    app.insert_resource(
+    app.add_plugins((
+        MarchingCubesPlugin::<WorldGen, StandardMaterial>::default(),
+        ExtractResourcePlugin::<Poi>::default(),
+    ))
+    .insert_resource(
         ChunkGeneratorSettings::<WorldGen>::new(50, 50.0)
             .with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0)),
     );
@@ -26,24 +39,61 @@ impl ChunkComputeShader for WorldGen {
         "sample.wgsl".into()
     }
 
-    fn build_worker_extra<W: ComputeWorker>(compute_worker: &mut AppComputeWorkerBuilder<W>) {
-        let radius = 200.0;
-        let mut rand = rand::prelude::StdRng::seed_from_u64(159);
-        let poi_positions = [Vec3::ZERO; 6].map(|_| {
-            Vec3::new(
-                rand.random_range(-radius..radius),
-                0.0,
-                rand.random_range(-radius..radius),
-            )
-        });
-        debug!("Generated POI positions: {:?}", poi_positions);
-        compute_worker.add_uniform("poi_positions", &poi_positions);
-        compute_worker.add_staging("poi_positions_final", &[Vec3::ZERO; 6]);
+    fn prepare_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
+        IntoSystem::into_system(
+            |render_device: Res<RenderDevice>,
+             render_queue: Res<RenderQueue>,
+             chunks: Query<Entity, With<ChunkRenderData<DesertWorldGen>>>,
+             mut commands: Commands,
+             poi: Res<Poi>,
+             buffers: Res<RenderAssets<GpuShaderStorageBuffer>>| {
+                let mut poi_positions_buffer = UniformBuffer::from(&poi.positions);
+                poi_positions_buffer.write_buffer(&render_device, &render_queue);
+
+                for chunk in chunks.iter() {
+                    commands.entity(chunk).insert(ChunkRenderExtraBuffers {
+                        buffers: vec![
+                            poi_positions_buffer.buffer().unwrap().clone(),
+                            buffers.get(&poi.positions_final).unwrap().buffer.clone(),
+                        ],
+                    });
+                }
+            },
+        )
+        .into_configs()
     }
 
-    fn extra_sample_bindings() -> Vec<&'static str> {
-        vec!["poi_positions", "poi_positions_final"]
+    fn define_extra_buffers() -> Vec<BindGroupLayoutEntryBuilder> {
+        vec![
+            uniform_buffer::<[Vec3; 6]>(false),
+            storage_buffer::<[Vec3; 6]>(false),
+        ]
     }
+}
+
+#[auto_resource(plugin = TerrainWorldGenPlugin, derive(ExtractResource, Clone), reflect)]
+pub struct Poi {
+    positions: [Vec3; 6],
+    positions_final: Handle<ShaderStorageBuffer>,
+}
+
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
+fn setup_poi(mut commands: Commands, mut buffers: ResMut<Assets<ShaderStorageBuffer>>) {
+    let radius = 200.0;
+    let mut rand = rand::prelude::StdRng::seed_from_u64(159);
+    let poi_positions = [Vec3::ZERO; 6].map(|_| {
+        Vec3::new(
+            rand.random_range(-radius..radius),
+            0.0,
+            rand.random_range(-radius..radius),
+        )
+    });
+    debug!("Generated POI positions: {:?}", poi_positions);
+
+    commands.insert_resource(Poi {
+        positions: poi_positions,
+        positions_final: buffers.add(ShaderStorageBuffer::from([Vec3::ZERO])),
+    });
 }
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
@@ -124,65 +174,55 @@ fn wake_loaded_entities(
 }
 
 #[derive(Resource, Debug)]
-struct POIStructures {
+struct PoiStructures {
     consort_village: Handle<Scene>,
     imp_arena: Handle<Scene>,
 }
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = Startup)]
 fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.insert_resource(POIStructures {
+    commands.insert_resource(PoiStructures {
         consort_village: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("consort village.glb")),
         imp_arena: asset_server.load(GltfAssetLabel::Scene(0).from_asset("imp arena.glb")),
     });
 }
 
-#[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
-	after = ChunkGenSystems,
-))]
-fn place_poi_structures(
-    compute_worker: Res<ChunkComputeWorker<WorldGen>>,
-    mut done: Local<bool>,
-    poi_structures: Res<POIStructures>,
-    mut commands: Commands,
-) {
-    if *done {
-        return;
-    }
-
-    if !compute_worker.ready() {
-        return;
-    }
-
-    *done = true;
-
-    let poi_positions = compute_worker
-        .read_vec::<Vec4>("poi_positions_final")
-        .iter()
-        .cloned()
-        .map(Vec4::xyz)
-        .collect::<Vec<_>>();
-    debug!(
-        "Reading POI positions from compute worker: {:?}",
-        poi_positions
-    );
-
-    for (i, position) in poi_positions.iter().enumerate() {
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
+fn place_poi_structures(poi: Res<Poi>, poi_structures: Res<PoiStructures>, mut commands: Commands) {
+    for (i, position) in poi.positions.iter().enumerate() {
         let poi_structure = match i % 2 {
             0 => &poi_structures.consort_village,
             1 => &poi_structures.imp_arena,
             _ => continue,
         };
 
-        commands.spawn((
-            SceneRoot(poi_structure.clone()),
-            Transform::from_translation(*position).with_rotation(Quat::from_rotation_arc(
-                Vec3::Y,
-                (*position - Vec3::NEG_Y * 1000.0).normalize(),
-            )),
-            DespawnOnExit(GameState::InGame),
-        ));
+        commands
+            .spawn((
+                SceneRoot(poi_structure.clone()),
+                Transform::from_translation(*position).with_rotation(Quat::from_rotation_arc(
+                    Vec3::Y,
+                    (*position - Vec3::NEG_Y * 1000.0).normalize(),
+                )),
+                DespawnOnExit(GameState::InGame),
+                Readback::buffer(poi.positions_final.clone()),
+            ))
+            .observe(
+                move |readback: On<ReadbackComplete>,
+                      mut poi: Query<&mut Transform>,
+                      mut commands: Commands|
+                      -> Result {
+                    let positions: [Vec3; 1] = readback.to_shader_type();
+                    let position = positions[i];
+                    if position == Vec3::ZERO {
+                        return Ok(());
+                    }
+                    let mut transform = poi.get_mut(readback.entity)?;
+                    transform.translation = position;
+                    commands.entity(readback.entity).remove::<Readback>();
+                    Ok(())
+                },
+            );
     }
 }
 
