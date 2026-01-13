@@ -7,7 +7,7 @@ use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffer};
-use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, UniformBuffer};
+use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, BufferUsages, UniformBuffer};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
 use bevy_auto_plugin::prelude::*;
@@ -78,9 +78,11 @@ pub struct DesertPoi {
 
 #[auto_system(plugin = DesertWorldGenPlugin, schedule = Startup)]
 fn setup_poi(mut commands: Commands, mut buffers: ResMut<Assets<ShaderStorageBuffer>>) {
+    let mut poi_positions_final_buffer = ShaderStorageBuffer::from([Vec3::ZERO]);
+    poi_positions_final_buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     commands.insert_resource(DesertPoi {
         positions: [vec3(-8.0, 0.0, -4.0)],
-        positions_final: buffers.add(ShaderStorageBuffer::from([Vec3::ZERO])),
+        positions_final: buffers.add(poi_positions_final_buffer),
     });
 }
 

@@ -1523,8 +1523,6 @@ dependencies = [
 [[package]]
 name = "bevy_pretty_nice_menus"
 version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5335ec837f1cecb5568625837a41577438436f2a4c203da1b83db99879a401ae"
 dependencies = [
  "bevy",
  "bevy_pretty_nice_input",

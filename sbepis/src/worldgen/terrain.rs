@@ -5,7 +5,7 @@ use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffer};
-use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, UniformBuffer};
+use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, BufferUsages, UniformBuffer};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
 use bevy_auto_plugin::prelude::*;
@@ -15,7 +15,6 @@ use rand::{Rng, SeedableRng as _};
 
 use crate::gridbox_material;
 use crate::prelude::*;
-use crate::worldgen::desert::DesertWorldGen;
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = crate::worldgen::WorldGenPlugin)]
@@ -43,7 +42,7 @@ impl ChunkComputeShader for WorldGen {
         IntoSystem::into_system(
             |render_device: Res<RenderDevice>,
              render_queue: Res<RenderQueue>,
-             chunks: Query<Entity, With<ChunkRenderData<DesertWorldGen>>>,
+             chunks: Query<Entity, With<ChunkRenderData<WorldGen>>>,
              mut commands: Commands,
              poi: Res<Poi>,
              buffers: Res<RenderAssets<GpuShaderStorageBuffer>>| {
@@ -90,9 +89,11 @@ fn setup_poi(mut commands: Commands, mut buffers: ResMut<Assets<ShaderStorageBuf
     });
     debug!("Generated POI positions: {:?}", poi_positions);
 
+    let mut poi_positions_final_buffer = ShaderStorageBuffer::from([Vec3::ZERO; 6]);
+    poi_positions_final_buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     commands.insert_resource(Poi {
         positions: poi_positions,
-        positions_final: buffers.add(ShaderStorageBuffer::from([Vec3::ZERO])),
+        positions_final: buffers.add(poi_positions_final_buffer),
     });
 }
 
@@ -212,7 +213,7 @@ fn place_poi_structures(poi: Res<Poi>, poi_structures: Res<PoiStructures>, mut c
                       mut poi: Query<&mut Transform>,
                       mut commands: Commands|
                       -> Result {
-                    let positions: [Vec3; 1] = readback.to_shader_type();
+                    let positions: [Vec3; 6] = readback.to_shader_type();
                     let position = positions[i];
                     if position == Vec3::ZERO {
                         return Ok(());

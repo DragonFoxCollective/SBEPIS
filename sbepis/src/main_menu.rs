@@ -32,7 +32,9 @@ pub enum GameState {
     InGame,
 }
 
-#[auto_system(plugin = MainMenuPlugin, schedule = Update)]
+#[auto_system(plugin = MainMenuPlugin, schedule = Update, config(
+	run_if = in_state(GameState::Startup)
+))]
 fn insert_game_state(mut next_state: ResMut<NextState<GameState>>, mut frames_passed: Local<u32>) {
     *frames_passed += 1;
     if *frames_passed >= 2 {
