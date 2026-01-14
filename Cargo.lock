@@ -579,16 +579,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy-marching-cubes"
-version = "0.2.0"
-dependencies = [
- "bevy",
- "bevy_app_compute",
- "bevy_panorbit_camera",
- "bytemuck",
-]
-
-[[package]]
 name = "bevy_a11y"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1343,6 +1333,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_marching_cubes"
+version = "0.2.0"
+dependencies = [
+ "bevy",
+ "bevy_app_compute",
+ "bevy_panorbit_camera",
+ "bytemuck",
+]
+
+[[package]]
 name = "bevy_math"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1539,9 +1539,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_menus"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5335ec837f1cecb5568625837a41577438436f2a4c203da1b83db99879a401ae"
+checksum = "c97500b61d0fe2baa314855dafd248be322af726369f5decd5c87ea719825198"
 dependencies = [
  "bevy",
  "bevy_pretty_nice_input",
@@ -3988,7 +3988,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
-name = "jack-noir"
+name = "jack_noir"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
@@ -5772,10 +5772,10 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
- "bevy-marching-cubes",
  "bevy_auto_plugin",
  "bevy_common_assets",
  "bevy_hanabi",
+ "bevy_marching_cubes",
  "bevy_panorbit_camera",
  "bevy_pretty_nice_input",
  "bevy_pretty_nice_menus",
@@ -6070,16 +6070,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115beb9c69db2393ff10b75a1b8587a51716e5551d015001e55320ed279d32f9"
 dependencies = [
  "const_panic",
-]
-
-[[package]]
-name = "state-machine"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "itertools 0.14.0",
- "rand",
- "uuid",
 ]
 
 [[package]]
