@@ -32,6 +32,7 @@ movement_indicators = []
 framerate_indicator = []
 skip_main_menu = []
 debug_movement_graph = ["bevy_pretty_nice_input/debug_graph"]
+tracy = ["bevy/trace_tracy", "framerate_indicator"]
 
 [dependencies]
 bevy = { version = "0.17", features = ["wav", "mp3"] }

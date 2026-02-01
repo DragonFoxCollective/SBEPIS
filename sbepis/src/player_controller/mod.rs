@@ -231,7 +231,7 @@ fn setup(
             Pitch(0.0),
             SpatialListener::new(-0.25),
             PostProcessOutlinesSettings { radius: 4.0 },
-            PostProcessQuantizeSettings { fixed_k: 16 },
+            // PostProcessQuantizeSettings { fixed_k: 16 }, // TODO: the sorting algorithm lags the heck out. we're probably going with a different style anyway
             Msaa::Off,
         ))
         .id();
