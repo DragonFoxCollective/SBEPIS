@@ -8,6 +8,7 @@ use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffe
 use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, BufferUsages, UniformBuffer};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
+use bevy::shader::ShaderRef;
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::*;
 use bevy_rapier3d::prelude::{Collider, ComputedColliderShape, RigidBody, TriMeshFlags};
@@ -28,13 +29,14 @@ fn build(app: &mut App) {
     ))
     .insert_resource(
         ChunkGeneratorSettings::<WorldGen>::new(50, 50.0)
-            .with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0)),
+            .with_bounds(vec3(-1100.0, -2100.0, -1100.0), vec3(1100.0, 100.0, 1100.0))
+            .stopped(),
     );
 }
 
 pub struct WorldGen;
 impl ChunkComputeShader for WorldGen {
-    fn shader_path() -> String {
+    fn shader() -> ShaderRef {
         "sample.wgsl".into()
     }
 
@@ -228,11 +230,11 @@ fn place_poi_structures(poi: Res<Poi>, poi_structures: Res<PoiStructures>, mut c
 }
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
-fn add_cache(mut commands: Commands) {
-    commands.init_resource::<ChunkGeneratorCache<WorldGen>>();
+fn start_chunks(mut settings: ResMut<ChunkGeneratorSettings<WorldGen>>) {
+    settings.running = ChunkGeneratorRunning::Run;
 }
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnExit(GameState::InGame))]
-fn remove_cache(mut commands: Commands) {
-    commands.remove_resource::<ChunkGeneratorCache<WorldGen>>();
+fn stop_chunks(mut settings: ResMut<ChunkGeneratorSettings<WorldGen>>) {
+    settings.running = ChunkGeneratorRunning::Stop;
 }

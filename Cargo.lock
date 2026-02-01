@@ -1320,9 +1320,9 @@ dependencies = [
 name = "bevy_marching_cubes"
 version = "0.3.0"
 dependencies = [
- "async-channel 2.5.0",
  "bevy",
  "bevy_panorbit_camera",
+ "encase",
 ]
 
 [[package]]
@@ -1522,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_menus"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "bevy",
  "bevy_pretty_nice_input",

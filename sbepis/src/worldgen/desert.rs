@@ -10,6 +10,7 @@ use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffe
 use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, BufferUsages, UniformBuffer};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
+use bevy::shader::ShaderRef;
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::*;
 
@@ -28,13 +29,14 @@ fn build(app: &mut App) {
     ))
     .insert_resource(
         ChunkGeneratorSettings::<DesertWorldGen>::new(50, 50.0)
-            .with_bounds(vec3(-50.0, -50.0, -50.0), vec3(1100.0, 50.0, 1100.0)),
+            .with_bounds(vec3(-50.0, -50.0, -50.0), vec3(1100.0, 50.0, 1100.0))
+            .stopped(),
     );
 }
 
 pub struct DesertWorldGen;
 impl ChunkComputeShader for DesertWorldGen {
-    fn shader_path() -> String {
+    fn shader() -> ShaderRef {
         "sample desert.wgsl".into()
     }
 
@@ -163,11 +165,11 @@ fn setup_poi_structures(
 }
 
 #[auto_system(plugin = DesertWorldGenPlugin, schedule = OnEnter(GameState::MainMenu))]
-fn add_cache(mut commands: Commands) {
-    commands.init_resource::<ChunkGeneratorCache<DesertWorldGen>>();
+fn start_chunks(mut settings: ResMut<ChunkGeneratorSettings<DesertWorldGen>>) {
+    settings.running = ChunkGeneratorRunning::Run;
 }
 
 #[auto_system(plugin = DesertWorldGenPlugin, schedule = OnExit(GameState::MainMenu))]
-fn remove_cache(mut commands: Commands) {
-    commands.remove_resource::<ChunkGeneratorCache<DesertWorldGen>>();
+fn stop_chunks(mut settings: ResMut<ChunkGeneratorSettings<DesertWorldGen>>) {
+    settings.running = ChunkGeneratorRunning::Stop;
 }
