@@ -7,7 +7,9 @@ use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffer};
-use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, BufferUsages, UniformBuffer};
+use bevy::render::render_resource::{
+    BindGroupLayoutEntryBuilder, Buffer, BufferUsages, UniformBuffer,
+};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
 use bevy::shader::ShaderRef;
@@ -24,7 +26,7 @@ pub struct DesertWorldGenPlugin;
 #[auto_plugin(plugin = DesertWorldGenPlugin)]
 fn build(app: &mut App) {
     app.add_plugins((
-        MarchingCubesPlugin::<DesertWorldGen, StandardMaterial>::default(),
+        MarchingCubesPlugin::<DesertWorldGen, DesertPoiBuffers, StandardMaterial>::default(),
         ExtractResourcePlugin::<DesertPoi>::default(),
     ))
     .insert_resource(
@@ -39,36 +41,60 @@ impl ChunkComputeShader for DesertWorldGen {
     fn shader() -> ShaderRef {
         "sample desert.wgsl".into()
     }
+}
 
-    fn prepare_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
+struct DesertPoiBuffers {
+    poi_positions: Buffer,
+    poi_positions_final: Buffer,
+}
+
+impl GpuExtraBufferCache for DesertPoiBuffers {
+    fn define_extra_buffers() -> Vec<BindGroupLayoutEntryBuilder> {
+        vec![
+            uniform_buffer::<[Vec3; 1]>(false),
+            storage_buffer::<[Vec3; 1]>(false),
+        ]
+    }
+
+    fn create_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
         IntoSystem::into_system(
             |render_device: Res<RenderDevice>,
              render_queue: Res<RenderQueue>,
-             chunks: Query<Entity, With<ChunkRenderData<DesertWorldGen>>>,
-             mut commands: Commands,
-             poi: Res<DesertPoi>,
-             buffers: Res<RenderAssets<GpuShaderStorageBuffer>>| {
-                let mut poi_positions_buffer = UniformBuffer::from(&poi.positions);
-                poi_positions_buffer.write_buffer(&render_device, &render_queue);
+             buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
+             mut cache: ResMut<GpuChunkGeneratorCache<DesertWorldGen, DesertPoiBuffers>>,
+             poi: Res<DesertPoi>| {
+                for key in cache.drain_needed_extra_buffers() {
+                    let mut poi_positions_buffer = UniformBuffer::from(&poi.positions);
+                    poi_positions_buffer.write_buffer(&render_device, &render_queue);
 
-                for chunk in chunks.iter() {
-                    commands.entity(chunk).insert(ChunkRenderExtraBuffers {
-                        buffers: vec![
-                            poi_positions_buffer.buffer().unwrap().clone(),
-                            buffers.get(&poi.positions_final).unwrap().buffer.clone(),
-                        ],
-                    });
+                    cache.insert_extra_buffers(
+                        key,
+                        DesertPoiBuffers {
+                            poi_positions: poi_positions_buffer.buffer().unwrap().clone(),
+                            poi_positions_final: buffers
+                                .get(&poi.positions_final)
+                                .unwrap()
+                                .buffer
+                                .clone(),
+                        },
+                    );
                 }
             },
         )
         .into_configs()
     }
 
-    fn define_extra_buffers() -> Vec<BindGroupLayoutEntryBuilder> {
-        vec![
-            uniform_buffer::<[Vec3; 1]>(false),
-            storage_buffer::<[Vec3; 1]>(false),
-        ]
+    fn clear_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
+        // Not needed since poi_positions remains constant through all buffers
+        IntoSystem::into_system(|| {}).into_configs()
+    }
+
+    fn buffers(&self) -> Vec<Buffer> {
+        vec![self.poi_positions.clone(), self.poi_positions_final.clone()]
+    }
+
+    fn num_extra_readbacks() -> usize {
+        0
     }
 }
 

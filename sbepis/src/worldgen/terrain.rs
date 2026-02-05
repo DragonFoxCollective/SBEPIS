@@ -5,7 +5,9 @@ use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::binding_types::{storage_buffer, uniform_buffer};
-use bevy::render::render_resource::{BindGroupLayoutEntryBuilder, BufferUsages, UniformBuffer};
+use bevy::render::render_resource::{
+    BindGroupLayoutEntryBuilder, Buffer, BufferUsages, UniformBuffer,
+};
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
 use bevy::shader::ShaderRef;
@@ -24,7 +26,7 @@ pub struct TerrainWorldGenPlugin;
 #[auto_plugin(plugin = TerrainWorldGenPlugin)]
 fn build(app: &mut App) {
     app.add_plugins((
-        MarchingCubesPlugin::<WorldGen, StandardMaterial>::default(),
+        MarchingCubesPlugin::<WorldGen, PoiBuffers, StandardMaterial>::default(),
         ExtractResourcePlugin::<Poi>::default(),
     ))
     .insert_resource(
@@ -35,40 +37,65 @@ fn build(app: &mut App) {
 }
 
 pub struct WorldGen;
+
 impl ChunkComputeShader for WorldGen {
     fn shader() -> ShaderRef {
         "sample.wgsl".into()
     }
+}
 
-    fn prepare_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
+struct PoiBuffers {
+    poi_positions: Buffer,
+    poi_positions_final: Buffer,
+}
+
+impl GpuExtraBufferCache for PoiBuffers {
+    fn define_extra_buffers() -> Vec<BindGroupLayoutEntryBuilder> {
+        vec![
+            uniform_buffer::<[Vec3; 6]>(false),
+            storage_buffer::<[Vec3; 6]>(false),
+        ]
+    }
+
+    fn create_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
         IntoSystem::into_system(
             |render_device: Res<RenderDevice>,
              render_queue: Res<RenderQueue>,
-             chunks: Query<Entity, With<ChunkRenderData<WorldGen>>>,
-             mut commands: Commands,
-             poi: Res<Poi>,
-             buffers: Res<RenderAssets<GpuShaderStorageBuffer>>| {
-                let mut poi_positions_buffer = UniformBuffer::from(&poi.positions);
-                poi_positions_buffer.write_buffer(&render_device, &render_queue);
+             buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
+             mut cache: ResMut<GpuChunkGeneratorCache<WorldGen, PoiBuffers>>,
+             poi: Res<Poi>| {
+                for key in cache.drain_needed_extra_buffers() {
+                    let mut poi_positions_buffer = UniformBuffer::from(&poi.positions);
+                    poi_positions_buffer.write_buffer(&render_device, &render_queue);
 
-                for chunk in chunks.iter() {
-                    commands.entity(chunk).insert(ChunkRenderExtraBuffers {
-                        buffers: vec![
-                            poi_positions_buffer.buffer().unwrap().clone(),
-                            buffers.get(&poi.positions_final).unwrap().buffer.clone(),
-                        ],
-                    });
+                    cache.insert_extra_buffers(
+                        key,
+                        PoiBuffers {
+                            poi_positions: poi_positions_buffer.buffer().unwrap().clone(),
+                            poi_positions_final: buffers
+                                .get(&poi.positions_final)
+                                .unwrap()
+                                .buffer
+                                .clone(),
+                        },
+                    );
                 }
             },
         )
         .into_configs()
     }
 
-    fn define_extra_buffers() -> Vec<BindGroupLayoutEntryBuilder> {
-        vec![
-            uniform_buffer::<[Vec3; 6]>(false),
-            storage_buffer::<[Vec3; 6]>(false),
-        ]
+    fn clear_extra_buffers() -> ScheduleConfigs<ScheduleSystem> {
+        // Not needed since poi_positions remains constant through all buffers
+        IntoSystem::into_system(|| {}).into_configs()
+    }
+
+    fn buffers(&self) -> Vec<Buffer> {
+        vec![self.poi_positions.clone(), self.poi_positions_final.clone()]
+    }
+
+    fn num_extra_readbacks() -> usize {
+        0
     }
 }
 
@@ -117,17 +144,20 @@ fn add_components(
     mut commands: Commands,
     chunks: Query<(Entity, &Mesh3d), (With<Chunk<WorldGen>>, Without<FinalizedChunk>)>,
     meshes: Res<Assets<Mesh>>,
-) {
+) -> Result<()> {
     for (chunk, mesh) in chunks.iter() {
         commands.entity(chunk).insert(FinalizedChunk);
 
-        let mesh = meshes.get(mesh).expect("Failed to get mesh");
+        let mesh = meshes
+            .get(mesh)
+            .ok_or(BevyError::from("Failed to get mesh"))?;
         commands.entity(chunk).insert((
             Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
                 .expect("Failed to create chunk collider"),
             DespawnOnExit(GameState::InGame),
         ));
     }
+    Ok(())
 }
 
 #[auto_component(plugin = TerrainWorldGenPlugin, derive(Debug), reflect, register)]
