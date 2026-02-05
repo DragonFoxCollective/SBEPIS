@@ -1,3 +1,6 @@
+// https://bisqwit.iki.fi/story/howto/dither/jy/
+// Yliluoma's ordered dithering algorithm 2
+
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 #import bevy_pbr::mesh_view_bindings::view
 #import bevy_pbr::view_transformations::depth_ndc_to_view_z
@@ -34,16 +37,17 @@ struct FurthestPoint {
 
 @group(0) @binding(6) var<storage, read_write> furthest_point: FurthestPoint;
 
+const CANDIDATES_MAX_LENGTH = 64u; // this is causing some perf issues, probably from the sorting
+
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 	let rgb = textureSample(screen_texture, screen_texture_sampler, in.uv).rgb;
 
-	const candidates_max_length = BAYER_MAP_LENGTH;
 	var candidates_current_length = 0u;
-	var candidates = array<u32, candidates_max_length>();
+	var candidates = array<u32, CANDIDATES_MAX_LENGTH>();
 	var candidates_sum = vec3<f32>();
 
-	while candidates_current_length < candidates_max_length {
+	while candidates_current_length < CANDIDATES_MAX_LENGTH {
 		var candidate_amount = 0u;
 		var candidate = 0u;
 		var candidate_color = vec3<f32>();
@@ -66,7 +70,7 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 			}
 		}
 
-		for (var i = 0u; i < candidate_amount && candidates_current_length < candidates_max_length; i++) {
+		for (var i = 0u; i < candidate_amount && candidates_current_length < CANDIDATES_MAX_LENGTH; i++) {
 			candidates[candidates_current_length] = candidate;
 			candidates_current_length++;
 			candidates_sum += candidate_color;
@@ -99,8 +103,8 @@ fn luminance(color: vec3<f32>) -> f32 {
 }
 
 // it's 10pm and i'm ill and delerious. if it doesn't work blame deepseek
-fn bitonic_sort(arr: ptr<function, array<u32, BAYER_MAP_LENGTH>>, ascending: bool) {
-    let n = BAYER_MAP_LENGTH;
+fn bitonic_sort(arr: ptr<function, array<u32, CANDIDATES_MAX_LENGTH>>, ascending: bool) {
+    let n = CANDIDATES_MAX_LENGTH;
     
     // Outer loop: size of the sorted sequences (2, 4, 8, ..., n)
     for (var k = 2u; k <= n; k = k * 2u) {

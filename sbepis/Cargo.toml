@@ -17,6 +17,7 @@ debug = [
 	"framerate_indicator",
 	# "skip_main_menu",
 	# "debug_movement_graph",
+	"bevy/track_location",
 ]
 default = []
 inspector = [
