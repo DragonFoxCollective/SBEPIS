@@ -1,13 +1,14 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, binding1d, input};
-use bevy_pretty_nice_menus::{MenuHidesWhenClosed, MenuWithInput, MenuWithoutMouse};
+use bevy_pretty_nice_input::{Action, JustPressed, binding1d, input};
+use bevy_pretty_nice_menus::{MenuDespawnsWhenClosed, MenuStack, MenuWithInput, MenuWithoutMouse};
 
 use crate::camera::PlayerCameraNode;
 use crate::player_commands::PlayerCommandsPlugin;
 use crate::player_commands::note_holder::NoteNodeHolder;
 use crate::player_commands::notes::*;
+use crate::player_controller::OpenStaff;
 
 #[auto_component(plugin = PlayerCommandsPlugin, derive, reflect, register)]
 pub struct CommandStaff;
@@ -26,10 +27,15 @@ pub const QUARTER_NOTE_LEFT_SPACING: f32 = 20.0;
 // Does top + height not actually equal bottom???
 pub const QUARTER_NOTE_WEIRD_SPACING_OFFSET: f32 = 18.0;
 
-#[auto_system(plugin = PlayerCommandsPlugin, schedule = Startup)]
-fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
+#[auto_observer(plugin = PlayerCommandsPlugin)]
+fn spawn_staff(
+    _staff: On<JustPressed<OpenStaff>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut menu_stack: ResMut<MenuStack>,
+) {
     // Background
-    commands
+    let menu = commands
         .spawn((
             Name::new("Staff"),
             Node {
@@ -40,7 +46,6 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
                 padding: UiRect::axes(Val::Px(100.0), Val::Px(10.0)),
                 ..default()
             },
-            Visibility::Hidden,
             BackgroundColor(css::BEIGE.into()),
             CommandStaff,
             PlayerCameraNode,
@@ -91,7 +96,7 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
             ),
             MenuWithInput,
             MenuWithoutMouse,
-            MenuHidesWhenClosed,
+            MenuDespawnsWhenClosed,
         ))
         .with_children(|parent| {
             // Clef
@@ -132,7 +137,9 @@ fn spawn_staff(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ));
                     }
                 });
-        });
+        })
+        .id();
+    menu_stack.push(menu);
 }
 
 #[derive(Action)]
