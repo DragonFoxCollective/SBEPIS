@@ -20,10 +20,17 @@ impl FromWorld for StandingAssets {
     fn from_world(world: &mut World) -> Self {
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
 
+        let player_height = 1.8;
+        let player_width = 0.6;
+        let eye_height = 1.7;
+
+        let capsule_radius = player_width * 0.5;
+        let capsule_length = player_height - capsule_radius * 2.0;
+
         StandingAssets {
             mesh: Mesh3d(
                 meshes.add(
-                    Capsule3d::new(0.25, 1.0)
+                    Capsule3d::new(capsule_radius, capsule_length)
                         .mesh()
                         .rings(1)
                         .latitudes(8)
@@ -31,10 +38,10 @@ impl FromWorld for StandingAssets {
                         .uv_profile(CapsuleUvProfile::Fixed),
                 ),
             ),
-            mesh_transform: Transform::from_translation(Vec3::Y * 0.75),
-            collider: Collider::capsule_y(0.5, 0.25),
-            collider_transform: Transform::from_translation(Vec3::Y * 0.75),
-            camera_position: Vec3::Y * 1.25,
+            mesh_transform: Transform::from_translation(Vec3::Y * player_height * 0.5),
+            collider: Collider::capsule_y(capsule_length * 0.5, capsule_radius),
+            collider_transform: Transform::from_translation(Vec3::Y * player_height * 0.5),
+            camera_position: Vec3::Y * eye_height,
         }
     }
 }

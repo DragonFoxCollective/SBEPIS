@@ -6,11 +6,13 @@ use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
+use bevy_marching_cubes::{ChunkGeneratorRunning, ChunkGeneratorSettings};
 use bevy_rapier3d::prelude::*;
 use winit::window::Icon;
 
-use crate::gravity::{GravityPoint, GravityPriority};
+use crate::gravity::{GlobalGravity, GravityPoint, GravityPriority};
 use crate::prelude::GameState;
+use crate::worldgen::terrain::WorldGen;
 
 mod blenvy;
 mod camera;
@@ -157,15 +159,59 @@ fn setup_global(mut rapier_config: Query<&mut RapierConfiguration>) -> Result {
     Ok(())
 }
 
-#[auto_system(plugin = SbepisPlugin, schedule = OnEnter(GameState::InGame))]
-fn setup_in_game(mut commands: Commands) {
+const NORMAL_GRAVITY: f32 = 15.0;
+
+fn setup_default_planet(
+    _click: On<Pointer<Click>>,
+    mut commands: Commands,
+    mut settings: ResMut<ChunkGeneratorSettings<WorldGen>>,
+) {
+    settings.running = ChunkGeneratorRunning::Run;
+
+    let planet_radius = 1000.0;
     commands.spawn((
         Name::new("Gravity"),
-        Transform::from_translation(Vec3::NEG_Y * 1000.0),
+        Transform::from_translation(Vec3::NEG_Y * planet_radius),
         GravityPoint {
-            standard_radius: 1000.0,
-            acceleration_at_radius: 15.0,
+            standard_radius: planet_radius,
+            acceleration_at_radius: NORMAL_GRAVITY,
             has_volume: true,
+        },
+        GravityPriority(0),
+        DespawnOnExit(GameState::InGame),
+    ));
+
+    commands.spawn((
+        Name::new("Sun"),
+        DirectionalLight {
+            illuminance: 4000.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform {
+            rotation: Quat::from_euler(EulerRot::XYZ, -1.9, 0.8, 0.0),
+            ..default()
+        },
+        DespawnOnExit(GameState::InGame),
+    ));
+}
+
+fn setup_jump_gym(
+    _click: On<Pointer<Click>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let gym_scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset("jump gym.glb"));
+    commands.spawn((
+        Name::new("Gym"),
+        SceneRoot(gym_scene),
+        DespawnOnExit(GameState::InGame),
+    ));
+
+    commands.spawn((
+        Name::new("Gravity"),
+        GlobalGravity {
+            acceleration: NORMAL_GRAVITY * Vec3::NEG_Y,
         },
         GravityPriority(0),
         DespawnOnExit(GameState::InGame),

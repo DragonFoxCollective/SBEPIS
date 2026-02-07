@@ -7,8 +7,8 @@ use bevy_marching_cubes::ChunkLoader;
 use serde::Deserialize;
 
 use crate::camera::PlayerCamera;
-use crate::prelude::*;
 use crate::worldgen::desert::DesertWorldGen;
+use crate::{prelude::*, setup_default_planet, setup_jump_gym};
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = SbepisPlugin)]
@@ -51,6 +51,7 @@ fn insert_game_state(mut next_state: ResMut<NextState<GameState>>, mut frames_pa
 pub enum MenuState {
     #[default]
     Home,
+    MakeWorld,
     Credits,
 }
 
@@ -195,7 +196,7 @@ fn setup_home(
                 },
             )],
         ))
-        .observe(change_state(GameState::InGame));
+        .observe(change_state(MenuState::MakeWorld));
     commands.spawn((
         Node {
             align_items: AlignItems::Center,
@@ -310,6 +311,119 @@ fn setup_home(
         .observe(|_: On<Pointer<Click>>, mut exit: MessageWriter<AppExit>| {
             exit.write(AppExit::Success);
         });
+
+    Ok(())
+}
+
+#[auto_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::MakeWorld))]
+fn setup_make_world(mut commands: Commands) -> Result {
+    let font_size = 32.0;
+
+    let menu_root = commands
+        .spawn((
+            Name::new("Menu root"),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            },
+            PlayerCameraNode,
+            DespawnOnExit(MenuState::MakeWorld),
+        ))
+        .id();
+
+    let content = commands
+        .spawn((
+            Node {
+                height: Val::Percent(100.0),
+                aspect_ratio: Some(2.0 / 3.0),
+                padding: UiRect::all(Val::Px(10.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.0),
+                ..default()
+            },
+            ChildOf(menu_root),
+        ))
+        .id();
+
+    commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            ChildOf(content),
+            Button,
+            children![(
+                Text::new("Default Planet"),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
+                TextLayout {
+                    justify: Justify::Center,
+                    ..default()
+                },
+            )],
+        ))
+        .observe(change_state(GameState::InGame))
+        .observe(setup_default_planet);
+    commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            ChildOf(content),
+            Button,
+            children![(
+                Text::new("Jump Gym"),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
+                TextLayout {
+                    justify: Justify::Center,
+                    ..default()
+                },
+            )],
+        ))
+        .observe(change_state(GameState::InGame))
+        .observe(setup_jump_gym);
+
+    commands.spawn((
+        Node {
+            flex_grow: 1.0,
+            ..default()
+        },
+        ChildOf(content),
+    ));
+    commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            ChildOf(content),
+            Button,
+            children![(
+                Text::new("Back"),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
+                TextLayout {
+                    justify: Justify::Center,
+                    ..default()
+                },
+            )],
+        ))
+        .observe(change_state(MenuState::Home));
 
     Ok(())
 }

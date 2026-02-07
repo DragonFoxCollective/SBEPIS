@@ -6,6 +6,7 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::charge::Charging;
 use crate::player_controller::movement::di::{DIUpdate, WalkDI};
 use crate::player_controller::movement::stand::Standing;
 
@@ -68,7 +69,7 @@ fn update_di_walk(
 fn update_walk_velocity(
     mut players: Query<
         (&mut Movement, &Velocity, &Transform, &WalkDI, Has<Grounded>),
-        With<Standing>,
+        Or<(With<Standing>, With<Charging>)>, // ewwwww two states?
     >,
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,

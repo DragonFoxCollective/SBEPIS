@@ -167,7 +167,7 @@ struct FinalizedChunk;
 struct SleepingFromUnloaded;
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
-	after = ChunkGenSystems, run_if = in_state(GameState::InGame),
+	after = ChunkGenSystems, run_if = is_generator_running::<WorldGen>,
 ))]
 fn sleep_unloaded_entities(
     mut commands: Commands,
@@ -188,7 +188,7 @@ fn sleep_unloaded_entities(
 }
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = Update, config(
-	after = ChunkGenSystems, run_if = in_state(GameState::InGame),
+	after = ChunkGenSystems, run_if = is_generator_running::<WorldGen>,
 ))]
 fn wake_loaded_entities(
     mut commands: Commands,
@@ -221,7 +221,9 @@ fn load_poi_structures(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-#[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
+#[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame), config(
+	run_if = is_generator_running::<WorldGen>
+))]
 fn place_poi_structures(poi: Res<Poi>, poi_structures: Res<PoiStructures>, mut commands: Commands) {
     for (i, position) in poi.positions.iter().enumerate() {
         let poi_structure = match i % 2 {
@@ -257,11 +259,6 @@ fn place_poi_structures(poi: Res<Poi>, poi_structures: Res<PoiStructures>, mut c
                 },
             );
     }
-}
-
-#[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnEnter(GameState::InGame))]
-fn start_chunks(mut settings: ResMut<ChunkGeneratorSettings<WorldGen>>) {
-    settings.running = ChunkGeneratorRunning::Run;
 }
 
 #[auto_system(plugin = TerrainWorldGenPlugin, schedule = OnExit(GameState::InGame))]

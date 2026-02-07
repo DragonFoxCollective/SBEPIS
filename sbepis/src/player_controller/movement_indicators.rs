@@ -7,6 +7,7 @@ use itertools::Itertools as _;
 use return_ok::ok_or_return;
 
 use crate::entity::Movement;
+use crate::gravity::ComputedGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::di::Moving;
@@ -51,15 +52,17 @@ fn setup_speed_indicator(mut commands: Commands) {
 #[auto_system(plugin = MovementIndicatorsPlugin, schedule = Update)]
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
-    player: Query<(&Transform, &Velocity), With<PlayerBody>>,
+    player: Query<(&Transform, &Velocity, &ComputedGravity), With<PlayerBody>>,
 ) {
-    let (transform, velocity) = ok_or_return!(player.single());
+    let (transform, velocity, gravity) = ok_or_return!(player.single());
     let mut indicator = ok_or_return!(indicator.single_mut());
     let speed = velocity.linvel.length();
     let local_speed = (transform.rotation.inverse() * velocity.linvel)
         .xz()
         .length();
-    indicator.0 = format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}");
+    let gravity = gravity.acceleration.length();
+    indicator.0 =
+        format!("Global speed: {speed:.2}\nLocal speed: {local_speed:.2}\nGravity: {gravity:.2}");
 }
 
 #[auto_component(plugin = MovementIndicatorsPlugin, derive, reflect, register)]

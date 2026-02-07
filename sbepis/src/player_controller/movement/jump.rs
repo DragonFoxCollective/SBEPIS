@@ -59,22 +59,32 @@ pub struct PlayerJumpSettings {
     pub unreal_air_jump_max_stamina_cost: f32,
 }
 
+fn jump_speed_from_height(jump_height: f32) -> f32 {
+    let normal_gravity = crate::NORMAL_GRAVITY;
+    (2.0 * normal_gravity * jump_height).sqrt()
+}
+
 impl Default for PlayerJumpSettings {
     fn default() -> Self {
+        let jump_height = 1.0;
+        let high_jump_height = 1.5;
+        let charge_jump_height = 2.0;
+        let unreal_air_jump_height = 2.5;
+
         Self {
-            jump_speed: 5.0,
+            jump_speed: jump_speed_from_height(jump_height),
             jump_stamina_cost: 0.0,
 
-            high_jump_speed: 7.0,
+            high_jump_speed: jump_speed_from_height(high_jump_height),
             high_jump_stamina_cost: 0.0,
 
-            charge_jump_min_speed: 5.0,
-            charge_jump_max_speed: 10.0,
+            charge_jump_min_speed: jump_speed_from_height(jump_height),
+            charge_jump_max_speed: jump_speed_from_height(charge_jump_height),
             charge_jump_min_stamina_cost: 0.0,
             charge_jump_max_stamina_cost: 0.33,
 
-            unreal_air_jump_min_speed: 7.0,
-            unreal_air_jump_max_speed: 15.0,
+            unreal_air_jump_min_speed: jump_speed_from_height(high_jump_height),
+            unreal_air_jump_max_speed: jump_speed_from_height(unreal_air_jump_height),
             unreal_air_jump_min_stamina_cost: 0.0,
             unreal_air_jump_max_stamina_cost: 0.66,
         }
