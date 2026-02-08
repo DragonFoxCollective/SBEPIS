@@ -126,7 +126,6 @@ fn walking_to_dashing(
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::UpdateState,
-	before = walking_to_dashing,
 ))]
 fn update_dashing(
     mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,

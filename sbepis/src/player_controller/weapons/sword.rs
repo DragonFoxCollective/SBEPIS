@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animated_field};
+use bevy::animation::{AnimatedBy, AnimationEvent, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
@@ -198,10 +198,9 @@ pub fn spawn_sword(
         ))
         .add_child(sword_blade)
         .id();
-    commands.entity(sword_pivot).insert(AnimationTarget {
-        id: sword_pivot_id,
-        player: sword_pivot,
-    });
+    commands
+        .entity(sword_pivot)
+        .insert((sword_pivot_id, AnimatedBy(sword_pivot)));
 }
 
 #[derive(AnimationEvent, Clone)]
@@ -218,7 +217,7 @@ fn on_sword_start(
     fray: Query<&FrayMusic>,
     mut commands: Commands,
 ) -> Result {
-    let sword_pivot_entity = start.trigger().animation_player;
+    let sword_pivot_entity = start.trigger().target;
     let sword_pivot = sword_pivots.get(sword_pivot_entity)?;
     let sword_blade_entity = sword_pivot.blade;
     let (mut sword, transform) = swords.get_mut(sword_blade_entity)?;
@@ -251,7 +250,7 @@ fn on_sword_end(
     mut swords: Query<&mut Sword>,
     mut commands: Commands,
 ) -> Result {
-    let sword_pivot_entity = end.trigger().animation_player;
+    let sword_pivot_entity = end.trigger().target;
     let (sword_pivot, mut animation) = sword_pivots.get_mut(sword_pivot_entity)?;
     let sword_blade_entity = sword_pivot.blade;
     let mut sword = swords.get_mut(sword_blade_entity)?;

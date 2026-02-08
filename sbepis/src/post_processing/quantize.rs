@@ -15,7 +15,7 @@ use bevy::render::render_resource::binding_types::{
     sampler, storage_buffer, texture_2d, uniform_buffer,
 };
 use bevy::render::render_resource::{
-    BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
+    BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedComputePipelineId,
     CachedRenderPipelineId, ColorTargetState, ColorWrites, ComputePassDescriptor,
     ComputePipelineDescriptor, FragmentState, MultisampleState, Operations, PipelineCache,
     PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
@@ -115,7 +115,7 @@ impl ViewNode for PostProcessQuantizeNode {
 
             let bind_group = render_context.render_device().create_bind_group(
                 "quantize_post_process_bind_group",
-                &post_process_pipeline.layout,
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
                     post_process.source,
@@ -157,7 +157,7 @@ impl ViewNode for PostProcessQuantizeNode {
 
             let bind_group = render_context.render_device().create_bind_group(
                 "quantize_kmeans_post_process_bind_group",
-                &post_process_pipeline.kmeans_layout,
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.kmeans_layout),
                 &BindGroupEntries::sequential((
                     settings_binding,
                     k_buffer,
@@ -185,10 +185,10 @@ impl ViewNode for PostProcessQuantizeNode {
 
 #[auto_resource(plugin = PostProcessQuantizePlugin, derive)]
 struct PostProcessQuantizePipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     quantize_pipeline_id: CachedRenderPipelineId,
-    kmeans_layout: BindGroupLayout,
+    kmeans_layout: BindGroupLayoutDescriptor,
     kmeans_pipeline_id: CachedComputePipelineId,
 }
 
@@ -196,7 +196,7 @@ impl FromWorld for PostProcessQuantizePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let layout = render_device.create_bind_group_layout(
+        let layout = BindGroupLayoutDescriptor::new(
             "post_process_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
@@ -212,7 +212,7 @@ impl FromWorld for PostProcessQuantizePipeline {
             ),
         );
 
-        let kmeans_layout = render_device.create_bind_group_layout(
+        let kmeans_layout = BindGroupLayoutDescriptor::new(
             "post_process_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,

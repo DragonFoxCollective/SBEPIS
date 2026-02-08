@@ -3,70 +3,69 @@ name = "sbepis"
 version = "0.1.0"
 edition = "2024"
 
-[lints.clippy]
-type_complexity = "allow"
-too_many_arguments = "allow"
-eq_op = "allow"
-
-[features]
-debug = [
-	"inspector",
-	"overview_camera",
-	"terminal",
-	"movement_indicators",
-	"framerate_indicator",
-	# "skip_main_menu",
-	# "debug_movement_graph",
-	"bevy/track_location",
-]
-default = []
-inspector = [
-	"dep:bevy-inspector-egui",
-	"bevy_panorbit_camera?/bevy_egui",
-	"overview_camera",                 # otherwise you can't interact with the inspector...
-]
-metronome = []
-overview_camera = ["dep:bevy_panorbit_camera"]
-terminal = []
-rapier_debug = []
-movement_indicators = []
-framerate_indicator = []
-skip_main_menu = []
-debug_movement_graph = ["bevy_pretty_nice_input/debug_graph"]
-tracy = ["bevy/trace_tracy", "framerate_indicator"]
-
 [dependencies]
-bevy = { version = "0.17", features = ["wav", "mp3"] }
-bevy-inspector-egui = { version = "0.34", optional = true, default-features = false, features = [
-	"bevy_pbr",
-	"bevy_image",
-	"bevy_render",
-	"bevy_core_pipeline",
-	"egui_clipboard",
-] }
-bevy_panorbit_camera = { version = "0.29", optional = true }
-bevy_rapier3d = { git = "https://github.com/lukasfri/bevy_rapier.git" }
-image = "0.25.2"
-itertools = "0.14.0"
-num-traits = "0.2.19"
-winit = "0.30"
-rand = "0.9"
-uuid = "1.16.0"
-serde = "1.0.215"
-bevy_common_assets = { version = "0.14.0", features = ["ron"] }
-meshtext = "0.3.1"
-soundyrust = { path = "../soundyrust" }
-bevy_hanabi = "0.17"
-typetag = "0.2.19"
-return-ok = "0.1"
-bevy_skein = "0.3.0"
+bevy = { version = "0.18", features = ["mp3", "wav"] }
+bevy_auto_plugin = "0.10"
+bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy_hanabi = "0.18"
+bevy-inspector-egui = { version = "0.36", default-features = false, features = [
+  "bevy_core_pipeline",
+  "bevy_image",
+  "bevy_pbr",
+  "bevy_render",
+  "egui_clipboard",
+], optional = true }
 bevy_marching_cubes = { path = "../bevy_marching_cubes" }
+bevy_panorbit_camera = { version = "0.34", optional = true }
+bevy_pretty_nice_input = { version = "0.5" }
+bevy_pretty_nice_menus = { version = "0.4", features = ["pretty_nice_input"] }
+bevy_rapier3d = { git = "https://github.com/Buncys/bevy_rapier.git", branch = "bevy-0.18.0" }
+bevy_skein = "0.5"
 crossbeam-channel = "0.5.15"
 fake = "4.4.0"
-bevy_pretty_nice_input = { version = "0.4.3" }
-bevy_pretty_nice_menus = { version = "0.3.3", features = ["pretty_nice_input"] }
+image = "0.25.2"
+itertools = "0.14.0"
+meshtext = "0.3.1"
+num-traits = "0.2.19"
 paste = "1.0.15"
-bevy_auto_plugin = "0.8.1"
+rand = "0.9"
+return-ok = "0.1"
+serde = "1.0.215"
+soundyrust = { path = "../soundyrust" }
+typetag = "0.2.19"
+uuid = "1.16.0"
+winit = "0.30"
 
 [build-dependencies]
 winres = "0.1"
+
+[features]
+default = []
+debug = [
+  # "skip_main_menu",
+  # "debug_movement_graph",
+  "bevy/track_location",
+  "framerate_indicator",
+  "inspector",
+  "movement_indicators",
+  "overview_camera",
+  "terminal",
+]
+debug_movement_graph = ["bevy_pretty_nice_input/debug_graph"]
+framerate_indicator = []
+inspector = [
+  "dep:bevy-inspector-egui",  # otherwise you can't interact with the inspector...
+  "overview_camera",
+]
+metronome = []
+movement_indicators = []
+overview_camera = ["dep:bevy_panorbit_camera"]
+rapier_debug = []
+skip_main_menu = []
+terminal = []
+tracy = ["bevy/trace_tracy", "framerate_indicator"]
+
+[lints.clippy]
+eq_op = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"

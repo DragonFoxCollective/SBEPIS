@@ -108,7 +108,7 @@ fn stitch_skybox(
         first_side_image.texture_descriptor.format,
         RenderAssetUsages::RENDER_WORLD,
     );
-    skybox.reinterpret_stacked_2d_as_array(6);
+    skybox.reinterpret_stacked_2d_as_array(6)?;
     skybox.texture_view_descriptor = Some(TextureViewDescriptor {
         dimension: Some(TextureViewDimension::Cube),
         ..default()

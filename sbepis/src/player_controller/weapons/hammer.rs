@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animated_field};
+use bevy::animation::{AnimatedBy, AnimationEvent, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
@@ -139,10 +139,9 @@ pub fn spawn_hammer(
         ))
         .add_child(hammer_head)
         .id();
-    commands.entity(hammer_pivot).insert(AnimationTarget {
-        id: hammer_pivot_id,
-        player: hammer_pivot,
-    });
+    commands
+        .entity(hammer_pivot)
+        .insert((hammer_pivot_id, AnimatedBy(hammer_pivot)));
 }
 
 #[derive(AnimationEvent, Clone)]
@@ -158,7 +157,7 @@ fn on_hammer_start(
     hammers: Query<(&Hammer, &GlobalTransform)>,
     mut commands: Commands,
 ) -> Result {
-    let hammer_pivot_entity = start.trigger().animation_player;
+    let hammer_pivot_entity = start.trigger().target;
     let hammer_pivot = hammer_pivots.get(hammer_pivot_entity)?;
     let hammer_head_entity = hammer_pivot.head;
     let (hammer, transform) = hammers.get(hammer_head_entity)?;
@@ -187,7 +186,7 @@ fn on_hammer_smash(
     fray: Query<&FrayMusic>,
     mut commands: Commands,
 ) -> Result {
-    let hammer_pivot_entity = smash.trigger().animation_player;
+    let hammer_pivot_entity = smash.trigger().target;
     let hammer_pivot = hammer_pivots.get(hammer_pivot_entity)?;
     let hammer_head_entity = hammer_pivot.head;
     let hammer = hammers.get(hammer_head_entity)?;

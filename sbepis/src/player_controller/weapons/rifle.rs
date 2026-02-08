@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationEvent, AnimationTarget, AnimationTargetId, animated_field};
+use bevy::animation::{AnimatedBy, AnimationEvent, AnimationTargetId, animated_field};
 use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
@@ -160,10 +160,9 @@ pub fn spawn_rifle(
         ))
         .add_child(rifle_barrel)
         .id();
-    commands.entity(rifle_pivot).insert(AnimationTarget {
-        id: rifle_pivot_id,
-        player: rifle_pivot,
-    });
+    commands
+        .entity(rifle_pivot)
+        .insert((rifle_pivot_id, AnimatedBy(rifle_pivot)));
 }
 
 #[derive(AnimationEvent, Clone)]
@@ -183,7 +182,7 @@ fn on_rifle_fire(
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
     parents: Query<&ChildOf>,
 ) -> Result {
-    let rifle_pivot_entity = fire.trigger().animation_player;
+    let rifle_pivot_entity = fire.trigger().target;
     let rifle_pivot = rifle_pivots.get(rifle_pivot_entity)?;
     let rifle_barrel_entity = rifle_pivot.barrel;
     let mut rifle = rifles.get_mut(rifle_barrel_entity)?;
@@ -243,7 +242,7 @@ fn on_rifle_start_charging(
     mut rifles: Query<&mut Rifle>,
     frays: Query<&FrayMusic>,
 ) -> Result {
-    let rifle_pivot_entity = charging.trigger().animation_player;
+    let rifle_pivot_entity = charging.trigger().target;
     let rifle_pivot = rifle_pivots.get(rifle_pivot_entity)?;
     let rifle_barrel_entity = rifle_pivot.barrel;
     let mut rifle = rifles.get_mut(rifle_barrel_entity)?;
@@ -304,9 +303,9 @@ fn setup_reticle(mut commands: Commands) {
             Node {
                 width: Val::Px(4.0),
                 height: Val::Px(4.0),
+                border_radius: BorderRadius::MAX,
                 ..default()
             },
-            BorderRadius::MAX,
             BackgroundColor(Color::WHITE),
         ));
 }

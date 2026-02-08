@@ -13,7 +13,7 @@ use bevy::render::render_resource::binding_types::{
     sampler, texture_2d, texture_depth_2d, uniform_buffer,
 };
 use bevy::render::render_resource::{
-    BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
+    BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId,
     ColorTargetState, ColorWrites, FragmentState, MultisampleState, Operations, PipelineCache,
     PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
     Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureDescriptor,
@@ -125,7 +125,7 @@ impl ViewNode for PostProcessOutlinesNode {
         {
             let bind_group = render_context.render_device().create_bind_group(
                 "depth_blit_post_process_bind_group",
-                &post_process_pipeline.layout,
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding.clone(),
                     post_process.source,
@@ -162,7 +162,7 @@ impl ViewNode for PostProcessOutlinesNode {
         {
             let bind_group = render_context.render_device().create_bind_group(
                 "blur_horizontal_post_process_bind_group",
-                &post_process_pipeline.layout,
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding.clone(),
                     post_process.source,
@@ -199,7 +199,7 @@ impl ViewNode for PostProcessOutlinesNode {
         {
             let bind_group = render_context.render_device().create_bind_group(
                 "blur_vertical_post_process_bind_group",
-                &post_process_pipeline.layout,
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding.clone(),
                     post_process.source,
@@ -236,7 +236,7 @@ impl ViewNode for PostProcessOutlinesNode {
         {
             let bind_group = render_context.render_device().create_bind_group(
                 "main_post_process_bind_group",
-                &post_process_pipeline.layout,
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding.clone(),
                     post_process.source,
@@ -275,7 +275,7 @@ impl ViewNode for PostProcessOutlinesNode {
 
 #[auto_resource(plugin = PostProcessOutlinesPlugin, derive)]
 struct PostProcessOutlinesPipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     depth_blit_pipeline_id: CachedRenderPipelineId,
     blur_horizontal_pipeline_id: CachedRenderPipelineId,
@@ -287,7 +287,7 @@ impl FromWorld for PostProcessOutlinesPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let layout = render_device.create_bind_group_layout(
+        let layout = BindGroupLayoutDescriptor::new(
             "post_process_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
