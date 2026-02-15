@@ -1,12 +1,10 @@
-use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
-use return_ok::{ok_or_return, some_or_return_ok};
+use return_ok::ok_or_return;
 
 use crate::entity::spawner::{ActivateSpawner, Spawn};
 use crate::entity::{
@@ -15,9 +13,9 @@ use crate::entity::{
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
 use crate::player_controller::weapons::Damage;
-use crate::util::AnimationRootReference;
+use crate::util::AnimationRoot;
 
-use super::name_tags::{NameTagAssets, SpawnNameTag};
+use super::name_tags::SpawnNameTag;
 
 #[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct Imp;
@@ -25,21 +23,22 @@ pub struct Imp;
 #[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct ImpSpawner;
 
-#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
-pub struct InsertImpAssets;
-
 #[auto_resource(plugin = NpcPlugin, derive, reflect, register)]
 pub struct ImpAssets {
-    pub model: Handle<Gltf>,
+    pub model: Handle<Scene>,
+
     pub ambient_sound_1: Handle<AudioSource>,
     pub ambient_sound_2: Handle<AudioSource>,
     pub hurt_sound: Handle<AudioSource>,
     pub death_sound: Handle<AudioSource>,
-
     pub sound_effect_variance: f32,
-
     pub ambient_sound_time: Duration,
     pub ambient_sound_time_variance: Duration,
+
+    pub animation_graph: Handle<AnimationGraph>,
+    pub idle_animation: AnimationNodeIndex,
+    pub run_animation: AnimationNodeIndex,
+    pub _attack_animation: AnimationNodeIndex,
 }
 
 impl ImpAssets {
@@ -64,188 +63,129 @@ impl ImpAssets {
     }
 }
 
-#[auto_component(plugin = NpcPlugin, derive, reflect, register)]
-pub struct ImpAnimations {
-    pub idle: AnimationNodeIndex,
-    pub run: AnimationNodeIndex,
-    pub _attack: AnimationNodeIndex,
-}
-
 #[auto_system(plugin = NpcPlugin, schedule = Startup)]
-fn setup_imp_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_imp_assets(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    let (animation_graph, nodes) = AnimationGraph::from_clips([
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("imp.glb")),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("imp.glb")),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("imp.glb")),
+    ]);
+    let animation_graph = animation_graphs.add(animation_graph);
+
     commands.insert_resource(ImpAssets {
-        model: asset_server.load("imp.glb"),
+        model: asset_server.load(GltfAssetLabel::Scene(0).from_asset("imp.glb")),
+
         ambient_sound_1: asset_server.load("imp_ambient_1.ogg"),
         ambient_sound_2: asset_server.load("imp_ambient_2.ogg"),
         hurt_sound: asset_server.load("imp_hurt.ogg"),
         death_sound: asset_server.load("imp_death.ogg"),
-
         sound_effect_variance: 0.3,
         ambient_sound_time: Duration::from_secs_f32(5.0),
         ambient_sound_time_variance: Duration::from_secs_f32(2.0),
+
+        animation_graph,
+        idle_animation: nodes[1],
+        run_animation: nodes[2],
+        _attack_animation: nodes[0],
     });
 }
 
 #[auto_observer(plugin = NpcPlugin)]
-fn queue_spawning_imp(
+fn spawn_imp(
     spawn: On<ActivateSpawner>,
     mut commands: Commands,
     spawners: Query<(), With<ImpSpawner>>,
+    imp_assets: Res<ImpAssets>,
 ) {
     if spawners.get(spawn.spawner).is_err() {
         return;
     }
 
-    commands.entity(spawn.spawned_entity).insert((
-        Name::new("Imp"),
-        Transform::from_translation(spawn.position),
-        InsertImpAssets,
-    ));
-}
-
-#[auto_system(plugin = NpcPlugin, schedule = Update)]
-fn spawn_imp(
-    imps: Query<Entity, With<InsertImpAssets>>,
-    mut commands: Commands,
-    imp_assets: Res<ImpAssets>,
-    gltfs: Res<Assets<Gltf>>,
-) -> Result {
-    let imp_gltf = some_or_return_ok!(gltfs.get(&imp_assets.model));
-
-    for imp in imps.iter() {
-        commands
-            .entity(imp)
-            .insert((
-                SceneRoot(imp_gltf.scenes[0].clone()),
-                Mob,
-                SpawnHealthBar,
-                TargetPlayer,
-                RotateTowardMovement,
-                Imp,
-                SpawnNameTag,
-                AmbientSoundTimer::default(),
-            ))
-            .remove::<InsertImpAssets>()
-            .with_child((
-                Transform::from_translation(Vec3::Y * 0.5),
-                Collider::capsule_y(0.25, 0.25),
-            ))
-            .observe(
-                |scene_instance_ready: On<SceneInstanceReady>,
-                 mut commands: Commands,
-                 imp_assets: Res<ImpAssets>,
-                 gltfs: Res<Assets<Gltf>>,
-                 mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-                 children: Query<&Children>,
-                 material_names: Query<&GltfMaterialName>,
-                 name_tag_assets: Res<NameTagAssets>|
-                 -> Result {
-                    let imp_gltf = gltfs
-                        .get(&imp_assets.model)
-                        .ok_or("Gltf should be loaded by now")?;
-
-                    let (animation_graph, nodes) = AnimationGraph::from_clips([
-                        imp_gltf.named_animations["Idle"].clone(),
-                        imp_gltf.named_animations["Run"].clone(),
-                        imp_gltf.named_animations["Attack"].clone(),
-                    ]);
-                    let animation_graph = animation_graphs.add(animation_graph);
-
-                    let imp_animations = ImpAnimations {
-                        idle: nodes[0],
-                        run: nodes[1],
-                        _attack: nodes[2],
-                    };
-
-                    let mut animation_player = AnimationPlayer::default();
-
-                    let mut transitions = AnimationTransitions::new();
-                    transitions.play(&mut animation_player, imp_animations.idle, Duration::ZERO);
-
-                    let scene = *children
-                        .get(scene_instance_ready.entity)
-                        .unwrap()
-                        .last()
-                        .unwrap();
-                    let armature = children.get(scene).unwrap()[0];
-
-                    commands.entity(armature).insert((
-                        Transform::from_rotation(Quat::from_rotation_y(PI)),
-                        AnimationGraphHandle(animation_graph),
-                        transitions,
-                        animation_player,
-                        imp_animations,
-                    ));
-
-                    for child in children
-                        .iter_descendants(scene_instance_ready.entity)
-                        .filter(|child| {
-                            material_names
-                                .get(*child)
-                                .is_ok_and(|name| name.0 == "Candy")
-                        })
-                    {
+    commands
+        .entity(spawn.spawned_entity)
+        .insert((
+            Name::new("Imp"),
+            Transform::from_translation(spawn.position),
+            SceneRoot(imp_assets.model.clone()),
+            Mob,
+            SpawnHealthBar,
+            TargetPlayer,
+            RotateTowardMovement,
+            Imp,
+            SpawnNameTag,
+            AmbientSoundTimer::default(),
+        ))
+        .with_child((
+            Transform::from_translation(Vec3::Y * 0.5),
+            Collider::capsule_y(0.25, 0.25),
+        ))
+        .observe(
+            |scene_ready: On<SceneInstanceReady>,
+             imp_assets: Res<ImpAssets>,
+             mut commands: Commands,
+             children: Query<&Children>,
+             mut players: Query<(), With<AnimationPlayer>>| {
+                for child in children.iter_descendants(scene_ready.entity) {
+                    if players.get_mut(child).is_ok() {
+                        commands.entity(child).insert((
+                            AnimationGraphHandle(imp_assets.animation_graph.clone()),
+                            AnimationTransitions::default(),
+                        ));
                         commands
-                            .entity(child)
-                            .remove::<MeshMaterial3d<StandardMaterial>>()
-                            .insert(MeshMaterial3d(name_tag_assets.master_material.clone()));
+                            .entity(scene_ready.entity)
+                            .insert(AnimationRoot(child));
                     }
+                }
+            },
+        );
 
-                    commands
-                        .entity(scene_instance_ready.entity)
-                        .insert(AnimationRootReference(armature));
-
-                    Ok(())
-                },
-            );
-
-        commands.trigger(Spawn { entity: imp });
-    }
-
-    Ok(())
+    commands.trigger(Spawn {
+        entity: spawn.spawned_entity,
+    });
 }
 
 #[auto_system(plugin = NpcPlugin, schedule = Update)]
 fn update_imp_animations(
-    mut imps: Query<(&Movement, &AnimationRootReference), With<Imp>>,
-    mut animations: Query<(
-        &mut AnimationPlayer,
-        &mut AnimationTransitions,
-        &ImpAnimations,
-    )>,
-) {
+    mut imps: Query<(&Movement, &AnimationRoot), With<Imp>>,
+    mut animations: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
+    imp_assets: Res<ImpAssets>,
+) -> Result {
     for (movement, scene_root) in imps.iter_mut() {
-        let (mut animation_player, mut transitions, animations) =
-            animations.get_mut(scene_root.0).unwrap();
+        let (mut animation_player, mut transitions) = animations.get_mut(scene_root.0)?;
 
         if movement.0.length() > 0.0 {
             if transitions
                 .get_main_animation()
-                .map(|index| index != animations.run)
+                .map(|index| index != imp_assets.run_animation)
                 .unwrap_or(true)
             {
                 transitions
                     .play(
                         &mut animation_player,
-                        animations.run,
+                        imp_assets.run_animation,
                         Duration::from_secs_f32(0.5),
                     )
                     .repeat();
             }
         } else if transitions
             .get_main_animation()
-            .map(|index| index != animations.idle)
+            .map(|index| index != imp_assets.idle_animation)
             .unwrap_or(true)
         {
             transitions
                 .play(
                     &mut animation_player,
-                    animations.idle,
+                    imp_assets.idle_animation,
                     Duration::from_secs_f32(0.5),
                 )
                 .repeat();
         }
     }
+    Ok(())
 }
 
 #[auto_observer(plugin = NpcPlugin)]

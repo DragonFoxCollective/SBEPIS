@@ -188,4 +188,4 @@ pub fn find_in_ancestors<'w, 's: 'w, 'a: 'w, D: QueryData, F: QueryFilter>(
 }
 
 #[auto_component(plugin = SbepisPlugin, derive, reflect, register)]
-pub struct AnimationRootReference(pub Entity);
+pub struct AnimationRoot(pub Entity);

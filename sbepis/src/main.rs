@@ -2,6 +2,8 @@
 
 use std::io::Cursor;
 
+use bevy::gltf::GltfPlugin;
+use bevy::gltf::convert_coordinates::GltfConvertCoordinates;
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
@@ -66,6 +68,13 @@ fn main() {
 		})
 		.set(LogPlugin {
 			filter: "info,sbepis=debug,avian3d=debug,wgpu=error,naga=warn,calloop=error,symphonia_core=warn,symphonia_bundle_mp3=warn,blenvy=error,bevy_pretty_nice_input=debug,bevy_pretty_nice_menus=debug".into(),
+			..default()
+		})
+		.set(GltfPlugin {
+		    convert_coordinates: GltfConvertCoordinates {
+		        rotate_scene_entity: true,
+				..default()
+			},
 			..default()
 		})).add_plugins(SbepisPlugin).run();
 }

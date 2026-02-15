@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use bevy::ecs::schedule::ScheduleConfigs;
 use bevy::ecs::system::ScheduleSystem;
 use bevy::prelude::*;
@@ -167,7 +165,7 @@ fn setup_poi_structures(
         commands
             .spawn((
                 SceneRoot(poi_structure.clone()),
-                Transform::from_translation(*position).with_rotation(Quat::from_rotation_y(PI)),
+                Transform::from_translation(*position),
                 DespawnOnExit(GameState::MainMenu),
                 Readback::buffer(poi.positions_final.clone()),
             ))

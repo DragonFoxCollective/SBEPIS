@@ -41,11 +41,19 @@ fn rotate_toward_movement(
     }
 }
 
+#[derive(Default, Reflect, Copy, Clone)]
+enum RandomInputState {
+    #[default]
+    Still,
+    Walking,
+}
+
 #[auto_component(plugin = EntityPlugin, derive(Default), reflect, register)]
 pub struct RandomInput {
-    pub input: Vec3,
-    pub time_since_last_change: Duration,
-    pub time_to_change: Duration,
+    input: Vec3,
+    time_since_last_change: Duration,
+    time_to_change: Duration,
+    state: RandomInputState,
 }
 
 #[auto_system(plugin = EntityPlugin, schedule = Update, config(
@@ -56,9 +64,19 @@ fn random_vec2(mut input: Query<(&mut RandomInput, &mut Movement)>, time: Res<Ti
         random_input.time_since_last_change += time.delta();
 
         if random_input.time_since_last_change >= random_input.time_to_change {
-            let dir = rand::random::<Vec3>().normalize() * 2.0 - Vec3::ONE;
-            let mag = rand::random::<f32>() + 0.2;
-            random_input.input = dir * mag;
+            match random_input.state {
+                RandomInputState::Still => {
+                    random_input.input = Vec3::ZERO;
+                    random_input.state = RandomInputState::Walking;
+                }
+                RandomInputState::Walking => {
+                    let dir = rand::random::<Vec3>().normalize() * 2.0 - Vec3::ONE;
+                    let mag = rand::random::<f32>() + 0.5;
+                    random_input.input = dir * mag;
+                    random_input.state = RandomInputState::Still;
+                }
+            }
+
             random_input.time_since_last_change = Duration::default();
             random_input.time_to_change =
                 Duration::from_secs_f32(rand::random::<f32>() * 2.0 + 1.0);

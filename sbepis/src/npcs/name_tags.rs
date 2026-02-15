@@ -1,9 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::asset::RenderAssetUsages;
-use bevy::gltf::GltfMaterialName;
 use bevy::prelude::*;
-use bevy::scene::SceneInstance;
 use bevy_auto_plugin::prelude::*;
 use fake::Fake;
 use fake::faker::name::en::FirstName;
@@ -416,10 +414,6 @@ fn spawn_name_tags(
         //     }
         // }
 
-        if !matches!(name_tag.tier, Some(SupporterTier::Master)) {
-            commands.entity(entity).insert(RemoveCandyMaterials);
-        }
-
         commands
             .entity(entity)
             .remove::<SpawnNameTag>()
@@ -430,33 +424,7 @@ fn spawn_name_tags(
 }
 
 #[auto_component(plugin = NpcPlugin, derive, reflect, register)]
-struct RemoveCandyMaterials;
-
-#[auto_system(plugin = NpcPlugin, schedule = Update, config(
-	after = spawn_name_tags,
-))]
-fn remove_candy_materials(
-    material_names: Query<&GltfMaterialName>,
-    mut commands: Commands,
-    children: Query<&Children>,
-    entities: Query<(Entity, &SceneInstance), With<RemoveCandyMaterials>>,
-    scene_spawner: Res<SceneSpawner>,
-) {
-    for (entity, scene_instance) in entities.iter() {
-        if !scene_spawner.instance_is_ready(**scene_instance) {
-            continue;
-        }
-
-        for child in children.iter_descendants(entity).filter(|child| {
-            material_names
-                .get(*child)
-                .is_ok_and(|name| name.0 == "Candy")
-        }) {
-            commands.entity(child).insert(Visibility::Hidden);
-        }
-        commands.entity(entity).remove::<RemoveCandyMaterials>();
-    }
-}
+struct HasCandyMaterial;
 
 fn get_name(available_names: Option<&mut ResMut<AvailableNames>>) -> Option<NameTag> {
     let available_names = available_names?;
