@@ -145,7 +145,11 @@ fn calculate_gravity(mut rigidbodies: Query<&mut ComputedGravity>) {
                 });
 
         gravity.acceleration = acceleration;
-        gravity.up = -acceleration.normalize_or(Vec3::NEG_Y);
+        if let Some(dir) = acceleration.try_normalize() {
+            gravity.up = -dir;
+        } else if gravity.up == Vec3::ZERO {
+            gravity.up = Vec3::Y;
+        }
     }
 }
 
