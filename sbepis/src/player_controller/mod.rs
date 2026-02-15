@@ -217,14 +217,12 @@ fn setup(
         ))
         .id();
 
+    let fov = 70f32.to_radians();
     let camera = commands
         .spawn((
             Name::new("Player Camera"),
             Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection {
-                fov: 70.0f32.to_radians(),
-                ..default()
-            }),
+            Projection::Perspective(PerspectiveProjection { fov, ..default() }),
             PlayerCamera,
             Pitch(0.0),
             SpatialListener::new(-0.25),
@@ -258,6 +256,7 @@ fn setup(
             UninitializedWeaponSet,
             input_bundle,
             MenuInputOf(input),
+            PlayerFov(fov),
         ))
         .add_children(&[camera, collider, mesh])
         .id();

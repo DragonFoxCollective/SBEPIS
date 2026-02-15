@@ -10,6 +10,7 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::camera_controls::{InterpolateFov, PlayerFov};
 use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player_controller::movement::di::WalkDI;
@@ -33,6 +34,9 @@ pub struct PlayerDashSettings {
     pub charge_dash_time: Duration,
     pub charge_min_stamina_cost: f32,
     pub charge_max_stamina_cost: f32,
+
+    pub fov_factor: f32,
+    pub fov_ease_duration_secs: f32,
 }
 
 impl Default for PlayerDashSettings {
@@ -47,6 +51,9 @@ impl Default for PlayerDashSettings {
             charge_dash_time: Duration::from_secs_f32(0.3),
             charge_min_stamina_cost: 0.33,
             charge_max_stamina_cost: 0.66,
+
+            fov_factor: 1.2,
+            fov_ease_duration_secs: 0.3,
         }
     }
 }
@@ -74,13 +81,19 @@ pub struct Dashing {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
-    mut players: Query<(&Velocity, &WalkDI, &mut Stamina, Option<&Charging>)>,
+    mut players: Query<(
+        &Velocity,
+        &WalkDI,
+        &mut Stamina,
+        Option<&Charging>,
+        &PlayerFov,
+    )>,
     charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerDashSettings>,
     mut commands: Commands,
     assets: Res<DashAssets>,
 ) -> Result {
-    let (velocity, di, mut stamina, charging) = players.get_mut(dash.input)?;
+    let (velocity, di, mut stamina, charging, fov) = players.get_mut(dash.input)?;
 
     let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
         let (power, stamina_cost) = charging
@@ -117,6 +130,10 @@ fn walking_to_dashing(
                 * (velocity.linvel.length() + speed_addon),
             speed_addon,
         })
+        .insert(InterpolateFov::new(
+            fov.0 * settings.fov_factor,
+            settings.fov_ease_duration_secs,
+        ))
         .remove::<AffectedByGravity>();
 
     commands.spawn((AudioPlayer(assets.sound.clone()), PlaybackSettings::DESPAWN));
@@ -128,12 +145,19 @@ fn walking_to_dashing(
 	in_set = MovementControlSystems::UpdateState,
 ))]
 fn update_dashing(
-    mut players: Query<(Entity, &mut Dashing, &mut Movement, &mut Velocity)>,
+    mut players: Query<(
+        Entity,
+        &mut Dashing,
+        &mut Movement,
+        &mut Velocity,
+        &PlayerFov,
+    )>,
     time: Res<Time>,
     walk_settings: Res<PlayerWalkSettings>,
+    settings: Res<PlayerDashSettings>,
     mut commands: Commands,
 ) {
-    for (player, mut dashing, mut movement, mut velocity) in players.iter_mut() {
+    for (player, mut dashing, mut movement, mut velocity, fov) in players.iter_mut() {
         dashing.duration += time.delta();
         if dashing.duration >= dashing.max_duration {
             velocity.linvel = dashing.velocity.normalize_or_zero()
@@ -144,7 +168,8 @@ fn update_dashing(
             commands
                 .entity(player)
                 .remove::<Dashing>()
-                .insert(AffectedByGravity);
+                .insert(AffectedByGravity)
+                .insert(InterpolateFov::new(fov.0, settings.fov_ease_duration_secs));
         }
     }
 }

@@ -16,30 +16,41 @@ use crate::util::MapRange;
 #[action(invalidate = false)]
 pub struct SlidingDI;
 
-#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
+#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect(Default), register, init)]
 pub struct PlayerSlideSettings {
     pub speed_cap: f32,
     pub friction: f32,
-    pub forward_friction: f32,
-    pub brake_friction: f32,
     /// In (radians per second) / (meters per second)
     pub turn_factor: f32,
-    pub turn_friction: f32,
     pub direction_physics_resistance: f32,
     pub speed_physics_resistance: f32,
+    #[reflect(ignore)]
+    friction_easing: Box<dyn Curve<f32> + Send + Sync>,
 }
 
 impl Default for PlayerSlideSettings {
     fn default() -> Self {
+        let brake_friction = 10.0;
+        let turn_friction = 0.0;
+        let forward_friction = 0.0;
+
+        let easing = EasingCurve::new(brake_friction, turn_friction, EaseFunction::CircularInOut)
+            .reparametrize_linear(Interval::new(0.0, PI / 2.0).unwrap())
+            .unwrap()
+            .chain(
+                EasingCurve::new(turn_friction, forward_friction, EaseFunction::CircularInOut)
+                    .reparametrize_linear(Interval::new(PI / 2.0, PI).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
         Self {
             speed_cap: 1.0,
             friction: 1.0,
-            forward_friction: 0.0,
-            brake_friction: 10.0,
             turn_factor: 2.0,
-            turn_friction: 0.0,
             direction_physics_resistance: 0.9,
             speed_physics_resistance: 0.0,
+            friction_easing: Box::new(easing),
         }
     }
 }
@@ -121,25 +132,6 @@ fn update_slide_velocity(
     slide_settings: Res<PlayerSlideSettings>,
     time: Res<Time>,
 ) -> Result {
-    // This is stupid, why can't I store this anywhere?
-    let easing = EasingCurve::new(
-        slide_settings.brake_friction,
-        slide_settings.turn_friction,
-        EaseFunction::CircularInOut,
-    )
-    .reparametrize_linear(Interval::new(0.0, PI / 2.0).unwrap())
-    .unwrap()
-    .chain(
-        EasingCurve::new(
-            slide_settings.turn_friction,
-            slide_settings.forward_friction,
-            EaseFunction::CircularInOut,
-        )
-        .reparametrize_linear(Interval::new(PI / 2.0, PI).unwrap())
-        .unwrap(),
-    )
-    .unwrap();
-
     for (mut movement, transform, velocity, sliding) in players.iter_mut() {
         let current_speed = slide_settings
             .speed_physics_resistance
@@ -158,7 +150,8 @@ fn update_slide_velocity(
         let center_friction = slide_settings.friction;
         let outer_friction = {
             let angle = sliding.di.angle_to(Vec2::Y).abs();
-            easing
+            slide_settings
+                .friction_easing
                 .sample(angle)
                 .map(|max_friction| {
                     sliding

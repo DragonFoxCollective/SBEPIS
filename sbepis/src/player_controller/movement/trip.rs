@@ -8,6 +8,7 @@ use bevy_rapier3d::prelude::Velocity;
 use crate::entity::Movement;
 use crate::gravity::{AffectedByGravity, ComputedGravity};
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::camera_controls::{InterpolateFov, InterpolateFovCurve, PlayerFov};
 use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::stamina::Stamina;
 
@@ -32,6 +33,11 @@ pub struct PlayerTripSettings {
     pub ground_parry_speed: f32,
     pub trip_speed_threshold: f32,
     pub ground_parry_stamina_gain: f32,
+
+    pub fov_trip_factor: f32,
+    pub fov_trip_ease_duration_secs: f32,
+    pub fov_recover_factor: f32,
+    pub fov_recover_ease_duration_secs: f32,
 }
 
 impl Default for PlayerTripSettings {
@@ -43,6 +49,11 @@ impl Default for PlayerTripSettings {
             ground_parry_speed: 40.0,
             trip_speed_threshold: 25.0,
             ground_parry_stamina_gain: 0.25,
+
+            fov_trip_factor: 0.5,
+            fov_trip_ease_duration_secs: 0.2,
+            fov_recover_factor: 1.2,
+            fov_recover_ease_duration_secs: 1.0,
         }
     }
 }
@@ -110,16 +121,31 @@ fn tripping_to_trip_recover(
     }
 }
 
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn trip_fov(
+    add: On<Add, Tripping>,
+    mut commands: Commands,
+    settings: Res<PlayerTripSettings>,
+    players: Query<&PlayerFov>,
+) -> Result {
+    let fov = players.get(add.entity)?;
+    commands.entity(add.entity).insert(InterpolateFov::new(
+        fov.0 * settings.fov_trip_factor,
+        settings.fov_trip_ease_duration_secs,
+    ));
+    Ok(())
+}
+
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::UpdateState,
 ))]
 fn trip_recover_update(
-    mut players: Query<(Entity, &mut TripRecover, Has<Grounded>)>,
+    mut players: Query<(Entity, &mut TripRecover, Has<Grounded>, &PlayerFov)>,
     time: Res<Time>,
     settings: Res<PlayerTripSettings>,
     mut commands: Commands,
 ) {
-    for (player, mut trip_recover, grounded) in players.iter_mut() {
+    for (player, mut trip_recover, grounded, fov) in players.iter_mut() {
         if grounded {
             trip_recover.grounded_duration += time.delta();
 
@@ -127,7 +153,11 @@ fn trip_recover_update(
                 commands
                     .entity(player)
                     .remove::<TripRecover>()
-                    .insert(Standing);
+                    .insert(Standing)
+                    .insert(InterpolateFov::new(
+                        fov.0,
+                        settings.fov_trip_ease_duration_secs,
+                    ));
             }
         } else {
             trip_recover.grounded_duration = Duration::ZERO;
@@ -156,24 +186,30 @@ fn update_tripping_velocity(
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn ground_parry(
     parry: On<JustPressed<GroundParry>>,
-    mut players: Query<(&mut Movement, &Transform, &mut Stamina, &mut Velocity)>,
+    mut players: Query<(
+        &mut Movement,
+        &Transform,
+        &mut Stamina,
+        &mut Velocity,
+        &PlayerFov,
+    )>,
     mut commands: Commands,
-    trip_settings: Res<PlayerTripSettings>,
+    settings: Res<PlayerTripSettings>,
     parry_sound: Res<ParrySound>,
     hit_stop_settings: Res<HitStopSettings>,
 ) -> Result {
     debug!("GROUND PARRY!!!!!");
 
-    let (mut movement, transform, mut stamina, mut velocity) = players.get_mut(parry.input)?;
+    let (mut movement, transform, mut stamina, mut velocity, fov) = players.get_mut(parry.input)?;
 
-    stamina.current += trip_settings.ground_parry_stamina_gain;
+    stamina.current += settings.ground_parry_stamina_gain;
 
     commands
         .entity(parry.input)
         .remove::<TripRecover>()
         .insert(Sliding::default());
 
-    let ground_parry_velocity = transform.rotation * -Vec3::Z * trip_settings.ground_parry_speed;
+    let ground_parry_velocity = transform.rotation * -Vec3::Z * settings.ground_parry_speed;
     movement.0 += ground_parry_velocity;
     velocity.linvel += ground_parry_velocity;
 
@@ -182,11 +218,27 @@ fn ground_parry(
         AudioPlayer::new(parry_sound.0.clone()),
     ));
 
-    commands.entity(parry.input).insert(HitStop {
-        duration: hit_stop_settings.ground_parry_duration,
-        velocity: velocity.linvel,
-        movement: movement.0,
-    });
+    commands
+        .entity(parry.input)
+        .insert(HitStop {
+            duration: hit_stop_settings.ground_parry_duration,
+            velocity: velocity.linvel,
+            movement: movement.0,
+        })
+        .insert(InterpolateFov {
+            curves: vec![
+                InterpolateFovCurve {
+                    fov: fov.0 * settings.fov_recover_factor,
+                    duration_secs: settings.fov_trip_ease_duration_secs,
+                    ease: EaseFunction::CircularOut,
+                },
+                InterpolateFovCurve {
+                    fov: fov.0,
+                    duration_secs: settings.fov_recover_ease_duration_secs,
+                    ease: EaseFunction::Linear,
+                },
+            ],
+        });
 
     Ok(())
 }
