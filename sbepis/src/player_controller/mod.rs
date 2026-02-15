@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::ChunkLoader;
@@ -224,7 +222,7 @@ fn setup(
             Name::new("Player Camera"),
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection {
-                fov: 70.0 / 180. * PI,
+                fov: 70.0f32.to_radians(),
                 ..default()
             }),
             PlayerCamera,
