@@ -122,16 +122,21 @@ fn tripping_to_trip_recover(
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn trip_fov(
+fn trip_add(
     add: On<Add, Tripping>,
     mut commands: Commands,
     settings: Res<PlayerTripSettings>,
     players: Query<&PlayerFov>,
+    assets: Res<TripAssets>,
 ) -> Result {
     let fov = players.get(add.entity)?;
     commands.entity(add.entity).insert(InterpolateFov::new(
         fov.0 * settings.fov_trip_factor,
         settings.fov_trip_ease_duration_secs,
+    ));
+    commands.spawn((
+        Name::new("Trip Sound"),
+        AudioPlayer(assets.trip_sound.clone()),
     ));
     Ok(())
 }
@@ -195,7 +200,7 @@ fn ground_parry(
     )>,
     mut commands: Commands,
     settings: Res<PlayerTripSettings>,
-    parry_sound: Res<ParrySound>,
+    assets: Res<TripAssets>,
     hit_stop_settings: Res<HitStopSettings>,
 ) -> Result {
     debug!("GROUND PARRY!!!!!");
@@ -215,7 +220,7 @@ fn ground_parry(
 
     commands.spawn((
         Name::new("Parry Sound"),
-        AudioPlayer::new(parry_sound.0.clone()),
+        AudioPlayer::new(assets.parry_sound.clone()),
     ));
 
     commands
@@ -278,11 +283,17 @@ fn walking_too_fast_to_tripping(
 }
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
-pub struct ParrySound(pub Handle<AudioSource>);
+pub struct TripAssets {
+    pub trip_sound: Handle<AudioSource>,
+    pub parry_sound: Handle<AudioSource>,
+}
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
-fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(ParrySound(asset_server.load("parry-ultrakill.mp3")));
+fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(TripAssets {
+        trip_sound: asset_server.load("trip.mp3"),
+        parry_sound: asset_server.load("parry-ultrakill.mp3"),
+    });
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
