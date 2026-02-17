@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::f32;
 use std::time::Duration;
 
 use crate::gravity::AffectedByGravity;
@@ -14,6 +14,13 @@ use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate};
 use bevy_rapier3d::prelude::*;
 
 use super::dash::Dashing;
+
+const JUMP_MULTIPLIER: f32 = 5.0;
+
+fn jump_speed_from_height(jump_height: f32) -> f32 {
+    let normal_gravity = crate::NORMAL_GRAVITY;
+    (2.0 * normal_gravity * JUMP_MULTIPLIER * jump_height).sqrt()
+}
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
@@ -31,7 +38,7 @@ pub struct ChargeJumping;
 pub struct ChargeCrouchJumping;
 
 #[derive(Reflect, Debug, Default)]
-pub struct JumpSettingsRanged {
+pub struct ChargeJumpSettings {
     pub min_speed: f32,
     pub max_speed: f32,
     pub min_stamina_cost: f32,
@@ -39,7 +46,7 @@ pub struct JumpSettingsRanged {
     pub variable_time: f32,
 }
 
-impl JumpSettingsRanged {
+impl ChargeJumpSettings {
     fn max_stamina(&self) -> f32 {
         self.max_stamina_cost
     }
@@ -63,8 +70,8 @@ pub struct PlayerJumpSettings {
     pub jump: JumpSettings,
     pub high_jump: JumpSettings,
     pub slide_jump: JumpSettings,
-    pub charge_jump: JumpSettingsRanged,
-    pub unreal_air_jump: JumpSettingsRanged,
+    pub charge_jump: ChargeJumpSettings,
+    pub unreal_air_jump: ChargeJumpSettings,
 }
 
 impl Default for PlayerJumpSettings {
@@ -73,7 +80,7 @@ impl Default for PlayerJumpSettings {
         let high_jump_height = 1.5;
         let charge_jump_height = 2.0;
         let unreal_air_jump_height = 2.5;
-        let variable_time = 5.0;
+        let variable_time = 0.3;
 
         Self {
             jump: JumpSettings {
@@ -91,14 +98,14 @@ impl Default for PlayerJumpSettings {
                 stamina_cost: 0.0,
                 variable_time,
             },
-            charge_jump: JumpSettingsRanged {
+            charge_jump: ChargeJumpSettings {
                 min_speed: jump_speed_from_height(jump_height),
                 max_speed: jump_speed_from_height(charge_jump_height),
                 min_stamina_cost: 0.0,
                 max_stamina_cost: 0.33,
                 variable_time,
             },
-            unreal_air_jump: JumpSettingsRanged {
+            unreal_air_jump: ChargeJumpSettings {
                 min_speed: jump_speed_from_height(high_jump_height),
                 max_speed: jump_speed_from_height(unreal_air_jump_height),
                 min_stamina_cost: 0.0,
@@ -109,13 +116,8 @@ impl Default for PlayerJumpSettings {
     }
 }
 
-fn jump_speed_from_height(jump_height: f32) -> f32 {
-    let normal_gravity = crate::NORMAL_GRAVITY;
-    (2.0 * normal_gravity * jump_height).sqrt()
-}
-
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
-pub struct JumpTracker {
+pub struct JumpTimer {
     pub variable_timer: Duration,
     pub timer_max: f32,
     pub stamina_cost: f32,
@@ -132,12 +134,16 @@ macro_rules! define_jump_release {
         #[auto_observer(plugin = PlayerControllerPlugin)]
         fn $func_name(
             remove: On<Remove, $action_type>,
-            mut jump_tracker: Query<(&mut JumpTracker, &mut Stamina)>,
+            mut jump_tracker: Query<(&mut JumpTimer, &mut Stamina)>,
             mut commands: Commands,
         ) -> Result {
-            let (jump_tracker, mut stamina) = jump_tracker.get_mut(remove.entity)?;
-            stamina.current -= jump_tracker.stamina_cost;
-            commands.entity(remove.entity).remove::<JumpTracker>();
+            match jump_tracker.get_mut(remove.entity) {
+                Ok((jump_tracker, mut stamina)) => {
+                    stamina.current -= jump_tracker.stamina_cost;
+                    commands.entity(remove.entity).remove::<JumpTimer>();
+                }
+                Err(_e) => {}
+            }
             Ok(())
         }
     };
@@ -156,7 +162,7 @@ fn jump(
     settings: Res<PlayerJumpSettings>,
     mut commands: Commands,
 ) -> Result {
-    commands.entity(jump.entity).insert(JumpTracker {
+    commands.entity(jump.entity).insert(JumpTimer {
         timer_max: settings.jump.variable_time,
         speed: settings.jump.speed,
         stamina_cost: settings.jump.stamina_cost,
@@ -173,7 +179,7 @@ fn crouch_jump(
     settings: Res<PlayerJumpSettings>,
     mut commands: Commands,
 ) -> Result {
-    commands.entity(jump.entity).insert(JumpTracker {
+    commands.entity(jump.entity).insert(JumpTimer {
         timer_max: settings.high_jump.variable_time,
         speed: settings.high_jump.speed,
         stamina_cost: settings.high_jump.stamina_cost,
@@ -190,7 +196,7 @@ fn slide_jump(
     settings: Res<PlayerJumpSettings>,
     mut commands: Commands,
 ) -> Result {
-    commands.entity(jump.entity).insert(JumpTracker {
+    commands.entity(jump.entity).insert(JumpTimer {
         timer_max: settings.high_jump.variable_time,
         speed: settings.high_jump.speed,
         stamina_cost: settings.high_jump.stamina_cost,
@@ -221,7 +227,7 @@ fn charge_jump(
         .ok_or(BevyError::from(
             "Don't have enough stamina to charge jump, despite being in jump transition",
         ))?;
-    commands.entity(jump.entity).insert(JumpTracker {
+    commands.entity(jump.entity).insert(JumpTimer {
         variable_timer: Duration::from_secs(0),
         timer_max: settings.charge_jump.variable_time,
         stamina_cost,
@@ -256,7 +262,7 @@ fn charge_crouch_jump(
         .ok_or(BevyError::from(
             "Don't have enough stamina to unreal air, despite being in jump transition",
         ))?;
-    commands.entity(jump.entity).insert(JumpTracker {
+    commands.entity(jump.entity).insert(JumpTimer {
         variable_timer: Duration::from_secs(0),
         timer_max: settings.unreal_air_jump.variable_time,
         stamina_cost,
@@ -279,7 +285,7 @@ fn do_jump(
         &mut Velocity,
         &Transform,
         &mut Stamina,
-        &mut JumpTracker,
+        &mut JumpTimer,
     )>,
     time: Res<Time>,
     mut commands: Commands,
@@ -290,13 +296,14 @@ fn do_jump(
             if transform.up().dot(velocity.linvel) < 0.0 {
                 velocity.linvel = velocity.linvel.reject_from(transform.up().into());
             }
-            velocity.linvel = transform.up() * jump_tracker.speed;
+            let len = velocity.linvel.length();
+            velocity.linvel += transform.up() * (jump_tracker.speed - len).max(0.0);
         } else {
             stamina.current -= jump_tracker.stamina_cost;
             commands
                 .entity(entity)
                 .remove::<Dashing>()
-                .remove::<JumpTracker>()
+                .remove::<JumpTimer>()
                 .insert(AffectedByGravity);
         }
         jump_tracker.variable_timer += time.delta();
