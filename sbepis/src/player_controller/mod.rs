@@ -22,7 +22,7 @@ use crate::player_controller::movement::dash::{Dash, HasEnoughStaminaToDash};
 use crate::player_controller::movement::di::Moving;
 use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::movement::jump::{
-    ChargeCrouchJump, ChargeJumping, CrouchJumping, HasEnoughStaminaToChargeCrouchJump,
+    ChargeCrouchJumping, ChargeJumping, CrouchJumping, HasEnoughStaminaToChargeCrouchJump,
     HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump,
     HasEnoughStaminaToSlideJump, Jumping, SlideJumping,
 };
@@ -160,7 +160,7 @@ fn setup(
                 ResetBuffer,
             ]),
             input_transition!((Charging) <=> (Charging, Crouching), Axis1D[binding1d::left_ctrl()]),
-            input_transition!((Charging, Crouching) => (ChargeCrouchJump, Charging, Crouching), Axis1D[binding1d::space()], [
+            input_transition!((Charging, Crouching) => (ChargeCrouchJumping, Charging, Crouching), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
                 FilterBuffered::<Grounded>::default(),
