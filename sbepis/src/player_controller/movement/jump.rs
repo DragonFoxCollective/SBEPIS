@@ -46,12 +46,6 @@ pub struct ChargeJumpSettings {
     pub variable_time: f32,
 }
 
-impl ChargeJumpSettings {
-    fn max_stamina(&self) -> f32 {
-        self.max_stamina_cost
-    }
-}
-
 #[derive(Reflect, Debug, Default)]
 pub struct JumpSettings {
     pub speed: f32,
@@ -59,17 +53,10 @@ pub struct JumpSettings {
     pub variable_time: f32,
 }
 
-impl JumpSettings {
-    fn max_stamina(&self) -> f32 {
-        self.stamina_cost
-    }
-}
-
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerJumpSettings {
     pub jump: JumpSettings,
     pub high_jump: JumpSettings,
-    pub slide_jump: JumpSettings,
     pub charge_jump: ChargeJumpSettings,
     pub unreal_air_jump: ChargeJumpSettings,
 }
@@ -89,11 +76,6 @@ impl Default for PlayerJumpSettings {
                 variable_time,
             },
             high_jump: JumpSettings {
-                speed: jump_speed_from_height(high_jump_height),
-                stamina_cost: 0.0,
-                variable_time,
-            },
-            slide_jump: JumpSettings {
                 speed: jump_speed_from_height(high_jump_height),
                 stamina_cost: 0.0,
                 variable_time,
@@ -129,31 +111,16 @@ pub struct JumpAssets {
     pub charge_jump_sound: Handle<AudioSource>,
 }
 
-macro_rules! define_jump_release {
-    ($func_name:ident, $action_type:ty) => {
-        #[auto_observer(plugin = PlayerControllerPlugin)]
-        fn $func_name(
-            remove: On<Remove, $action_type>,
-            mut jump_tracker: Query<(&mut JumpTimer, &mut Stamina)>,
-            mut commands: Commands,
-        ) -> Result {
-            match jump_tracker.get_mut(remove.entity) {
-                Ok((jump_tracker, mut stamina)) => {
-                    stamina.current -= jump_tracker.stamina_cost;
-                    commands.entity(remove.entity).remove::<JumpTimer>();
-                }
-                Err(_e) => {}
-            }
-            Ok(())
-        }
-    };
-}
-
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(JumpAssets {
         charge_jump_sound: asset_server.load("worms bazooka shoot.mp3"),
     });
+}
+
+#[auto_event(plugin = PlayerControllerPlugin, target(entity), derive, reflect, register)]
+pub struct JumpRelease {
+    pub entity: Entity,
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
@@ -171,7 +138,12 @@ fn jump(
     Ok(())
 }
 
-define_jump_release!(jump_release, Jumping);
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
+    commands.trigger(JumpRelease {
+        entity: remove.entity,
+    });
+}
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn crouch_jump(
@@ -188,7 +160,12 @@ fn crouch_jump(
     Ok(())
 }
 
-define_jump_release!(crouch_jump_release, CrouchJumping);
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn crouch_jump_release(remove: On<Remove, CrouchJumping>, mut commands: Commands) {
+    commands.trigger(JumpRelease {
+        entity: remove.entity,
+    });
+}
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn slide_jump(
@@ -204,8 +181,12 @@ fn slide_jump(
     });
     Ok(())
 }
-
-define_jump_release!(slide_jump_release, SlideJumping);
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn slide_jump_release(remove: On<Remove, SlideJumping>, mut commands: Commands) {
+    commands.trigger(JumpRelease {
+        entity: remove.entity,
+    });
+}
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_jump(
@@ -240,7 +221,12 @@ fn charge_jump(
     Ok(())
 }
 
-define_jump_release!(charge_jump_release, ChargeJumping);
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn charge_jump_release(remove: On<Remove, ChargeJumping>, mut commands: Commands) {
+    commands.trigger(JumpRelease {
+        entity: remove.entity,
+    });
+}
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouch_jump(
@@ -276,7 +262,27 @@ fn charge_crouch_jump(
     Ok(())
 }
 
-define_jump_release!(charge_crouch_jump_release, ChargeCrouchJumping);
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn charge_crouch_jump_release(remove: On<Remove, ChargeCrouchJumping>, mut commands: Commands) {
+    commands.trigger(JumpRelease {
+        entity: remove.entity,
+    });
+}
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn jump_release_observer(
+    jump: On<JumpRelease>,
+    mut query: Query<(&JumpTimer, &mut Stamina)>,
+    mut commands: Commands,
+) {
+    match query.get_mut(jump.entity) {
+        Ok((jump_timer, mut stamina)) => {
+            stamina.current -= jump_timer.stamina_cost;
+            commands.entity(jump.entity).remove::<JumpTimer>();
+        }
+        Err(_e) => {}
+    }
+}
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn do_jump(
@@ -290,59 +296,129 @@ fn do_jump(
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (entity, mut velocity, transform, mut stamina, mut jump_tracker) in player_bodies.iter_mut()
-    {
-        if jump_tracker.variable_timer.as_secs_f32() <= jump_tracker.timer_max {
+    for (entity, mut velocity, transform, mut stamina, mut jump_timer) in player_bodies.iter_mut() {
+        if jump_timer.variable_timer.as_secs_f32() <= jump_timer.timer_max {
             if transform.up().dot(velocity.linvel) < 0.0 {
                 velocity.linvel = velocity.linvel.reject_from(transform.up().into());
             }
             let len = velocity.linvel.length();
-            velocity.linvel += transform.up() * (jump_tracker.speed - len).max(0.0);
+            velocity.linvel += transform.up() * (jump_timer.speed - len).max(0.0);
         } else {
-            stamina.current -= jump_tracker.stamina_cost;
+            stamina.current -= jump_timer.stamina_cost;
             commands
                 .entity(entity)
                 .remove::<Dashing>()
                 .remove::<JumpTimer>()
                 .insert(AffectedByGravity);
         }
-        jump_tracker.variable_timer += time.delta();
+        jump_timer.variable_timer += time.delta();
     }
 }
 
-macro_rules! define_stamina_condition {
-    ($struct_name:ident, $settings_field:ident) => {
-        #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-        pub struct $struct_name;
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct HasEnoughStaminaToJump;
 
-        impl Condition for $struct_name {
-            fn bundle<A: Action>(&self) -> impl Bundle {
-                observe(
-                    |update: On<ConditionedBindingUpdate>,
-                     mut commands: Commands,
-                     players: Query<&Stamina>,
-                     settings: Res<PlayerJumpSettings>|
-                     -> Result {
-                        let stamina = players.get(update.input)?;
-                        if update.data.is_zero()
-                            || stamina.current >= settings.$settings_field.max_stamina()
-                        {
-                            update.trigger_next(&mut commands);
-                        }
-                        Ok(())
-                    },
-                )
-            }
-        }
-    };
+impl Condition for HasEnoughStaminaToJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if update.data.is_zero() || stamina.current >= settings.jump.stamina_cost {
+                    update.trigger_next(&mut commands);
+                }
+                Ok(())
+            },
+        )
+    }
 }
 
-define_stamina_condition!(HasEnoughStaminaToJump, jump);
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct HasEnoughStaminaToCrouchJump;
 
-define_stamina_condition!(HasEnoughStaminaToCrouchJump, high_jump);
+impl Condition for HasEnoughStaminaToCrouchJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if update.data.is_zero() || stamina.current >= settings.high_jump.stamina_cost {
+                    update.trigger_next(&mut commands);
+                }
+                Ok(())
+            },
+        )
+    }
+}
 
-define_stamina_condition!(HasEnoughStaminaToSlideJump, slide_jump);
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct HasEnoughStaminaToSlideJump;
 
-define_stamina_condition!(HasEnoughStaminaToChargeJump, charge_jump);
+impl Condition for HasEnoughStaminaToSlideJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if update.data.is_zero() || stamina.current >= settings.high_jump.stamina_cost {
+                    update.trigger_next(&mut commands);
+                }
+                Ok(())
+            },
+        )
+    }
+}
 
-define_stamina_condition!(HasEnoughStaminaToChargeCrouchJump, unreal_air_jump);
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct HasEnoughStaminaToChargeJump;
+
+impl Condition for HasEnoughStaminaToChargeJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if update.data.is_zero() || stamina.current >= settings.charge_jump.max_stamina_cost
+                {
+                    update.trigger_next(&mut commands);
+                }
+                Ok(())
+            },
+        )
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct HasEnoughStaminaToChargeCrouchJump;
+
+impl Condition for HasEnoughStaminaToChargeCrouchJump {
+    fn bundle<A: Action>(&self) -> impl Bundle {
+        observe(
+            |update: On<ConditionedBindingUpdate>,
+             mut commands: Commands,
+             players: Query<&Stamina>,
+             settings: Res<PlayerJumpSettings>|
+             -> Result {
+                let stamina = players.get(update.input)?;
+                if update.data.is_zero()
+                    || stamina.current >= settings.unreal_air_jump.max_stamina_cost
+                {
+                    update.trigger_next(&mut commands);
+                }
+                Ok(())
+            },
+        )
+    }
+}
