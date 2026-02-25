@@ -43,14 +43,14 @@ pub struct ChargeJumpSettings {
     pub max_speed: f32,
     pub min_stamina_cost: f32,
     pub max_stamina_cost: f32,
-    pub variable_time: f32,
+    pub max_hold_time: f32,
 }
 
 #[derive(Reflect, Debug, Default)]
 pub struct JumpSettings {
     pub speed: f32,
     pub stamina_cost: f32,
-    pub variable_time: f32,
+    pub max_hold_time: f32,
 }
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
@@ -67,32 +67,32 @@ impl Default for PlayerJumpSettings {
         let high_jump_height = 1.5;
         let charge_jump_height = 2.0;
         let unreal_air_jump_height = 2.5;
-        let variable_time = 0.3;
+        let max_hold_time = 0.3;
 
         Self {
             jump: JumpSettings {
                 speed: jump_speed_from_height(jump_height),
                 stamina_cost: 0.0,
-                variable_time,
+                max_hold_time,
             },
             high_jump: JumpSettings {
                 speed: jump_speed_from_height(high_jump_height),
                 stamina_cost: 0.0,
-                variable_time,
+                max_hold_time,
             },
             charge_jump: ChargeJumpSettings {
                 min_speed: jump_speed_from_height(jump_height),
                 max_speed: jump_speed_from_height(charge_jump_height),
                 min_stamina_cost: 0.0,
                 max_stamina_cost: 0.33,
-                variable_time,
+                max_hold_time,
             },
             unreal_air_jump: ChargeJumpSettings {
                 min_speed: jump_speed_from_height(high_jump_height),
                 max_speed: jump_speed_from_height(unreal_air_jump_height),
                 min_stamina_cost: 0.0,
                 max_stamina_cost: 0.66,
-                variable_time,
+                max_hold_time,
             },
         }
     }
@@ -130,7 +130,7 @@ fn jump(
     mut commands: Commands,
 ) -> Result {
     commands.entity(jump.entity).insert(JumpTimer {
-        timer_max: settings.jump.variable_time,
+        timer_max: settings.jump.max_hold_time,
         speed: settings.jump.speed,
         stamina_cost: settings.jump.stamina_cost,
         variable_timer: Duration::from_secs(0),
@@ -152,7 +152,7 @@ fn crouch_jump(
     mut commands: Commands,
 ) -> Result {
     commands.entity(jump.entity).insert(JumpTimer {
-        timer_max: settings.high_jump.variable_time,
+        timer_max: settings.high_jump.max_hold_time,
         speed: settings.high_jump.speed,
         stamina_cost: settings.high_jump.stamina_cost,
         variable_timer: Duration::from_secs(0),
@@ -174,7 +174,7 @@ fn slide_jump(
     mut commands: Commands,
 ) -> Result {
     commands.entity(jump.entity).insert(JumpTimer {
-        timer_max: settings.high_jump.variable_time,
+        timer_max: settings.high_jump.max_hold_time,
         speed: settings.high_jump.speed,
         stamina_cost: settings.high_jump.stamina_cost,
         variable_timer: Duration::from_secs(0),
@@ -210,10 +210,11 @@ fn charge_jump(
         ))?;
     commands.entity(jump.entity).insert(JumpTimer {
         variable_timer: Duration::from_secs(0),
-        timer_max: settings.charge_jump.variable_time,
+        timer_max: settings.charge_jump.max_hold_time,
         stamina_cost,
         speed: power.map_from_01(settings.charge_jump.min_speed..settings.charge_jump.max_speed),
     });
+    commands.entity(jump.entity).remove::<Charging>();
     commands.spawn((
         AudioPlayer(assets.charge_jump_sound.clone()),
         PlaybackSettings::DESPAWN,
@@ -250,11 +251,12 @@ fn charge_crouch_jump(
         ))?;
     commands.entity(jump.entity).insert(JumpTimer {
         variable_timer: Duration::from_secs(0),
-        timer_max: settings.unreal_air_jump.variable_time,
+        timer_max: settings.unreal_air_jump.max_hold_time,
         stamina_cost,
         speed: power
             .map_from_01(settings.unreal_air_jump.min_speed..settings.unreal_air_jump.max_speed),
     });
+    commands.entity(jump.entity).remove::<Charging>();
     commands.spawn((
         AudioPlayer(assets.charge_jump_sound.clone()),
         PlaybackSettings::DESPAWN,
