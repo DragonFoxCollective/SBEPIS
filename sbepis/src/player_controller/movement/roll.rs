@@ -1,17 +1,11 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
-use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::prelude::PlayerBody;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct RollingDI;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct RollingAssets {
@@ -56,18 +50,6 @@ fn to_rolling_assets(
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn update_di(di: On<Updated<RollingDI>>, mut players: Query<&mut Rolling>) -> Result {
-    let mut rolling = ok_or_return_ok!(players.get_mut(di.input));
-    rolling.di = di
-        .data
-        .as_2d()
-        .ok_or::<BevyError>("RollingDI didn't have 2D data".into())?
-        .clamp_length_max(1.0)
-        * Vec2::new(1.0, -1.0);
-    Ok(())
-}
-
-#[auto_observer(plugin = PlayerControllerPlugin)]
 fn remove_movement(add: On<Add, Rolling>, mut commands: Commands) {
     commands
         .entity(add.entity)
@@ -89,6 +71,4 @@ fn readd_movement(
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct Rolling {
-    di: Vec2,
-}
+pub struct Rolling;

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::bevy_event_chain::*;
 use bevy_pretty_nice_input::bundles::observe;
-use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::gravity::AffectedByGravity;

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, JustPressed};
+use bevy_pretty_nice_input::prelude::*;
 use soundyrust::Note;
 
 use crate::player_commands::PlayerCommandsPlugin;

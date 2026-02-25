@@ -4,20 +4,19 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::bevy_event_chain::*;
 use bevy_pretty_nice_input::bundles::observe;
-use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate, JustPressed};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::camera_controls::{InterpolateFov, PlayerFov};
-use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
-use crate::player_controller::movement::di::WalkDI;
+use crate::player_controller::movement::walk::PlayerWalkSettings;
+use crate::player_controller::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 use crate::player_controller::stamina::Stamina;
+use crate::prelude::PlayerBody;
 use crate::util::MapRangeBetween;
-
-use super::walk::PlayerWalkSettings;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -82,18 +81,20 @@ pub struct Dashing {
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
     mut players: Query<(
+        &PlayerBody,
         &Velocity,
-        &WalkDI,
+        Option<&Moving>,
         &mut Stamina,
         Option<&Charging>,
         &PlayerFov,
     )>,
+    cameras: Query<&GlobalTransform>,
     charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerDashSettings>,
     mut commands: Commands,
     assets: Res<DashAssets>,
 ) -> Result {
-    let (velocity, di, mut stamina, charging, fov) = players.get_mut(dash.input)?;
+    let (player, velocity, moving, mut stamina, charging, fov) = players.get_mut(dash.input)?;
 
     let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
         let (power, stamina_cost) = charging
@@ -121,13 +122,17 @@ fn walking_to_dashing(
 
     stamina.current -= stamina_cost;
 
+    let camera_transform = cameras.get(player.camera)?;
+    let input = moving.as_input();
+    let direction =
+        camera_transform.rotation() * Vec3::new(input.x, 0.0, input.y).normalize_or(Vec3::NEG_Z);
+
     commands
         .entity(dash.input)
         .insert(Dashing {
             duration: Duration::ZERO,
             max_duration: dash_time,
-            velocity: di.world_space.normalize_or(di.forward)
-                * (velocity.linvel.length() + speed_addon),
+            velocity: direction * (velocity.linvel.length() + speed_addon),
             speed_addon,
         })
         .insert(InterpolateFov::new(

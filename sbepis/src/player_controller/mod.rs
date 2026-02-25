@@ -1,16 +1,9 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_marching_cubes::ChunkLoader;
-use bevy_pretty_nice_input::{
-    Action, ButtonPress, ComponentBuffer, Cooldown, Filter, FilterBuffered, InputBuffer,
-    ResetBuffer, binding1d, binding2d, input, input_transition,
-};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
-use movement::MovementControlSystems;
-use movement::di::WalkDI;
-use movement::stand::Standing;
-use stamina::Stamina;
 
 use crate::camera::PlayerCamera;
 use crate::gridbox_material;
@@ -19,17 +12,19 @@ use crate::main_bundles::Mob;
 use crate::player_controller::movement::charge::{ChargeDash, Charging};
 use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::movement::dash::{Dash, HasEnoughStaminaToDash};
-use crate::player_controller::movement::di::Moving;
 use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::movement::jump::{
     ChargeCrouchJump, ChargeJump, CrouchJump, HasEnoughStaminaToChargeCrouchJump,
     HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump,
     HasEnoughStaminaToSlideJump, Jump, SlideJump,
 };
-use crate::player_controller::movement::roll::{Rolling, RollingDI};
-use crate::player_controller::movement::slide::{Sliding, SlidingDI};
+use crate::player_controller::movement::roll::Rolling;
+use crate::player_controller::movement::slide::Sliding;
+use crate::player_controller::movement::stand::Standing;
 use crate::player_controller::movement::trip::{GroundParry, Trip, TripRecover, Tripping};
-use crate::player_controller::movement::walk::{Sprinting, StandingDI};
+use crate::player_controller::movement::walk::Sprinting;
+use crate::player_controller::movement::{MovementControlSystems, Moving};
+use crate::player_controller::stamina::Stamina;
 use crate::prelude::*;
 use crate::worldgen::terrain::WorldGen;
 
@@ -68,7 +63,6 @@ fn build(app: &mut App) {
     );
 }
 
-// TODO: figure out how to UNIT TEST this stuff
 #[auto_system(plugin = PlayerControllerPlugin, schedule = OnEnter(GameState::InGame))]
 fn setup(
     mut commands: Commands,
@@ -91,7 +85,7 @@ fn setup(
         ),
         (
             // Standing
-            input_transition!((Standing) <=> StandingDI (Standing, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Standing) <=> (Standing, >Moving), Axis2D[binding2d::wasd()]),
             input_transition!((Standing, !Crouching) => Jump (Standing), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
@@ -127,7 +121,7 @@ fn setup(
                 (Standing) <= (Sliding, !Moving),
                 Axis1D[binding1d::left_ctrl()]
             ),
-            input_transition!((Sliding) <=> SlidingDI (Sliding, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Sliding) <=> (Sliding, >Moving), Axis2D[binding2d::wasd()]),
             input_transition!((Sliding) => SlideJump (Sliding), Axis1D[binding1d::space()], [
                 ButtonPress::default(),
                 InputBuffer::new(0.2),
@@ -141,7 +135,7 @@ fn setup(
             // Rolling
             input_transition!((Sliding) <=> (Rolling), Axis1D[binding1d::left_shift()]),
             input_transition!((Standing, Crouching) => (Rolling), Axis1D[binding1d::left_shift()]),
-            input_transition!((Rolling) <=> RollingDI (Rolling, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Rolling) <=> (Rolling, >Moving), Axis2D[binding2d::wasd()]),
             input_transition!((Standing, Sprinting) <=> (Rolling), Axis1D[binding1d::left_ctrl()]),
         ),
         (
@@ -164,7 +158,7 @@ fn setup(
                 Cooldown::new(0.5),
                 ResetBuffer,
             ]),
-            input_transition!((Charging) <=> (Charging, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Charging) <=> (Charging, >Moving), Axis2D[binding2d::wasd()]),
             input_transition!(
                 ChargeDash(Charging, Moving) <= (Charging, Moving),
                 Axis1D[binding1d::left_shift()]
@@ -176,8 +170,8 @@ fn setup(
                 Trip() <= (Charging, Crouching),
                 Axis1D[binding1d::left_shift()]
             ),
-            input_transition!((Tripping) <=> (Tripping, Moving), Axis2D[binding2d::wasd()]),
-            input_transition!((TripRecover) <=> (TripRecover, Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((Tripping) <=> (Tripping, >Moving), Axis2D[binding2d::wasd()]),
+            input_transition!((TripRecover) <=> (TripRecover, >Moving), Axis2D[binding2d::wasd()]),
             input!(
                 GroundParry,
                 Axis1D[binding1d::left_ctrl()],
@@ -238,7 +232,6 @@ fn setup(
             Transform::from_translation(Vec3::new(5.0, 10.0, 0.0)),
             Mob,
             Inventory::default(),
-            WalkDI::default(),
             Stamina {
                 current: 1.0,
                 max: 1.0,

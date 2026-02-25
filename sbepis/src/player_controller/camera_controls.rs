@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, JustPressed, Pressed};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::camera::PlayerCamera;
