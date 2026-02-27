@@ -7,8 +7,9 @@ use bevy_marching_cubes::ChunkLoader;
 use serde::Deserialize;
 
 use crate::camera::PlayerCamera;
+use crate::prelude::*;
 use crate::worldgen::desert::DesertWorldGen;
-use crate::{prelude::*, setup_default_planet, setup_jump_gym};
+use crate::worlds::{setup_default_planet, setup_jump_gym};
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = SbepisPlugin)]
@@ -22,7 +23,7 @@ fn build(app: &mut App) {
     ));
 }
 
-#[auto_states(plugin = MainMenuPlugin, derive, reflect, register, init)]
+#[auto_states(plugin = SbepisAppPlugin, derive, reflect, register, init, after_build)]
 #[states(scoped_entities)]
 pub enum GameState {
     /// Mostly to set up Startup stuff. Splash screen later?

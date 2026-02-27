@@ -9,6 +9,7 @@ use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player_controller::stamina::Stamina;
+use crate::prelude::NORMAL_GRAVITY;
 use crate::util::MapRangeBetween;
 
 use super::dash::Dashing;
@@ -60,7 +61,7 @@ pub struct PlayerJumpSettings {
 }
 
 fn jump_speed_from_height(jump_height: f32) -> f32 {
-    let normal_gravity = crate::NORMAL_GRAVITY;
+    let normal_gravity = NORMAL_GRAVITY;
     (2.0 * normal_gravity * jump_height).sqrt()
 }
 

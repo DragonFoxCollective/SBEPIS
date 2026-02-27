@@ -137,7 +137,7 @@ fn check_states(
 }
 
 #[auto_system(plugin = MovementIndicatorsPlugin, schedule = Startup)]
-fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
+fn gizmo_overlay(mut config_store: If<ResMut<GizmoConfigStore>>) {
     for (_, config, _) in config_store.iter_mut() {
         config.depth_bias = -1.0;
     }
@@ -148,7 +148,7 @@ fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
 	after = MovementControlSystems::DoVerticalMovement,
 ))]
 fn movement_direction_gizmos(
-    mut gizmos: Gizmos,
+    mut gizmos: If<Gizmos>,
     players: Query<(&GlobalTransform, &Velocity, Option<&Movement>), With<PlayerBody>>,
 ) {
     for (transform, velocity, movement) in players.iter() {

@@ -212,7 +212,7 @@ fn ground_parry(
     commands
         .entity(parry.input)
         .remove::<TripRecover>()
-        .insert(Sliding::default());
+        .insert(Sliding);
 
     let ground_parry_velocity = transform.rotation * -Vec3::Z * settings.ground_parry_speed;
     movement.0 += ground_parry_velocity;
