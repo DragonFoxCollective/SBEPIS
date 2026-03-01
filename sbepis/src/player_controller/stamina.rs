@@ -78,7 +78,7 @@ fn setup_stamina_bar(mut commands: Commands) {
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_stamina_bar(
-    staminas: Query<&Stamina, With<PlayerBody>>,
+    staminas: Query<&Stamina, With<Player>>,
     mut stamina_bars: Query<&mut Node, With<StaminaBar>>,
 ) {
     let stamina = ok_or_return!(staminas.single());

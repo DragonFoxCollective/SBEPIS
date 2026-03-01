@@ -16,7 +16,7 @@ use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings}
 use crate::player_controller::movement::walk::PlayerWalkSettings;
 use crate::player_controller::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 use crate::player_controller::stamina::Stamina;
-use crate::prelude::PlayerBody;
+use crate::prelude::Player;
 use crate::util::MapRange as _;
 
 #[derive(Action)]
@@ -78,7 +78,7 @@ pub struct Dashing {
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
     mut players: Query<(
-        &PlayerBody,
+        &Player,
         &Velocity,
         Option<&Moving>,
         &mut Stamina,

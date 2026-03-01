@@ -7,7 +7,7 @@ use return_ok::some_or_return;
 
 use crate::entity::EntityPlugin;
 use crate::player_controller::movement::MovementControlSystems;
-use crate::prelude::PlayerBody;
+use crate::prelude::Player;
 
 #[auto_component(plugin = EntityPlugin, derive(Deref, DerefMut, Default), reflect, register)]
 /// The desired velocity in world-space. Will be projected onto the entity's floor plane.
@@ -94,7 +94,7 @@ pub struct TargetPlayer;
 ))]
 fn target_player(
     mut target_players: Query<(&Transform, &mut Movement), With<TargetPlayer>>,
-    player: Query<&Transform, With<PlayerBody>>,
+    player: Query<&Transform, With<Player>>,
 ) {
     for (transform, mut input) in target_players.iter_mut() {
         let player_transform = some_or_return!(player.iter().min_by(|a, b| {

@@ -50,7 +50,7 @@ fn setup_speed_indicator(mut commands: Commands) {
 #[auto_system(plugin = MovementIndicatorsPlugin, schedule = Update)]
 fn update_speed_indicator(
     mut indicator: Query<&mut Text, With<SpeedIndicator>>,
-    player: Query<(&Transform, &Velocity, &ComputedGravity), With<PlayerBody>>,
+    player: Query<(&Transform, &Velocity, &ComputedGravity), With<Player>>,
 ) {
     let (transform, velocity, gravity) = ok_or_return!(player.single());
     let mut indicator = ok_or_return!(indicator.single_mut());
@@ -106,7 +106,7 @@ fn check_states(
             Has<ComponentBuffer<Grounded>>,
             Has<Movement>,
         ),
-        With<PlayerBody>,
+        With<Player>,
     >,
     mut debug_states: Query<&mut Text, With<DebugState>>,
 ) {
@@ -153,7 +153,7 @@ fn gizmo_overlay(mut config_store: If<ResMut<GizmoConfigStore>>) {
 ))]
 fn movement_direction_gizmos(
     mut gizmos: If<Gizmos>,
-    players: Query<(&GlobalTransform, &Velocity, Option<&Movement>), With<PlayerBody>>,
+    players: Query<(&GlobalTransform, &Velocity, Option<&Movement>), With<Player>>,
 ) {
     for (transform, velocity, movement) in players.iter() {
         gizmos.ray(

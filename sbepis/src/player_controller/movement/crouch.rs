@@ -4,7 +4,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
-use crate::prelude::PlayerBody;
+use crate::prelude::Player;
 
 use super::slide::Sliding;
 
@@ -43,7 +43,7 @@ impl FromWorld for CrouchingAssets {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_crouching_assets(
     add: On<Add, (Crouching, Sliding)>,
-    players: Query<&PlayerBody>,
+    players: Query<&Player>,
     mut cameras: Query<&mut Transform>,
     assets: Res<CrouchingAssets>,
     mut commands: Commands,

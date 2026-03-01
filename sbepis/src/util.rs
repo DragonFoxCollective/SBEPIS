@@ -8,7 +8,7 @@ use std::ops::{Add, Mul, Range, Sub};
 
 use crate::SbepisPlugin;
 use crate::camera::PlayerCamera;
-use crate::prelude::PlayerBody;
+use crate::prelude::Player;
 
 pub trait MapRange<T> {
     fn map_range(self, range_out: Range<T>) -> T;
@@ -105,7 +105,7 @@ pub struct Billboard;
 fn billboard(
     mut transforms: Query<&mut Transform, With<Billboard>>,
     player_camera: Query<&GlobalTransform, With<PlayerCamera>>,
-    player_body: Query<&GlobalTransform, With<PlayerBody>>,
+    player_body: Query<&GlobalTransform, With<Player>>,
 ) {
     let player_camera_position = ok_or_return!(player_camera.single()).translation();
     let player_body = player_body

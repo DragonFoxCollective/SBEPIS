@@ -6,7 +6,7 @@ use return_ok::ok_or_return_ok;
 
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::crouch::Crouching;
-use crate::prelude::PlayerBody;
+use crate::prelude::Player;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct StandingAssets {
@@ -50,7 +50,7 @@ impl FromWorld for StandingAssets {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets(
     add: On<Add, Standing>,
-    players: Query<&PlayerBody, Without<Crouching>>,
+    players: Query<&Player, Without<Crouching>>,
     mut cameras: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
@@ -69,7 +69,7 @@ fn to_standing_assets(
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets_2(
     remove: On<Remove, Crouching>,
-    players: Query<&PlayerBody>,
+    players: Query<&Player>,
     mut cameras: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,

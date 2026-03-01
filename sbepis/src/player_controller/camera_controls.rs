@@ -10,7 +10,7 @@ use crate::camera::PlayerCamera;
 use crate::player_controller::{Interact, PlayerControllerPlugin};
 use crate::util::find_in_ancestors;
 
-use super::PlayerBody;
+use super::Player;
 
 #[derive(Action)]
 pub struct Look;
@@ -34,12 +34,9 @@ fn rotate_camera_and_body(
     sensitivity: Res<MouseSensitivity>,
     mut player_camera: Query<
         (&mut Transform, &mut Pitch, &Camera),
-        (With<PlayerCamera>, Without<PlayerBody>),
+        (With<PlayerCamera>, Without<Player>),
     >,
-    mut player_body: Query<
-        (&mut Transform, &mut Velocity),
-        (Without<PlayerCamera>, With<PlayerBody>),
-    >,
+    mut player_body: Query<(&mut Transform, &mut Velocity), (Without<PlayerCamera>, With<Player>)>,
 ) -> Result {
     let delta = look
         .data
@@ -72,7 +69,7 @@ fn rotate_camera_and_body(
 
 pub fn interact_with<T: Component>(
     interact: On<JustPressed<Interact>>,
-    bodies: Query<&PlayerBody>,
+    bodies: Query<&Player>,
     rapier_context: ReadRapierContext,
     cameras: Query<&GlobalTransform, With<PlayerCamera>>,
     entities: Query<Entity, With<T>>,
@@ -164,7 +161,7 @@ struct InterpolateFovBuilt {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn build_interpolate_fov(
     add: On<Add, InterpolateFov>,
-    players: Query<(&PlayerBody, &InterpolateFov)>,
+    players: Query<(&Player, &InterpolateFov)>,
     cameras: Query<&Projection>,
     time: Res<Time>,
     mut commands: Commands,
@@ -207,7 +204,7 @@ fn build_interpolate_fov(
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn interpolate_fov(
-    players: Query<(&PlayerBody, &InterpolateFovBuilt)>,
+    players: Query<(&Player, &InterpolateFovBuilt)>,
     mut cameras: Query<&mut Projection>,
     time: Res<Time>,
 ) -> Result {

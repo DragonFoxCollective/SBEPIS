@@ -3,7 +3,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::movement::MovementControlSystems;
-use crate::player_controller::{PlayerBody, PlayerControllerPlugin};
+use crate::player_controller::{Player, PlayerControllerPlugin};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Grounded;
@@ -15,7 +15,7 @@ pub struct GroundedContact(pub RayIntersection);
 	in_set = MovementControlSystems::UpdateGrounded,
 ))]
 fn update_is_grounded(
-    mut bodies: Query<(Entity, &GlobalTransform, &PlayerBody)>,
+    mut bodies: Query<(Entity, &GlobalTransform, &Player)>,
     rapier_context: ReadRapierContext,
     mut commands: Commands,
 ) -> Result {

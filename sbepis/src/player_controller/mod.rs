@@ -219,7 +219,7 @@ fn setup(
                     recovery_rate: 0.1,
                 },
                 Standing,
-                PlayerBody {
+                Player {
                     camera,
                     collider,
                     mesh,
@@ -294,10 +294,7 @@ fn setup(
 
 #[cfg(feature = "debug_movement_graph")]
 #[auto_observer(plugin = PlayerControllerPlugin)]
-fn debug_graph(
-    _add: On<Add, PlayerBody>,
-    graph: Res<bevy_pretty_nice_input::debug_graph::DebugGraph>,
-) {
+fn debug_graph(_add: On<Add, Player>, graph: Res<bevy_pretty_nice_input::debug_graph::DebugGraph>) {
     use itertools::Itertools;
     let output = format!(
         "{}\n{}",
@@ -312,7 +309,7 @@ fn debug_graph(
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-pub struct PlayerBody {
+pub struct Player {
     pub camera: Entity,
     pub mesh: Entity,
     pub collider: Entity,
@@ -363,7 +360,7 @@ mod tests {
 
         assert_near_vec3(
             app.world_mut()
-                .query_filtered::<&Velocity, With<PlayerBody>>()
+                .query_filtered::<&Velocity, With<Player>>()
                 .single(app.world())?
                 .linvel,
             Vec3::ZERO,
@@ -381,7 +378,7 @@ mod tests {
 
         assert!(
             app.world_mut()
-                .query_filtered::<Option<&Moving>, With<PlayerBody>>()
+                .query_filtered::<Option<&Moving>, With<Player>>()
                 .single(app.world())?
                 .is_some(),
         );
@@ -398,7 +395,7 @@ mod tests {
 
         assert_near_vec3(
             app.world_mut()
-                .query_filtered::<&Velocity, With<PlayerBody>>()
+                .query_filtered::<&Velocity, With<Player>>()
                 .single(app.world())?
                 .linvel,
             Vec3::NEG_Z * 6.0,

@@ -5,7 +5,7 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::prelude::PlayerBody;
+use crate::prelude::Player;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct RollingAssets {
@@ -33,7 +33,7 @@ impl FromWorld for RollingAssets {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_rolling_assets(
     add: On<Add, Rolling>,
-    players: Query<&PlayerBody>,
+    players: Query<&Player>,
     mut cameras: Query<&mut Transform>,
     assets: Res<RollingAssets>,
     mut commands: Commands,

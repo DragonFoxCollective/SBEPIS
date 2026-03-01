@@ -230,7 +230,7 @@ fn tick_fray_music(
 fn queue_tracks_on_hit(
     hit: On<Hit>,
     imps: Query<(), With<Imp>>,
-    players: Query<(), With<PlayerBody>>,
+    players: Query<(), With<Player>>,
     audio_players: Query<&AudioPlayer<MidiAudio>>,
     mut assets: ResMut<Assets<MidiAudio>>,
     fray_tracks: Res<FrayTracks>,
