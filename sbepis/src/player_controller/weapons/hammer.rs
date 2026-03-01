@@ -5,7 +5,7 @@ use bevy::ecs::entity::EntityHashSet;
 use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Filter, binding1d, input};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::MenuInputOf;
 
 use crate::fray::FrayMusic;

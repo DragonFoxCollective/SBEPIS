@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, JustPressed};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
 
 use crate::entity::Movement;
@@ -212,7 +212,7 @@ fn ground_parry(
     commands
         .entity(parry.input)
         .remove::<TripRecover>()
-        .insert(Sliding::default());
+        .insert(Sliding);
 
     let ground_parry_velocity = transform.rotation * -Vec3::Z * settings.ground_parry_speed;
     movement.0 += ground_parry_velocity;

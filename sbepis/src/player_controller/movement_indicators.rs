@@ -1,7 +1,7 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::ComponentBuffer;
+use bevy_pretty_nice_input::prelude::ComponentBuffer;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
 use return_ok::ok_or_return;
@@ -9,20 +9,17 @@ use return_ok::ok_or_return;
 use crate::entity::Movement;
 use crate::gravity::ComputedGravity;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::MovementControlSystems;
-use crate::player_controller::movement::di::Moving;
-use crate::player_controller::movement::trip::TripRecover;
+use crate::player_controller::movement::charge::Charging;
+use crate::player_controller::movement::crouch::Crouching;
+use crate::player_controller::movement::dash::Dashing;
+use crate::player_controller::movement::grounded::Grounded;
+use crate::player_controller::movement::roll::Rolling;
+use crate::player_controller::movement::slide::Sliding;
+use crate::player_controller::movement::stand::Standing;
+use crate::player_controller::movement::trip::{TripRecover, Tripping};
+use crate::player_controller::movement::walk::Sprinting;
+use crate::player_controller::movement::{MovementControlSystems, Moving};
 use crate::prelude::*;
-
-use super::movement::charge::Charging;
-use super::movement::crouch::Crouching;
-use super::movement::dash::Dashing;
-use super::movement::grounded::Grounded;
-use super::movement::roll::Rolling;
-use super::movement::slide::Sliding;
-use super::movement::stand::Standing;
-use super::movement::trip::Tripping;
-use super::movement::walk::Sprinting;
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = PlayerControllerPlugin)]
@@ -140,7 +137,7 @@ fn check_states(
 }
 
 #[auto_system(plugin = MovementIndicatorsPlugin, schedule = Startup)]
-fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
+fn gizmo_overlay(mut config_store: If<ResMut<GizmoConfigStore>>) {
     for (_, config, _) in config_store.iter_mut() {
         config.depth_bias = -1.0;
     }
@@ -151,7 +148,7 @@ fn gizmo_overlay(mut config_store: ResMut<GizmoConfigStore>) {
 	after = MovementControlSystems::DoVerticalMovement,
 ))]
 fn movement_direction_gizmos(
-    mut gizmos: Gizmos,
+    mut gizmos: If<Gizmos>,
     players: Query<(&GlobalTransform, &Velocity, Option<&Movement>), With<PlayerBody>>,
 ) {
     for (transform, velocity, movement) in players.iter() {

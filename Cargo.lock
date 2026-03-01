@@ -1556,9 +1556,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cd20ae35324fa719a4438fb169f49600e250130dd17aed335d93462f672e579"
+checksum = "5bcb12a16e88817c053b7a7d0e99b08dd9211c98ef76fcc1c419d4e080da53cc"
 dependencies = [
  "bevy",
  "bevy_event_chain",
@@ -1568,9 +1568,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input_derive"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e412c58183571a0d0727fe0d09670cb1250b6062c6fac5ae64a0f458c1b38a5"
+checksum = "6a7f3119cb9667d065e291287292596a733e37f4cbdf5f35ddb0af75829ea10e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1579,9 +1579,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_menus"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01f18a8fc0863ea1f88d696deef354a8ccc4bc29f3b1783782fc8521cac7be12"
+checksum = "e92cef032efbef7df181000ad95b632221857fa080b0fef29995409dbb931f34"
 dependencies = [
  "bevy",
  "bevy_pretty_nice_input",

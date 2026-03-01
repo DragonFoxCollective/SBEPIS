@@ -1,20 +1,13 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::charge::Charging;
-use crate::player_controller::movement::di::{DIUpdate, WalkDI};
+use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::movement::stand::Standing;
-
-use super::grounded::Grounded;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct StandingDI;
+use crate::player_controller::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Sprinting;
@@ -46,39 +39,34 @@ impl Default for PlayerWalkSettings {
     }
 }
 
-#[auto_observer(plugin = PlayerControllerPlugin)]
-fn update_di_walk(
-    di: On<Updated<StandingDI>>,
-    mut commands: Commands,
-    walk_settings: Res<PlayerWalkSettings>,
-) -> Result {
-    commands.trigger(DIUpdate {
-        entity: di.input,
-        value: di
-            .data
-            .as_2d()
-            .ok_or::<BevyError>("StandingDI didn't have 2D data".into())?,
-        speed: walk_settings.speed,
-    });
-    Ok(())
-}
-
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
 	in_set = MovementControlSystems::DoHorizontalMovement,
 ))]
 fn update_walk_velocity(
     mut players: Query<
-        (&mut Movement, &Velocity, &Transform, &WalkDI, Has<Grounded>),
+        (
+            &mut Movement,
+            &Velocity,
+            &GlobalTransform,
+            Option<&Moving>,
+            Has<Grounded>,
+            Has<Sprinting>,
+        ),
         Or<(With<Standing>, With<Charging>)>, // ewwwww two states?
     >,
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,
 ) -> Result {
-    for (mut movement, velocity, transform, di, grounded) in players.iter_mut() {
+    for (mut movement, velocity, transform, moving, grounded, sprinting) in players.iter_mut() {
         // Set up vectors
-        let velocity = (transform.rotation.inverse() * velocity.linvel).xz();
-        let wish_velocity = di.input;
-        let wish_speed = wish_velocity.length();
+        let velocity = (transform.rotation().inverse() * velocity.linvel).xz();
+        let input = moving.as_input();
+        let wish_speed = if sprinting {
+            walk_settings.sprint_speed
+        } else {
+            walk_settings.speed
+        };
+        let wish_velocity = input * wish_speed;
         let wish_direction = wish_velocity.normalize_or_zero();
         let friction = if grounded {
             walk_settings.friction
@@ -101,7 +89,7 @@ fn update_walk_velocity(
             .clamp(0.0, acceleration * wish_speed * time.delta_secs()); // TODO: In absolute units, ignores relativity
         let new_velocity = velocity + wish_direction * add_speed;
 
-        movement.0 = transform.rotation * Vec3::new(new_velocity.x, 0.0, new_velocity.y);
+        movement.0 = transform.rotation() * Vec3::new(new_velocity.x, 0.0, new_velocity.y);
     }
 
     Ok(())

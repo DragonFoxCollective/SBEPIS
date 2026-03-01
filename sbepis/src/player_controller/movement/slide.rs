@@ -2,19 +2,13 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, Updated};
 use bevy_rapier3d::prelude::*;
-use return_ok::ok_or_return_ok;
 
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
-use crate::player_controller::movement::MovementControlSystems;
 use crate::player_controller::movement::grounded::Grounded;
+use crate::player_controller::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 use crate::util::MapRange;
-
-#[derive(Action)]
-#[action(invalidate = false)]
-pub struct SlidingDI;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect(Default), register, init)]
 pub struct PlayerSlideSettings {
@@ -68,25 +62,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
-pub struct Sliding {
-    di: Vec2,
-}
+pub struct Sliding;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug), reflect, register)]
 pub struct SlidingSound {
     entity: Entity,
-}
-
-#[auto_observer(plugin = PlayerControllerPlugin)]
-fn update_di(di: On<Updated<SlidingDI>>, mut players: Query<&mut Sliding>) -> Result {
-    let mut sliding = ok_or_return_ok!(players.get_mut(di.input));
-    sliding.di = di
-        .data
-        .as_2d()
-        .ok_or::<BevyError>("SlidingDI didn't have 2D data".into())?
-        .clamp_length_max(1.0)
-        * Vec2::new(1.0, -1.0);
-    Ok(())
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
@@ -128,11 +108,12 @@ fn remove_sliding_sound(
 	in_set = MovementControlSystems::DoHorizontalMovement,
 ))]
 fn update_slide_velocity(
-    mut players: Query<(&mut Movement, &Transform, &Velocity, &Sliding)>,
+    mut players: Query<(&mut Movement, &Transform, &Velocity, Option<&Moving>), With<Sliding>>,
     slide_settings: Res<PlayerSlideSettings>,
     time: Res<Time>,
 ) -> Result {
-    for (mut movement, transform, velocity, sliding) in players.iter_mut() {
+    for (mut movement, transform, velocity, moving) in players.iter_mut() {
+        let di = moving.as_input();
         let current_speed = slide_settings
             .speed_physics_resistance
             .map_range(velocity.linvel.length()..movement.0.length());
@@ -149,28 +130,20 @@ fn update_slide_velocity(
 
         let center_friction = slide_settings.friction;
         let outer_friction = {
-            let angle = sliding.di.angle_to(Vec2::Y).abs();
+            let angle = di.angle_to(Vec2::Y).abs();
             slide_settings
                 .friction_easing
                 .sample(angle)
-                .map(|max_friction| {
-                    sliding
-                        .di
-                        .length()
-                        .map_range(slide_settings.friction..max_friction)
-                })
+                .map(|max_friction| di.length().map_range(slide_settings.friction..max_friction))
                 .unwrap_or_default()
         };
-        let friction = sliding
-            .di
-            .length()
-            .map_range(center_friction..outer_friction);
+        let friction = di.length().map_range(center_friction..outer_friction);
         let friction_speed = (current_speed - slide_settings.speed_cap).max(0.0);
 
         let friction = -time.delta_secs() * friction * friction_speed;
         let speed = current_speed + friction;
 
-        let turn_angle = -slide_settings.turn_factor * sliding.di.x * time.delta_secs();
+        let turn_angle = -slide_settings.turn_factor * di.x * time.delta_secs();
         let direction =
             Quat::from_axis_angle(transform.up().into(), turn_angle) * current_direction;
 

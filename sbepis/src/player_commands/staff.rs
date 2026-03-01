@@ -1,7 +1,7 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::{Action, JustPressed, binding1d, input};
+use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{MenuDespawnsWhenClosed, MenuStack, MenuWithInput, MenuWithoutMouse};
 
 use crate::camera::PlayerCameraNode;

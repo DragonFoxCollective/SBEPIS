@@ -1,24 +1,25 @@
-use std::f32;
 use std::time::Duration;
+
+use bevy::prelude::*;
+use bevy_auto_plugin::prelude::*;
+use bevy_pretty_nice_input::bevy_event_chain::*;
+use bevy_pretty_nice_input::bundles::observe;
+use bevy_pretty_nice_input::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player_controller::stamina::Stamina;
+use crate::prelude::NORMAL_GRAVITY;
 use crate::util::MapRangeBetween;
-use bevy::prelude::*;
-use bevy_auto_plugin::prelude::*;
-use bevy_pretty_nice_input::bevy_event_chain::*;
-use bevy_pretty_nice_input::bundles::observe;
-use bevy_pretty_nice_input::{Action, Condition, ConditionedBindingUpdate};
-use bevy_rapier3d::prelude::*;
 
 use super::dash::Dashing;
 
 const JUMP_MULTIPLIER: f32 = 5.0;
 
 fn jump_speed_from_height(jump_height: f32) -> f32 {
-    let normal_gravity = crate::NORMAL_GRAVITY;
+    let normal_gravity = NORMAL_GRAVITY;
     (2.0 * normal_gravity * JUMP_MULTIPLIER * jump_height).sqrt()
 }
 
