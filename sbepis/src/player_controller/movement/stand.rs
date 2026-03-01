@@ -2,6 +2,7 @@ use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
+use return_ok::ok_or_return_ok;
 
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::crouch::Crouching;
@@ -49,12 +50,12 @@ impl FromWorld for StandingAssets {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets(
     add: On<Add, Standing>,
-    players: Query<&PlayerBody>,
+    players: Query<&PlayerBody, Without<Crouching>>,
     mut cameras: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = players.get(add.entity)?;
+    let body = ok_or_return_ok!(players.get(add.entity));
     commands
         .entity(body.mesh)
         .insert((assets.mesh.clone(), assets.mesh_transform));

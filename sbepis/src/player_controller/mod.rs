@@ -13,11 +13,7 @@ use crate::player_controller::movement::charge::{ChargeDash, Charging};
 use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::movement::dash::{Dash, HasEnoughStaminaToDash};
 use crate::player_controller::movement::grounded::Grounded;
-use crate::player_controller::movement::jump::{
-    ChargeCrouchJumping, ChargeJumping, CrouchJumping, HasEnoughStaminaToChargeCrouchJump,
-    HasEnoughStaminaToChargeJump, HasEnoughStaminaToCrouchJump, HasEnoughStaminaToJump,
-    HasEnoughStaminaToSlideJump, Jumping, SlideJumping,
-};
+use crate::player_controller::movement::jump::Jumping;
 use crate::player_controller::movement::roll::Rolling;
 use crate::player_controller::movement::slide::Sliding;
 use crate::player_controller::movement::stand::Standing;
@@ -88,22 +84,14 @@ fn setup(
             (
                 // Standing
                 input_transition!((Standing) <=> (Standing, >Moving), Axis2D[binding2d::wasd()]),
-                input_transition!(
-                    (Standing, !Crouching) => (Jumping, Standing),
-                    Axis1D[binding1d::space()],
-                    [
-                        ButtonPress::default(),
-                        InputBuffer::new(0.2),
-                        FilterBuffered::<Grounded>::default(),
-                        HasEnoughStaminaToJump,
-                        Cooldown::new(0.5),
-                        ResetBuffer,
-                    ]
-                ),
-                input_transition!(
-                    (Standing) <= (Jumping, Standing),
-                    Axis1D[binding1d::space()],
-                ),
+                input_transition!((Standing) => (Jumping, Standing), Axis1D[binding1d::space()], [
+                    ButtonPress::default(),
+                    InputBuffer::new(0.2),
+                    FilterBuffered::<Grounded>::default(),
+                    Cooldown::new(0.5),
+                    ResetBuffer,
+                ]),
+                input_transition!(() <= (Jumping), Axis1D[binding1d::space()]),
                 input_transition!((Standing, Moving) => Dash (Standing, Moving), Axis1D[binding1d::left_shift()], [
                     ButtonPress::default(),
                     InputBuffer::new(0.2),
@@ -115,18 +103,6 @@ fn setup(
                 input_transition!((Standing, Moving) => (Standing, Moving, Sprinting), Axis1D[binding1d::left_shift()]),
                 input_transition!(() <= (Sprinting), Axis1D[binding1d::left_shift()]),
                 input_transition!((Standing, !Moving, !Sprinting) <=> (Standing, Crouching), Axis1D[binding1d::left_ctrl()]),
-                input_transition!((Standing, Crouching) => (CrouchJumping, Standing, Crouching), Axis1D[binding1d::space()], [
-                    ButtonPress::default(),
-                    InputBuffer::new(0.2),
-                    FilterBuffered::<Grounded>::default(),
-                    HasEnoughStaminaToCrouchJump,
-                    Cooldown::new(0.5),
-                    ResetBuffer,
-                ]),
-                input_transition!(
-                    (Standing, Crouching) <= (CrouchJumping, Standing, Crouching),
-                    Axis1D[binding1d::space()],
-                ),
             ),
             (
                 // Sliding
@@ -136,18 +112,13 @@ fn setup(
                     Axis1D[binding1d::left_ctrl()]
                 ),
                 input_transition!((Sliding) <=> (Sliding, >Moving), Axis2D[binding2d::wasd()]),
-                input_transition!((Sliding) => (SlideJumping, Sliding), Axis1D[binding1d::space()], [
+                input_transition!((Sliding) => (Jumping, Sliding), Axis1D[binding1d::space()], [
                     ButtonPress::default(),
                     InputBuffer::new(0.2),
                     FilterBuffered::<Grounded>::default(),
-                    HasEnoughStaminaToSlideJump,
                     Cooldown::new(0.5),
                     ResetBuffer,
                 ]),
-                input_transition!(
-                    (Sliding) <= (SlideJumping, Sliding),
-                    Axis1D[binding1d::space()],
-                ),
             ),
             (
                 // Rolling
@@ -159,31 +130,14 @@ fn setup(
             (
                 // Charging
                 input_transition!((Standing, !Moving, !Crouching, !Rolling) <=> (Charging, !Crouching), Axis1D[binding1d::left_shift()]),
-                input_transition!((Charging, !Crouching) => (ChargeJumping, Charging, Standing), Axis1D[binding1d::space()], [
+                input_transition!((Charging) => (Jumping, Charging, Standing), Axis1D[binding1d::space()], [
                     ButtonPress::default(),
                     InputBuffer::new(0.2),
                     FilterBuffered::<Grounded>::default(),
-                    HasEnoughStaminaToChargeJump,
                     Cooldown::new(0.5),
                     ResetBuffer,
                 ]),
-                input_transition!(
-                    (Standing) <= (ChargeJumping, Charging, Standing),
-                    Axis1D[binding1d::space()],
-                ),
                 input_transition!((Charging) <=> (Charging, Crouching), Axis1D[binding1d::left_ctrl()]),
-                input_transition!((Charging, Crouching) => (ChargeCrouchJumping, Charging, Crouching), Axis1D[binding1d::space()], [
-                    ButtonPress::default(),
-                    InputBuffer::new(0.2),
-                    FilterBuffered::<Grounded>::default(),
-                    HasEnoughStaminaToChargeCrouchJump,
-                    Cooldown::new(0.5),
-                    ResetBuffer,
-                ]),
-                input_transition!(
-                    (Crouching) <= (ChargeCrouchJumping, Charging, Crouching),
-                    Axis1D[binding1d::space()],
-                ),
                 input_transition!((Charging) <=> (Charging, >Moving), Axis2D[binding2d::wasd()]),
                 input_transition!(
                     ChargeDash(Charging, Moving) <= (Charging, Moving),
@@ -204,8 +158,7 @@ fn setup(
                     [
                         ButtonPress::default(),
                         InputBuffer::new(0.2),
-                        FilterBuffered::<Grounded>::default(),
-                        HasEnoughStaminaToJump,
+                        Filter::<(With<TripRecover>, With<ComponentBuffer<Grounded>>)>::default(),
                         Cooldown::new(0.5),
                         ResetBuffer,
                     ]

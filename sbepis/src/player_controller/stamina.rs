@@ -13,6 +13,17 @@ pub struct Stamina {
     pub recovery_rate: f32,
 }
 
+impl Stamina {
+    pub fn checked_sub_mut(&mut self, stamina: f32) -> bool {
+        if self.current >= stamina {
+            self.current -= stamina;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_stamina(mut players: Query<&mut Stamina>, time: Res<Time>) {
     for mut stamina in players.iter_mut() {
