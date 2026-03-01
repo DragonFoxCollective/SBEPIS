@@ -11,17 +11,9 @@ use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player_controller::stamina::Stamina;
-use crate::prelude::NORMAL_GRAVITY;
 use crate::util::MapRangeBetween;
 
 use super::dash::Dashing;
-
-const JUMP_MULTIPLIER: f32 = 5.0;
-
-fn jump_speed_from_height(jump_height: f32) -> f32 {
-    let normal_gravity = NORMAL_GRAVITY;
-    (2.0 * normal_gravity * JUMP_MULTIPLIER * jump_height).sqrt()
-}
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
@@ -72,25 +64,25 @@ impl Default for PlayerJumpSettings {
 
         Self {
             jump: JumpSettings {
-                speed: jump_speed_from_height(jump_height),
+                speed: jump_height / max_hold_time,
                 stamina_cost: 0.0,
                 max_hold_time,
             },
             high_jump: JumpSettings {
-                speed: jump_speed_from_height(high_jump_height),
+                speed: high_jump_height / max_hold_time,
                 stamina_cost: 0.0,
                 max_hold_time,
             },
             charge_jump: ChargeJumpSettings {
-                min_speed: jump_speed_from_height(jump_height),
-                max_speed: jump_speed_from_height(charge_jump_height),
+                min_speed: jump_height / max_hold_time,
+                max_speed: charge_jump_height / max_hold_time,
                 min_stamina_cost: 0.0,
                 max_stamina_cost: 0.33,
                 max_hold_time,
             },
             unreal_air_jump: ChargeJumpSettings {
-                min_speed: jump_speed_from_height(high_jump_height),
-                max_speed: jump_speed_from_height(unreal_air_jump_height),
+                min_speed: high_jump_height / max_hold_time,
+                max_speed: unreal_air_jump_height / max_hold_time,
                 min_stamina_cost: 0.0,
                 max_stamina_cost: 0.66,
                 max_hold_time,
