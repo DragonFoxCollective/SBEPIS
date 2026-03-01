@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -16,7 +17,7 @@ use crate::player_controller::movement::walk::PlayerWalkSettings;
 use crate::player_controller::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 use crate::player_controller::stamina::Stamina;
 use crate::prelude::PlayerBody;
-use crate::util::MapRangeBetween;
+use crate::util::MapRange as _;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -28,11 +29,9 @@ pub struct PlayerDashSettings {
     pub dash_time: Duration,
     pub stamina_cost: f32,
 
-    pub charge_min_speed_addon: f32,
-    pub charge_max_speed_addon: f32,
-    pub charge_dash_time: Duration,
-    pub charge_min_stamina_cost: f32,
-    pub charge_max_stamina_cost: f32,
+    pub charge_speed_addon: Range<f32>,
+    pub charge_dash_time: Range<f32>,
+    pub charge_stamina_cost: Range<f32>,
 
     pub fov_factor: f32,
     pub fov_ease_duration_secs: f32,
@@ -45,11 +44,9 @@ impl Default for PlayerDashSettings {
             dash_time: Duration::from_secs_f32(0.3),
             stamina_cost: 0.33,
 
-            charge_min_speed_addon: 12.0,
-            charge_max_speed_addon: 40.0,
-            charge_dash_time: Duration::from_secs_f32(0.3),
-            charge_min_stamina_cost: 0.33,
-            charge_max_stamina_cost: 0.66,
+            charge_speed_addon: 12.0..40.0,
+            charge_dash_time: 0.3..0.3,
+            charge_stamina_cost: 0.33..0.66,
 
             fov_factor: 1.2,
             fov_ease_duration_secs: 0.3,
@@ -97,20 +94,21 @@ fn walking_to_dashing(
     let (player, velocity, moving, mut stamina, charging, fov) = players.get_mut(dash.input)?;
 
     let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
-        let (power, stamina_cost) = charging
-            .power_and_stamina_cost_from_stamina(
+        let power = charging
+            .power_from_stamina(
                 &charge_settings,
                 stamina.current,
-                settings.charge_min_stamina_cost,
-                settings.charge_max_stamina_cost,
+                settings.charge_stamina_cost.clone(),
             )
             .ok_or(BevyError::from(
                 "Don't have enough stamina to charge dash, despite being in dash transition",
             ))?;
         (
-            power.map_from_01(settings.charge_min_speed_addon..settings.charge_max_speed_addon),
-            settings.charge_dash_time,
-            stamina_cost,
+            power.map_range(settings.charge_speed_addon.clone()),
+            Duration::from_secs_f32(
+                power.map_range(settings.charge_dash_time.start..settings.charge_dash_time.end),
+            ),
+            power.map_range(settings.charge_stamina_cost.clone()),
         )
     } else {
         (
@@ -202,7 +200,7 @@ impl Condition for HasEnoughStaminaToDash {
              -> Result {
                 let (stamina, is_charging) = players.get(update.input)?;
                 let required_stamina = if is_charging {
-                    settings.charge_min_stamina_cost
+                    settings.charge_stamina_cost.start
                 } else {
                     settings.stamina_cost
                 };

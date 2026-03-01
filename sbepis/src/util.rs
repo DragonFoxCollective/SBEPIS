@@ -29,14 +29,17 @@ pub trait MapRangeBetween<T> {
     fn map_from_01(self, range_out: Range<T>) -> T;
 }
 impl MapRangeBetween<Real> for Real {
+    #[inline]
     fn map_range_between(self, range_in: Range<Real>, range_out: Range<Real>) -> Real {
         self.map_to_01(range_in).map_from_01(range_out)
     }
 
+    #[inline]
     fn map_to_01(self, range_in: Range<Real>) -> Real {
         (self - range_in.start) / (range_in.end - range_in.start)
     }
 
+    #[inline]
     fn map_from_01(self, range_out: Range<Real>) -> Real {
         self * (range_out.end - range_out.start) + range_out.start
     }

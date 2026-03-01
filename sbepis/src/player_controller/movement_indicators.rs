@@ -13,6 +13,7 @@ use crate::player_controller::movement::charge::Charging;
 use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::movement::dash::Dashing;
 use crate::player_controller::movement::grounded::Grounded;
+use crate::player_controller::movement::jump::Jumping;
 use crate::player_controller::movement::roll::Rolling;
 use crate::player_controller::movement::slide::Sliding;
 use crate::player_controller::movement::stand::Standing;
@@ -92,11 +93,13 @@ fn check_states(
         (
             Has<Standing>,
             Has<Moving>,
+            Has<Jumping>,
             Has<Sprinting>,
             Has<Crouching>,
             Has<Dashing>,
             Has<Charging>,
-            (Has<Tripping>, Has<TripRecover>),
+            Has<Tripping>,
+            Has<TripRecover>,
             Has<Sliding>,
             Has<Rolling>,
             Has<Grounded>,
@@ -110,14 +113,15 @@ fn check_states(
     let mut debug_state = ok_or_return!(debug_states.single_mut());
     for tup in players.iter() {
         let arr = [
-            tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6.0, tup.6.1, tup.7, tup.8, tup.9,
-            tup.10, tup.11,
+            tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6, tup.7, tup.8, tup.9, tup.10, tup.11,
+            tup.12, tup.13,
         ];
         let has = arr
             .into_iter()
             .zip([
                 ShortName::of::<Standing>(),
                 ShortName::of::<Moving>(),
+                ShortName::of::<Jumping>(),
                 ShortName::of::<Sprinting>(),
                 ShortName::of::<Crouching>(),
                 ShortName::of::<Dashing>(),

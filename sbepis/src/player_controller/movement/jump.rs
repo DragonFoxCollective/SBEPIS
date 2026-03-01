@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -11,7 +12,7 @@ use crate::gravity::AffectedByGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player_controller::stamina::Stamina;
-use crate::util::MapRangeBetween;
+use crate::util::MapRange as _;
 
 use super::dash::Dashing;
 
@@ -30,13 +31,32 @@ pub struct ChargeJumping;
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct ChargeCrouchJumping;
 
-#[derive(Reflect, Debug, Default)]
-pub struct ChargeJumpSettings {
-    pub min_speed: f32,
-    pub max_speed: f32,
-    pub min_stamina_cost: f32,
-    pub max_stamina_cost: f32,
-    pub max_hold_time: f32,
+struct JumpSettingsBuilder {
+    height: f32,
+    stamina_cost: f32,
+    max_hold_time: f32,
+}
+
+impl JumpSettingsBuilder {
+    fn speed(&self) -> f32 {
+        self.height / self.max_hold_time
+    }
+
+    fn build(&self) -> JumpSettings {
+        JumpSettings {
+            speed: self.speed(),
+            stamina_cost: self.stamina_cost,
+            max_hold_time: self.max_hold_time,
+        }
+    }
+
+    fn build_charge(&self, uncharged: &JumpSettingsBuilder) -> ChargeJumpSettings {
+        ChargeJumpSettings {
+            speed: uncharged.speed()..self.speed(),
+            stamina_cost: uncharged.stamina_cost..self.stamina_cost,
+            max_hold_time: uncharged.stamina_cost..self.max_hold_time,
+        }
+    }
 }
 
 #[derive(Reflect, Debug, Default)]
@@ -46,55 +66,93 @@ pub struct JumpSettings {
     pub max_hold_time: f32,
 }
 
+impl JumpSettings {
+    fn timer(&self) -> JumpTimer {
+        JumpTimer {
+            timer: Duration::ZERO,
+            timer_max: Duration::from_secs_f32(self.max_hold_time),
+            stamina_cost: self.stamina_cost,
+            speed: self.speed,
+        }
+    }
+}
+
+#[derive(Reflect, Debug, Default)]
+pub struct ChargeJumpSettings {
+    pub speed: Range<f32>,
+    pub stamina_cost: Range<f32>,
+    pub max_hold_time: Range<f32>,
+}
+
+impl ChargeJumpSettings {
+    fn timer_from_power(&self, power: f32) -> JumpTimer {
+        JumpTimer {
+            timer: Duration::ZERO,
+            timer_max: Duration::from_secs_f32(
+                power.map_range(self.max_hold_time.start..self.max_hold_time.end),
+            ),
+            stamina_cost: power.map_range(self.stamina_cost.clone()),
+            speed: power.map_range(self.speed.clone()),
+        }
+    }
+
+    fn timer_from_charge(
+        &self,
+        charge_settings: &PlayerChargeSettings,
+        charging: &Charging,
+        stamina: &Stamina,
+    ) -> Result<JumpTimer> {
+        let power = charging
+            .power_from_stamina(charge_settings, stamina.current, self.stamina_cost.clone())
+            .ok_or(BevyError::from("Don't have enough stamina to charge jump"))?;
+        Ok(self.timer_from_power(power))
+    }
+}
+
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerJumpSettings {
     pub jump: JumpSettings,
-    pub high_jump: JumpSettings,
+    pub crouch_jump: JumpSettings,
     pub charge_jump: ChargeJumpSettings,
-    pub unreal_air_jump: ChargeJumpSettings,
+    pub charge_crouch_jump: ChargeJumpSettings,
 }
 
 impl Default for PlayerJumpSettings {
     fn default() -> Self {
-        let jump_height = 1.0;
-        let high_jump_height = 1.5;
-        let charge_jump_height = 2.0;
-        let unreal_air_jump_height = 2.5;
-        let max_hold_time = 0.3;
+        let jump = JumpSettingsBuilder {
+            height: 1.0,
+            stamina_cost: 0.0,
+            max_hold_time: 0.3,
+        };
+        let crouch_jump = JumpSettingsBuilder {
+            height: 1.5,
+            stamina_cost: 0.0,
+            max_hold_time: 0.3,
+        };
+        let charge_jump = JumpSettingsBuilder {
+            height: 2.0,
+            stamina_cost: 0.33,
+            max_hold_time: 0.3,
+        };
+        let charge_crouch_jump = JumpSettingsBuilder {
+            height: 2.5,
+            stamina_cost: 0.66,
+            max_hold_time: 0.3,
+        };
 
         Self {
-            jump: JumpSettings {
-                speed: jump_height / max_hold_time,
-                stamina_cost: 0.0,
-                max_hold_time,
-            },
-            high_jump: JumpSettings {
-                speed: high_jump_height / max_hold_time,
-                stamina_cost: 0.0,
-                max_hold_time,
-            },
-            charge_jump: ChargeJumpSettings {
-                min_speed: jump_height / max_hold_time,
-                max_speed: charge_jump_height / max_hold_time,
-                min_stamina_cost: 0.0,
-                max_stamina_cost: 0.33,
-                max_hold_time,
-            },
-            unreal_air_jump: ChargeJumpSettings {
-                min_speed: high_jump_height / max_hold_time,
-                max_speed: unreal_air_jump_height / max_hold_time,
-                min_stamina_cost: 0.0,
-                max_stamina_cost: 0.66,
-                max_hold_time,
-            },
+            jump: jump.build(),
+            crouch_jump: crouch_jump.build(),
+            charge_jump: charge_jump.build_charge(&jump),
+            charge_crouch_jump: charge_crouch_jump.build_charge(&crouch_jump),
         }
     }
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct JumpTimer {
-    pub variable_timer: Duration,
-    pub timer_max: f32,
+    pub timer: Duration,
+    pub timer_max: Duration,
     pub stamina_cost: f32,
     pub speed: f32,
 }
@@ -122,12 +180,7 @@ fn jump(
     settings: Res<PlayerJumpSettings>,
     mut commands: Commands,
 ) -> Result {
-    commands.entity(jump.entity).insert(JumpTimer {
-        timer_max: settings.jump.max_hold_time,
-        speed: settings.jump.speed,
-        stamina_cost: settings.jump.stamina_cost,
-        variable_timer: Duration::from_secs(0),
-    });
+    commands.entity(jump.entity).insert(settings.jump.timer());
     Ok(())
 }
 
@@ -144,12 +197,9 @@ fn crouch_jump(
     settings: Res<PlayerJumpSettings>,
     mut commands: Commands,
 ) -> Result {
-    commands.entity(jump.entity).insert(JumpTimer {
-        timer_max: settings.high_jump.max_hold_time,
-        speed: settings.high_jump.speed,
-        stamina_cost: settings.high_jump.stamina_cost,
-        variable_timer: Duration::from_secs(0),
-    });
+    commands
+        .entity(jump.entity)
+        .insert(settings.crouch_jump.timer());
     Ok(())
 }
 
@@ -166,12 +216,9 @@ fn slide_jump(
     settings: Res<PlayerJumpSettings>,
     mut commands: Commands,
 ) -> Result {
-    commands.entity(jump.entity).insert(JumpTimer {
-        timer_max: settings.high_jump.max_hold_time,
-        speed: settings.high_jump.speed,
-        stamina_cost: settings.high_jump.stamina_cost,
-        variable_timer: Duration::from_secs(0),
-    });
+    commands
+        .entity(jump.entity)
+        .insert(settings.crouch_jump.timer());
     Ok(())
 }
 #[auto_observer(plugin = PlayerControllerPlugin)]
@@ -191,22 +238,13 @@ fn charge_jump(
     settings: Res<PlayerJumpSettings>,
 ) -> Result {
     let (stamina, charging) = players.get(jump.entity)?;
-    let (power, stamina_cost) = charging
-        .power_and_stamina_cost_from_stamina(
-            &charge_settings,
-            stamina.current,
-            settings.charge_jump.min_stamina_cost,
-            settings.charge_jump.max_stamina_cost,
-        )
-        .ok_or(BevyError::from(
-            "Don't have enough stamina to charge jump, despite being in jump transition",
-        ))?;
-    commands.entity(jump.entity).insert(JumpTimer {
-        variable_timer: Duration::from_secs(0),
-        timer_max: settings.charge_jump.max_hold_time,
-        stamina_cost,
-        speed: power.map_from_01(settings.charge_jump.min_speed..settings.charge_jump.max_speed),
-    });
+    commands
+        .entity(jump.entity)
+        .insert(
+            settings
+                .charge_jump
+                .timer_from_charge(&charge_settings, charging, stamina)?,
+        );
     commands.entity(jump.entity).remove::<Charging>();
     commands.spawn((
         AudioPlayer(assets.charge_jump_sound.clone()),
@@ -232,23 +270,13 @@ fn charge_crouch_jump(
     settings: Res<PlayerJumpSettings>,
 ) -> Result {
     let (stamina, charging) = players.get(jump.entity)?;
-    let (power, stamina_cost) = charging
-        .power_and_stamina_cost_from_stamina(
+    commands
+        .entity(jump.entity)
+        .insert(settings.charge_crouch_jump.timer_from_charge(
             &charge_settings,
-            stamina.current,
-            settings.unreal_air_jump.min_stamina_cost,
-            settings.unreal_air_jump.max_stamina_cost,
-        )
-        .ok_or(BevyError::from(
-            "Don't have enough stamina to unreal air, despite being in jump transition",
-        ))?;
-    commands.entity(jump.entity).insert(JumpTimer {
-        variable_timer: Duration::from_secs(0),
-        timer_max: settings.unreal_air_jump.max_hold_time,
-        stamina_cost,
-        speed: power
-            .map_from_01(settings.unreal_air_jump.min_speed..settings.unreal_air_jump.max_speed),
-    });
+            charging,
+            stamina,
+        )?);
     commands.entity(jump.entity).remove::<Charging>();
     commands.spawn((
         AudioPlayer(assets.charge_jump_sound.clone()),
@@ -292,7 +320,7 @@ fn do_jump(
     mut commands: Commands,
 ) {
     for (entity, mut velocity, transform, mut stamina, mut jump_timer) in player_bodies.iter_mut() {
-        if jump_timer.variable_timer.as_secs_f32() <= jump_timer.timer_max {
+        if jump_timer.timer <= jump_timer.timer_max {
             if transform.up().dot(velocity.linvel) < 0.0 {
                 velocity.linvel = velocity.linvel.reject_from(transform.up().into());
             }
@@ -306,7 +334,7 @@ fn do_jump(
                 .remove::<JumpTimer>()
                 .insert(AffectedByGravity);
         }
-        jump_timer.variable_timer += time.delta();
+        jump_timer.timer += time.delta();
     }
 }
 
@@ -343,7 +371,7 @@ impl Condition for HasEnoughStaminaToCrouchJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if update.data.is_zero() || stamina.current >= settings.high_jump.stamina_cost {
+                if update.data.is_zero() || stamina.current >= settings.crouch_jump.stamina_cost {
                     update.trigger_next(&mut commands);
                 }
                 Ok(())
@@ -364,7 +392,7 @@ impl Condition for HasEnoughStaminaToSlideJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if update.data.is_zero() || stamina.current >= settings.high_jump.stamina_cost {
+                if update.data.is_zero() || stamina.current >= settings.crouch_jump.stamina_cost {
                     update.trigger_next(&mut commands);
                 }
                 Ok(())
@@ -385,7 +413,8 @@ impl Condition for HasEnoughStaminaToChargeJump {
              settings: Res<PlayerJumpSettings>|
              -> Result {
                 let stamina = players.get(update.input)?;
-                if update.data.is_zero() || stamina.current >= settings.charge_jump.max_stamina_cost
+                if update.data.is_zero()
+                    || stamina.current >= settings.charge_jump.stamina_cost.start
                 {
                     update.trigger_next(&mut commands);
                 }
@@ -408,7 +437,7 @@ impl Condition for HasEnoughStaminaToChargeCrouchJump {
              -> Result {
                 let stamina = players.get(update.input)?;
                 if update.data.is_zero()
-                    || stamina.current >= settings.unreal_air_jump.max_stamina_cost
+                    || stamina.current >= settings.charge_crouch_jump.stamina_cost.start
                 {
                     update.trigger_next(&mut commands);
                 }

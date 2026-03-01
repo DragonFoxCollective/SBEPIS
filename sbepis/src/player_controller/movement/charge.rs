@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::ops::Range;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -49,20 +50,19 @@ pub struct Charging {
 impl Charging {
     /// Gets the maximum power and stamina cost possible from this charge and stamina.
     /// Returns None if not enough stamina to perform the charge.
-    pub fn power_and_stamina_cost_from_stamina(
+    pub fn power_from_stamina(
         &self,
         settings: &PlayerChargeSettings,
         current_stamina: f32,
-        min_stamina_cost: f32,
-        max_stamina_cost: f32,
-    ) -> Option<(f32, f32)> {
-        if current_stamina < min_stamina_cost {
+        stamina_cost: Range<f32>,
+    ) -> Option<f32> {
+        if current_stamina < stamina_cost.start {
             return None;
         }
 
-        let spendable_stamina = current_stamina - min_stamina_cost;
+        let spendable_stamina = current_stamina - stamina_cost.start;
         let stamina_per_charge_second =
-            (max_stamina_cost - min_stamina_cost) / settings.max_time.as_secs_f32();
+            (stamina_cost.end - stamina_cost.start) / settings.max_time.as_secs_f32();
         let available_charge_time = spendable_stamina / stamina_per_charge_second;
         let charge_time = self
             .charge_time
@@ -70,18 +70,16 @@ impl Charging {
             .min(available_charge_time)
             .min(settings.max_time.as_secs_f32());
         let power = (charge_time / settings.max_time.as_secs_f32()).min(1.0);
-        let stamina_cost = min_stamina_cost + stamina_per_charge_second * charge_time;
 
         debug!(
-            "Given max stamina {}, max power {}, min/max_stamina_cost {} {}, resulted in power {} and stamina_cost {}",
+            "Given max stamina {}, max power {}, min/max_stamina_cost {} {}, resulted in power {}",
             current_stamina,
             (self.charge_time.as_secs_f32() / settings.max_time.as_secs_f32()).min(1.0),
-            min_stamina_cost,
-            max_stamina_cost,
+            stamina_cost.start,
+            stamina_cost.end,
             power,
-            stamina_cost
         );
-        Some((power, stamina_cost))
+        Some(power)
     }
 }
 
