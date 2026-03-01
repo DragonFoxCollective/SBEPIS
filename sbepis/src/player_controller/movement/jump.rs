@@ -12,7 +12,7 @@ use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::movement::dash::Dashing;
 use crate::player_controller::movement::slide::Sliding;
 use crate::player_controller::stamina::Stamina;
-use crate::util::MapRange as _;
+use crate::util::{MapRange as _, Vec3Ext as _};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
@@ -229,11 +229,8 @@ fn jump(
         if jump_timer.checked_sub_mut(time.delta())
             && stamina.checked_sub_mut(jump_timer.stamina_cost * time.delta_secs())
         {
-            if transform.up().dot(velocity.linvel) < 0.0 {
-                velocity.linvel = velocity.linvel.reject_from(transform.up().into());
-            }
-            let len = velocity.linvel.length();
-            velocity.linvel += transform.up() * (jump_timer.speed - len).max(0.0);
+            let speed = velocity.linvel.length_projected_onto(transform.up());
+            velocity.linvel += transform.up() * (jump_timer.speed - speed).max(0.0);
         } else {
             commands.entity(entity).remove::<Jumping>();
         }

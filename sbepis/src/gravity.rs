@@ -4,7 +4,7 @@ use bevy_rapier3d::prelude::*;
 use itertools::Itertools;
 
 use crate::prelude::*;
-use crate::util::{IterElements, TransformEx};
+use crate::util::{IterElements, TransformExt};
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = SbepisPlugin)]

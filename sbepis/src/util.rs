@@ -45,13 +45,13 @@ impl MapRangeBetween<Real> for Real {
     }
 }
 
-pub trait TransformEx {
+pub trait TransformExt {
     fn transform_vector3(&self, vector: Vec3) -> Vec3;
     fn inverse_transform_point(&self, point: Vec3) -> Vec3;
     #[allow(dead_code)]
     fn inverse_transform_vector3(&self, vector: Vec3) -> Vec3;
 }
-impl TransformEx for GlobalTransform {
+impl TransformExt for GlobalTransform {
     fn transform_vector3(&self, vector: Vec3) -> Vec3 {
         self.affine().transform_vector3(vector)
     }
@@ -62,6 +62,20 @@ impl TransformEx for GlobalTransform {
 
     fn inverse_transform_vector3(&self, vector: Vec3) -> Vec3 {
         self.affine().inverse().transform_vector3(vector)
+    }
+}
+
+pub trait Vec3Ext {
+    fn length_projected_onto(&self, rhs: impl Into<Vec3>) -> f32;
+}
+impl Vec3Ext for Vec3 {
+    fn length_projected_onto(&self, rhs: impl Into<Vec3>) -> f32 {
+        let rhs = rhs.into();
+        if self.dot(rhs) >= 0.0 {
+            self.project_onto(rhs).length()
+        } else {
+            -self.project_onto(rhs).length()
+        }
     }
 }
 
