@@ -898,6 +898,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_cube_marcher"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f653f9b1bc6992c01e03ab462fff6255000ed04c971094dbd3660f3966de0552"
+dependencies = [
+ "bevy",
+ "encase",
+]
+
+[[package]]
 name = "bevy_derive"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1372,15 +1382,6 @@ dependencies = [
  "quote",
  "syn",
  "toml_edit",
-]
-
-[[package]]
-name = "bevy_marching_cubes"
-version = "0.4.0"
-dependencies = [
- "bevy",
- "bevy_panorbit_camera",
- "encase",
 ]
 
 [[package]]
@@ -5781,8 +5782,8 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_auto_plugin",
  "bevy_common_assets",
+ "bevy_cube_marcher",
  "bevy_hanabi",
- "bevy_marching_cubes",
  "bevy_panorbit_camera",
  "bevy_pretty_nice_input",
  "bevy_pretty_nice_menus",

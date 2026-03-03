@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_marching_cubes::{ChunkGeneratorRunning, ChunkGeneratorSettings};
+use bevy_cube_marcher::{ChunkGeneratorRunning, ChunkGeneratorSettings};
 
 use crate::gravity::{GlobalGravity, GravityPoint, GravityPriority};
 use crate::player_controller::PlayerSpawnPoint;

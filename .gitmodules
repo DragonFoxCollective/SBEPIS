@@ -1,6 +1,3 @@
 [submodule "soundyrust"]
 	path = soundyrust
 	url = https://github.com/Dragon-Fox-Collective/soundyrust.git
-[submodule "bevy_marching_cubes"]
-	path = bevy_marching_cubes
-	url = https://github.com/DragonFoxCollective/bevy_marching_cubes.git

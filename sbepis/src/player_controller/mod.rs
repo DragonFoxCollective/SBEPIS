@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use bevy_marching_cubes::ChunkLoader;
+use bevy_cube_marcher::ChunkLoader;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;

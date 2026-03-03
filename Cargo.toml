@@ -1,7 +1,7 @@
 [workspace]
-members = ["sbepis", "jack_noir", "bevy_marching_cubes"]
-default-members = ["sbepis"]
 resolver = "2"
+members = ["jack_noir", "sbepis"]
+default-members = ["sbepis"]
 
 # Enable max optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]

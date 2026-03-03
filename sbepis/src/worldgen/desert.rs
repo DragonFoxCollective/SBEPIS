@@ -10,9 +10,8 @@ use bevy::render::render_resource::{
 };
 use bevy::render::renderer::{RenderDevice, RenderQueue};
 use bevy::render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
-use bevy::shader::ShaderRef;
 use bevy_auto_plugin::prelude::*;
-use bevy_marching_cubes::*;
+use bevy_cube_marcher::*;
 
 use crate::gridbox_material;
 use crate::prelude::*;
