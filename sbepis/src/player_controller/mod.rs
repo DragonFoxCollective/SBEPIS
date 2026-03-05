@@ -9,7 +9,7 @@ use crate::camera::PlayerCamera;
 use crate::gridbox_material;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::player_controller::movement::charge::{ChargeDash, Charging};
+use crate::player_controller::movement::charge::{ChargeDash, Charging, SpinDash};
 use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::movement::dash::{Dash, HasEnoughStaminaToDash};
 use crate::player_controller::movement::grounded::Grounded;
@@ -143,13 +143,17 @@ fn setup(
                     ChargeDash(Charging, Moving) <= (Charging, Moving),
                     Axis1D[binding1d::left_shift()]
                 ),
+                input_transition!(
+                    Trip() <= (Charging, Crouching, !Moving),
+                    Axis1D[binding1d::left_shift()]
+                ),
+                input_transition!(
+                    SpinDash(Charging, Sliding, Moving) <= (Charging, Crouching, Moving),
+                    Axis1D[binding1d::left_shift()]
+                ),
             ),
             (
                 // Tripping
-                input_transition!(
-                    Trip() <= (Charging, Crouching),
-                    Axis1D[binding1d::left_shift()]
-                ),
                 input_transition!((Tripping) <=> (Tripping, >Moving), Axis2D[binding2d::wasd()]),
                 input_transition!((TripRecover) <=> (TripRecover, >Moving), Axis2D[binding2d::wasd()]),
                 input!(

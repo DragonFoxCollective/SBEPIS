@@ -7,10 +7,14 @@ use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::gravity::ComputedGravity;
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovingOptExt as _;
 use crate::player_controller::movement::dash::Dash;
+use crate::player_controller::movement::jump::JumpAssets;
 use crate::player_controller::movement::trip::Trip;
+use crate::player_controller::stamina::Stamina;
+use crate::util::TransformExt;
+use crate::{gravity::ComputedGravity, player_controller::movement::Moving};
 
 use super::trip::{PlayerTripSettings, Tripping};
 
@@ -18,15 +22,23 @@ use super::trip::{PlayerTripSettings, Tripping};
 #[action(invalidate = false)]
 pub struct ChargeDash;
 
+#[derive(Action)]
+#[action(invalidate = false)]
+pub struct SpinDash;
+
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerChargeSettings {
     pub max_time: Duration,
+    pub spindash_speed: f32,
+    pub spindash_stamina: f32,
 }
 
 impl Default for PlayerChargeSettings {
     fn default() -> Self {
         Self {
             max_time: Duration::from_secs_f32(1.0),
+            spindash_speed: 10.0,
+            spindash_stamina: 0.0,
         }
     }
 }
@@ -126,22 +138,16 @@ fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut comma
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouching_to_tripping(
     sprint: On<JustReleased<Trip>>,
-    mut players: Query<(Option<&ChargingSound>, &ComputedGravity, &mut Velocity)>,
+    mut players: Query<(&ComputedGravity, &mut Velocity)>,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
 ) -> Result {
-    let (charging_sound, gravity, mut velocity) = players.get_mut(sprint.input)?;
+    let (gravity, mut velocity) = players.get_mut(sprint.input)?;
     velocity.linvel = gravity.up * trip_settings.upward_speed;
     commands
         .entity(sprint.input)
         .remove::<Charging>()
         .insert(Tripping::default());
-
-    if let Some(charging_sound) = charging_sound
-        && let Ok(mut sound) = commands.get_entity(charging_sound.0)
-    {
-        sound.despawn();
-    }
 
     Ok(())
 }
@@ -151,4 +157,38 @@ fn update_charge_time(mut players: Query<&mut Charging>, time: Res<Time>) {
     for mut charging_time in players.iter_mut() {
         charging_time.charge_time += time.delta();
     }
+}
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn spindash(
+    sprint: On<JustReleased<SpinDash>>,
+    mut players: Query<(
+        &mut Velocity,
+        &Charging,
+        &Moving,
+        &Stamina,
+        &GlobalTransform,
+    )>,
+    mut commands: Commands,
+    charge_settings: Res<PlayerChargeSettings>,
+    assets: Res<JumpAssets>,
+) -> Result {
+    let (mut velocity, charging, moving, stamina, transform) = players.get_mut(sprint.input)?;
+    let input = Some(moving).as_input();
+    let wish_dir = transform.transform_vector3(Vec3::new(input.x, 0.0, input.y));
+    velocity.linvel = charging
+        .power_from_stamina(
+            &charge_settings,
+            stamina.current,
+            0.0..charge_settings.spindash_stamina,
+        )
+        .unwrap_or_default()
+        * charge_settings.spindash_speed
+        * wish_dir;
+    commands.entity(sprint.input).remove::<Charging>();
+    commands.spawn((
+        AudioPlayer(assets.charge_jump_sound.clone()),
+        PlaybackSettings::DESPAWN,
+    ));
+    Ok(())
 }

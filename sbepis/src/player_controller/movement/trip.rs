@@ -46,7 +46,7 @@ impl Default for PlayerTripSettings {
     fn default() -> Self {
         Self {
             upward_speed: 5.0,
-            hori_to_vert_momentum_redirection_percentage: 0.2,
+            hori_to_vert_momentum_redirection_percentage: 0.5,
             stun_time: Duration::from_secs_f32(1.0),
             recover_time: Duration::from_secs_f32(0.2),
             ground_parry_speed: 40.0,

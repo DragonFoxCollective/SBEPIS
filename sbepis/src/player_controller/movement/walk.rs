@@ -51,16 +51,23 @@ fn update_walk_velocity(
             Option<&Moving>,
             Has<Grounded>,
             Has<Sprinting>,
+            Has<Charging>,
         ),
         Or<(With<Standing>, With<Charging>)>, // ewwwww two states?
     >,
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,
 ) -> Result {
-    for (mut movement, velocity, transform, moving, grounded, sprinting) in players.iter_mut() {
+    for (mut movement, velocity, transform, moving, grounded, sprinting, charging) in
+        players.iter_mut()
+    {
         // Set up vectors
         let velocity = (transform.rotation().inverse() * velocity.linvel).xz();
-        let input = moving.as_input();
+        let input = if charging {
+            Vec2::ZERO
+        } else {
+            moving.as_input()
+        };
         let wish_speed = if sprinting {
             walk_settings.sprint_speed
         } else {
