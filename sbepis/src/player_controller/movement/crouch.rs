@@ -4,6 +4,10 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player_controller::PlayerControllerPlugin;
+use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::grounded::{Grounded, GroundedContact};
+use crate::player_controller::movement::slide::PlayerSlideSettings;
+use crate::player_controller::movement::stand::Standing;
 use crate::prelude::Player;
 
 use super::slide::Sliding;
@@ -61,3 +65,25 @@ fn to_crouching_assets(
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Crouching;
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
+    in_set = MovementControlSystems::UpdateState,
+))]
+fn start_slide_on_slope(
+    players: Query<
+        (Entity, &GroundedContact, &GlobalTransform),
+        (With<Crouching>, With<Standing>, With<Grounded>),
+    >,
+    mut commands: Commands,
+    slide_settings: Res<PlayerSlideSettings>,
+) {
+    for (player, grounded, transform) in players.iter() {
+        if grounded.normal.angle_between(transform.up().into()) > slide_settings.slope_slip_angle {
+            commands
+                .entity(player)
+                .remove::<Crouching>()
+                .remove::<Standing>()
+                .insert(Sliding);
+        }
+    }
+}

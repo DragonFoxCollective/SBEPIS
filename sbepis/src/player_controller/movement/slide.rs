@@ -18,6 +18,7 @@ pub struct PlayerSlideSettings {
     pub turn_factor: f32,
     pub direction_physics_resistance: f32,
     pub speed_physics_resistance: f32,
+    pub slope_slip_angle: f32,
     #[reflect(ignore)]
     friction_easing: Box<dyn Curve<f32> + Send + Sync>,
 }
@@ -45,6 +46,7 @@ impl Default for PlayerSlideSettings {
             direction_physics_resistance: 0.9,
             speed_physics_resistance: 0.0,
             friction_easing: Box::new(easing),
+            slope_slip_angle: 45.0f32.to_radians(),
         }
     }
 }
