@@ -6,10 +6,11 @@ use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
 
 use crate::entity::Movement;
-use crate::gravity::{AffectedByGravity, ComputedGravity};
+use crate::gravity::ComputedGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::camera_controls::{InterpolateFov, InterpolateFovCurve, PlayerFov};
 use crate::player_controller::movement::MovementControlSystems;
+use crate::player_controller::movement::jump::PlayerJumpSettings;
 use crate::player_controller::stamina::Stamina;
 
 use super::dash::Dashing;
@@ -28,6 +29,7 @@ pub struct GroundParry;
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
 pub struct PlayerTripSettings {
     pub upward_speed: f32,
+    pub hori_to_vert_momentum_redirection_percentage: f32,
     pub stun_time: Duration,
     pub recover_time: Duration,
     pub ground_parry_speed: f32,
@@ -44,6 +46,7 @@ impl Default for PlayerTripSettings {
     fn default() -> Self {
         Self {
             upward_speed: 5.0,
+            hori_to_vert_momentum_redirection_percentage: 0.2,
             stun_time: Duration::from_secs_f32(1.0),
             recover_time: Duration::from_secs_f32(0.2),
             ground_parry_speed: 40.0,
@@ -58,21 +61,9 @@ impl Default for PlayerTripSettings {
     }
 }
 
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Tripping {
     pub duration: Duration,
-    pub up: Vec3,
-    pub velocity: Vec3,
-}
-
-impl Tripping {
-    pub fn new(up: Vec3, velocity: Vec3) -> Self {
-        Self {
-            duration: Duration::ZERO,
-            up,
-            velocity,
-        }
-    }
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
@@ -115,8 +106,7 @@ fn tripping_to_trip_recover(
             commands
                 .entity(player)
                 .remove::<Tripping>()
-                .insert(TripRecover::default())
-                .insert(AffectedByGravity);
+                .insert(TripRecover::default());
         }
     }
 }
@@ -167,24 +157,6 @@ fn trip_recover_update(
         } else {
             trip_recover.grounded_duration = Duration::ZERO;
         }
-    }
-}
-
-#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
-	in_set = MovementControlSystems::DoHorizontalMovement,
-))]
-fn update_tripping_velocity(
-    mut movement: Query<(&mut Movement, &mut Velocity, &mut Tripping)>,
-    time: Res<Time>,
-    settings: Res<PlayerTripSettings>,
-) {
-    for (mut movement, mut velocity, mut tripping) in movement.iter_mut() {
-        let acceleration = 2.0 * settings.upward_speed / settings.stun_time.as_secs_f32();
-        let new_velocity = tripping.velocity - tripping.up * acceleration * time.delta_secs();
-
-        tripping.velocity = new_velocity;
-        velocity.linvel = new_velocity;
-        movement.0 = new_velocity;
     }
 }
 
@@ -253,32 +225,31 @@ fn ground_parry(
 ))]
 fn walking_too_fast_to_tripping(
     mut players: Query<
-        (Entity, &ComputedGravity, &Velocity, &Transform),
+        (Entity, &mut Velocity, &ComputedGravity),
         (With<Standing>, Without<Dashing>, With<Grounded>),
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
+    jump_settings: Res<PlayerJumpSettings>,
 ) {
-    for (player, gravity, velocity, transform) in players.iter_mut() {
-        if (transform.rotation.inverse() * velocity.linvel)
-            .xz()
-            .length()
-            < trip_settings.trip_speed_threshold
-        {
+    for (player, mut velocity, gravity) in players.iter_mut() {
+        let hori_velocity = velocity.linvel.reject_from(gravity.up);
+        if hori_velocity.length() < trip_settings.trip_speed_threshold {
             continue;
         }
 
         debug!("Too fast! :(");
 
+        velocity.linvel = gravity.up
+            * (jump_settings.jump.speed
+                + hori_velocity.length()
+                    * trip_settings.hori_to_vert_momentum_redirection_percentage)
+            + hori_velocity * (1.0 - trip_settings.hori_to_vert_momentum_redirection_percentage);
         commands
             .entity(player)
             .remove::<Standing>()
             .remove::<Sprinting>()
-            .remove::<AffectedByGravity>()
-            .insert(Tripping::new(
-                gravity.up,
-                gravity.up * trip_settings.upward_speed,
-            ));
+            .insert(Tripping::default());
     }
 }
 

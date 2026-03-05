@@ -5,8 +5,9 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
+use bevy_rapier3d::prelude::*;
 
-use crate::gravity::{AffectedByGravity, ComputedGravity};
+use crate::gravity::ComputedGravity;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::dash::Dash;
 use crate::player_controller::movement::trip::Trip;
@@ -125,19 +126,16 @@ fn charge_walking_to_trying_to_dash(dash: On<JustPressed<ChargeDash>>, mut comma
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn charge_crouching_to_tripping(
     sprint: On<JustReleased<Trip>>,
-    players: Query<(Option<&ChargingSound>, &ComputedGravity)>,
+    mut players: Query<(Option<&ChargingSound>, &ComputedGravity, &mut Velocity)>,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
 ) -> Result {
-    let (charging_sound, gravity) = players.get(sprint.input)?;
+    let (charging_sound, gravity, mut velocity) = players.get_mut(sprint.input)?;
+    velocity.linvel = gravity.up * trip_settings.upward_speed;
     commands
         .entity(sprint.input)
         .remove::<Charging>()
-        .remove::<AffectedByGravity>()
-        .insert(Tripping::new(
-            gravity.up,
-            gravity.up * trip_settings.upward_speed,
-        ));
+        .insert(Tripping::default());
 
     if let Some(charging_sound) = charging_sound
         && let Ok(mut sound) = commands.get_entity(charging_sound.0)
