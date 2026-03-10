@@ -6,7 +6,6 @@ use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutM
 use bevy_rapier3d::prelude::*;
 
 use crate::camera::PlayerCamera;
-use crate::gridbox_material;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
 use crate::player_controller::movement::charge::{ChargeDash, Charging, SpinDash};
@@ -189,13 +188,6 @@ fn setup(
             ))
             .id();
 
-        let mesh = commands
-            .spawn((
-                Name::new("Player Mesh"),
-                MeshMaterial3d(gridbox_material("white", &mut materials, &asset_server)),
-            ))
-            .id();
-
         let fov = 70f32.to_radians();
         let camera = commands
             .spawn((
@@ -223,11 +215,7 @@ fn setup(
                     recovery_rate: 0.1,
                 },
                 Standing,
-                Player {
-                    camera,
-                    collider,
-                    mesh,
-                },
+                Player { camera, collider },
                 ChunkLoader::<WorldGen>::new(3),
                 Ccd::enabled(),
                 DespawnOnExit(GameState::InGame),
@@ -235,8 +223,9 @@ fn setup(
                 input_bundle,
                 MenuInputOf(input),
                 PlayerFov(fov),
+                SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("player.glb"))),
             ))
-            .add_children(&[camera, collider, mesh])
+            .add_children(&[camera, collider])
             .id();
 
         spawn_hammer(
@@ -315,7 +304,6 @@ fn debug_graph(_add: On<Add, Player>, graph: Res<bevy_pretty_nice_input::debug_g
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct Player {
     pub camera: Entity,
-    pub mesh: Entity,
     pub collider: Entity,
 }
 

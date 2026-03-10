@@ -1,4 +1,3 @@
-use bevy::mesh::CapsuleUvProfile;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -14,32 +13,24 @@ use super::slide::Sliding;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct CrouchingAssets {
-    pub mesh: Mesh3d,
-    pub mesh_transform: Transform,
     pub collider: Collider,
     pub collider_transform: Transform,
     pub camera_position: Vec3,
 }
 
-impl FromWorld for CrouchingAssets {
-    fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+impl Default for CrouchingAssets {
+    fn default() -> Self {
+        let player_height = 0.8;
+        let player_width = 0.6;
+        let eye_height = 0.6;
+
+        let capsule_radius = player_width * 0.5;
+        let capsule_length = player_height - capsule_radius * 2.0;
 
         CrouchingAssets {
-            mesh: Mesh3d(
-                meshes.add(
-                    Capsule3d::new(0.25, 0.5)
-                        .mesh()
-                        .rings(1)
-                        .latitudes(8)
-                        .longitudes(16)
-                        .uv_profile(CapsuleUvProfile::Fixed),
-                ),
-            ),
-            mesh_transform: Transform::from_translation(Vec3::Y * 0.5),
-            collider: Collider::capsule_y(0.25, 0.25),
-            collider_transform: Transform::from_translation(Vec3::Y * 0.5),
-            camera_position: Vec3::Y * 0.75,
+            collider: Collider::capsule_y(capsule_length * 0.5, capsule_radius),
+            collider_transform: Transform::from_translation(Vec3::Y * player_height * 0.5),
+            camera_position: Vec3::Y * eye_height,
         }
     }
 }
@@ -53,9 +44,6 @@ fn to_crouching_assets(
     mut commands: Commands,
 ) -> Result {
     let body = players.get(add.entity)?;
-    commands
-        .entity(body.mesh)
-        .insert((assets.mesh.clone(), assets.mesh_transform));
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));

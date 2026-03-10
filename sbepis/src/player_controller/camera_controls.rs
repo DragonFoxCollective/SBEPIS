@@ -217,3 +217,17 @@ fn interpolate_fov(
     }
     Ok(())
 }
+
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[require(Transform)]
+pub struct HiddenInFirstPerson;
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn hide_first_person(
+    add: On<Add, HiddenInFirstPerson>,
+    mut transforms: Query<&mut Transform>,
+) -> Result {
+    let mut transform = transforms.get_mut(add.entity)?;
+    transform.scale = Vec3::ZERO;
+    Ok(())
+}

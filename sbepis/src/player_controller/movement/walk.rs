@@ -5,6 +5,7 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::player_controller::PlayerControllerPlugin;
 use crate::player_controller::movement::charge::Charging;
+use crate::player_controller::movement::crouch::Crouching;
 use crate::player_controller::movement::grounded::Grounded;
 use crate::player_controller::movement::stand::Standing;
 use crate::player_controller::movement::{MovementControlSystems, Moving, MovingOptExt as _};
@@ -51,6 +52,7 @@ fn update_walk_velocity(
             Option<&Moving>,
             Has<Grounded>,
             Has<Sprinting>,
+            Has<Crouching>,
             Has<Charging>,
         ),
         Or<(With<Standing>, With<Charging>)>, // ewwwww two states?
@@ -58,7 +60,7 @@ fn update_walk_velocity(
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,
 ) -> Result {
-    for (mut movement, velocity, transform, moving, grounded, sprinting, charging) in
+    for (mut movement, velocity, transform, moving, grounded, sprinting, crouching, charging) in
         players.iter_mut()
     {
         // Set up vectors
@@ -70,6 +72,8 @@ fn update_walk_velocity(
         };
         let wish_speed = if sprinting {
             walk_settings.sprint_speed
+        } else if crouching {
+            walk_settings.sneak_speed
         } else {
             walk_settings.speed
         };

@@ -14,6 +14,12 @@ pub struct PlayerCamera;
 #[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct PlayerCameraNode;
 
+#[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
+pub struct PlayerAimCamera;
+
+#[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
+pub struct PlayerAimHead;
+
 #[auto_system(plugin = PlayerCameraPlugin, schedule = Update)]
 fn setup_player_camera_added_node(
     mut commands: Commands,
