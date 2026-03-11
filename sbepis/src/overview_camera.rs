@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_menus::{ActivateMenu, DeactivateMenu, MenuStack, MenuWithMouse};
 
-use crate::camera::PlayerCamera;
+use crate::player::camera::PlayerCamera;
 use crate::prelude::*;
 
 #[derive(AutoPlugin)]

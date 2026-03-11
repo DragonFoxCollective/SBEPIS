@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{MenuDespawnsWhenClosed, MenuStack, MenuWithInput, MenuWithMouse};
 
-use crate::camera::PlayerCameraNode;
+use crate::prelude::*;
 
 pub struct DialogueInfo {
     pub root: Entity,

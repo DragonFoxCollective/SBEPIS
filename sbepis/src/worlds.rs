@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_cube_marcher::{ChunkGeneratorRunning, ChunkGeneratorSettings};
 
 use crate::gravity::{GlobalGravity, GravityPoint, GravityPriority};
-use crate::player_controller::PlayerSpawnPoint;
+use crate::player::PlayerSpawnPoint;
 use crate::prelude::GameState;
 use crate::worldgen::terrain::WorldGen;
 

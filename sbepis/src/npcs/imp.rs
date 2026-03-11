@@ -6,16 +6,15 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
 use return_ok::ok_or_return;
 
+use super::name_tags::SpawnNameTag;
 use crate::entity::spawner::{ActivateSpawner, Spawn};
 use crate::entity::{
     GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar, TargetPlayer,
 };
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
-use crate::player_controller::weapons::Damage;
+use crate::player::weapons::Damage;
 use crate::util::AnimationRoot;
-
-use super::name_tags::SpawnNameTag;
 
 #[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct Imp;

@@ -11,7 +11,7 @@ use tracks::{FrayTracks, Track};
 
 use crate::fray::tracks::{SwitchTrack, TrackSwitcher};
 use crate::npcs::imp::Imp;
-use crate::player_controller::weapons::Hit;
+use crate::player::weapons::Hit;
 use crate::prelude::*;
 use crate::util::MapRangeBetween;
 

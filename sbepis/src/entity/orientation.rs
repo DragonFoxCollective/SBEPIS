@@ -3,7 +3,7 @@ use bevy_auto_plugin::prelude::*;
 
 use crate::entity::EntityPlugin;
 use crate::gravity::ComputedGravity;
-use crate::player_controller::movement::MovementControlSystems;
+use crate::player::movement::MovementControlSystems;
 
 #[auto_component(plugin = EntityPlugin, derive(Default), reflect, register)]
 pub struct GravityOrientation;

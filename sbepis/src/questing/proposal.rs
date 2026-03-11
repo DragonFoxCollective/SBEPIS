@@ -4,7 +4,7 @@ use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::MenuStack;
 
 use crate::dialogue::{PickDialogueOption, spawn_dialogue};
-use crate::player_controller::camera_controls::InteractWith;
+use crate::prelude::*;
 use crate::questing::{AcceptQuest, DeclineQuest, Quest, QuestGiver, QuestingPlugin, Quests};
 
 #[auto_observer(plugin = QuestingPlugin)]

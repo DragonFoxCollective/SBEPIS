@@ -1,5 +1,6 @@
-use crate::prelude::*;
 use bevy_auto_plugin::prelude::*;
+
+use crate::prelude::*;
 
 pub mod desert;
 pub mod terrain;

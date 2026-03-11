@@ -16,7 +16,7 @@ use crate::gridbox_material;
 use crate::inventory::{ChangeInventory, Inventory, Item};
 use crate::main_bundles::Box;
 use crate::npcs::imp::Imp;
-use crate::player_controller::OpenQuestScreen;
+use crate::player::OpenQuestScreen;
 use crate::prelude::*;
 use crate::questing::screen::QuestScreen;
 

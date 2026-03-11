@@ -1,13 +1,14 @@
+use std::array::IntoIter;
+use std::ops::{Add, Mul, Range, Sub};
+
 use bevy::ecs::query::{QueryData, QueryFilter, ROQueryItem};
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::math::Real;
 use return_ok::ok_or_return;
-use std::array::IntoIter;
-use std::ops::{Add, Mul, Range, Sub};
 
 use crate::SbepisPlugin;
-use crate::camera::PlayerCamera;
+use crate::player::camera::PlayerCamera;
 use crate::prelude::Player;
 
 pub trait MapRange<T> {

@@ -4,7 +4,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
-use crate::camera::PlayerCameraNode;
+use crate::prelude::*;
 use crate::questing::{AcceptQuest, EndQuest, QuestId, QuestingPlugin, Quests};
 use crate::util::MapRangeBetween;
 

@@ -1,0 +1,15 @@
+use bevy_auto_plugin::prelude::*;
+
+mod note_holder;
+mod notes;
+mod sequences;
+mod staff;
+
+#[derive(AutoPlugin)]
+#[auto_add_plugin(plugin = crate::SbepisPlugin)]
+pub struct PlayerCommandsPlugin;
+
+#[auto_plugin(plugin = PlayerCommandsPlugin)]
+fn build(app: &mut bevy::prelude::App) {
+    app.add_observer(bevy_pretty_nice_menus::close_menu_on_action::<staff::CloseStaff>);
+}

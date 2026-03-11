@@ -1,6 +1,7 @@
-use lazy_static::lazy_static;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+use lazy_static::lazy_static;
 
 #[derive(Debug, Clone)]
 pub struct Jack {

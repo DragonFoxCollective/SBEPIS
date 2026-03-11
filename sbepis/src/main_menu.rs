@@ -6,7 +6,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_cube_marcher::ChunkLoader;
 use serde::Deserialize;
 
-use crate::camera::PlayerCamera;
+use crate::player::camera::PlayerCamera;
 use crate::prelude::*;
 use crate::worldgen::desert::DesertWorldGen;
 use crate::worlds::{setup_default_planet, setup_jump_gym};

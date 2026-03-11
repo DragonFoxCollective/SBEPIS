@@ -4,7 +4,7 @@ use bevy_pretty_nice_menus::show_menu_on_action;
 use bevy_rapier3d::prelude::*;
 use screen::*;
 
-use crate::player_controller::OpenInventory;
+use crate::player::OpenInventory;
 use crate::prelude::*;
 
 mod screen;

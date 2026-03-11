@@ -1,7 +1,8 @@
-use crate::prelude::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
+
+use crate::prelude::*;
 
 #[derive(AutoPlugin)]
 #[auto_add_plugin(plugin = SbepisPlugin)]

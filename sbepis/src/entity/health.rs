@@ -4,8 +4,8 @@ use bevy_rapier3d::prelude::Velocity;
 
 use crate::entity::EntityPlugin;
 use crate::gravity::AffectedByGravity;
-use crate::util::{Billboard, DespawnTimer};
-use crate::{gridbox_material, gridbox_material_extra, util::MapRange};
+use crate::util::{Billboard, DespawnTimer, MapRange};
+use crate::{gridbox_material, gridbox_material_extra};
 
 #[auto_component(plugin = EntityPlugin, derive, reflect, register)]
 pub struct GelViscosity {

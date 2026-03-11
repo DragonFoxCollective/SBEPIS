@@ -5,14 +5,13 @@ use bevy::scene::SceneInstanceReady;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
 
+use super::name_tags::SpawnNameTag;
 use crate::entity::spawner::{ActivateSpawner, Spawn};
 use crate::entity::{Healing, Movement, RandomInput, RotateTowardMovement, SpawnHealthBar};
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
 use crate::questing::{QuestGiver, SpawnQuestMarker};
 use crate::util::AnimationRoot;
-
-use super::name_tags::SpawnNameTag;
 
 #[auto_component(plugin = NpcPlugin, derive, reflect, register)]
 pub struct Consort;

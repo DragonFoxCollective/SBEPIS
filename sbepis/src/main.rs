@@ -10,7 +10,7 @@ use bevy_rapier3d::prelude::*;
 use winit::window::Icon;
 
 mod blenvy;
-mod camera;
+mod commands;
 mod dialogue;
 mod entity;
 #[cfg(feature = "framerate_indicator")]
@@ -23,8 +23,7 @@ mod main_menu;
 mod npcs;
 #[cfg(feature = "overview_camera")]
 mod overview_camera;
-mod player_commands;
-mod player_controller;
+mod player;
 mod post_processing;
 mod questing;
 mod skybox;
@@ -36,14 +35,15 @@ mod worlds;
 
 mod prelude {
     #![allow(unused_imports)]
-    pub use crate::camera::PlayerCameraNode;
     pub use crate::main_menu::GameState;
-    pub use crate::player_controller::Player;
-    pub use crate::player_controller::camera_controls::{InteractWith, interact_with};
+    pub use crate::player::Player;
+    pub use crate::player::camera::node::PlayerCameraNode;
+    pub use crate::player::interaction::{InteractWith, interact_with};
     pub use crate::post_processing::outlines::PostProcessOutlinesSettings;
     pub use crate::post_processing::quantize::PostProcessQuantizeSettings;
     #[cfg(test)]
-    pub use crate::test::{TestAppExt as _, assert_near_f32, assert_near_vec3, new_test_app};
+    pub use crate::test::{TestAppExt, assert_near_f32, assert_near_vec3, new_test_app};
+    pub use crate::util::*;
     pub use crate::worlds::NORMAL_GRAVITY;
     pub use crate::{SbepisAppPlugin, SbepisPlugin};
 }

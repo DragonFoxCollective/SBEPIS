@@ -4,8 +4,8 @@ use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{CloseMenuAction, MenuHidesWhenClosed, MenuWithInput, MenuWithMouse};
 
-use crate::camera::PlayerCameraNode;
 use crate::inventory::{InventoryPlugin, Item, PickUpItem};
+use crate::prelude::*;
 
 #[auto_component(plugin = InventoryPlugin, derive, reflect, register)]
 pub struct InventoryScreen;

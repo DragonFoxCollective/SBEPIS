@@ -1,11 +1,10 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 
-use crate::prelude::*;
-
 pub use self::health::{GelViscosity, Healing, SpawnHealthBar};
 pub use self::movement::{Movement, RandomInput, RotateTowardMovement, TargetPlayer};
 pub use self::orientation::GravityOrientation;
+use crate::prelude::*;
 
 pub mod health;
 pub mod movement;
