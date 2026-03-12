@@ -102,7 +102,7 @@ fn spawn_staff(
             // Clef
             parent.spawn((
                 Name::new("Clef"),
-                ImageNode::new(asset_server.load("treble_clef.png")),
+                ImageNode::new(asset_server.load("unlicensed/treble_clef.png")),
                 Node {
                     position_type: PositionType::Absolute,
                     height: Val::Px(CLEF_HEIGHT),

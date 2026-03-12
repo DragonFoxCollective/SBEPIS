@@ -159,7 +159,7 @@ pub struct JumpAssets {
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(JumpAssets {
-        charge_jump_sound: asset_server.load("worms bazooka shoot.mp3"),
+        charge_jump_sound: asset_server.load("unlicensed/worms bazooka shoot.mp3"),
     });
 }
 

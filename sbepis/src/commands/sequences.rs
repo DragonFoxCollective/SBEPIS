@@ -79,7 +79,7 @@ fn ping(pattern: On<ChangeNotePattern>, mut commands: Commands, asset_server: Re
         Some(())
     })() {
         commands.spawn((
-            AudioPlayer::new(asset_server.load("pester_notif.mp3")),
+            AudioPlayer::new(asset_server.load("unlicensed/pester_notif.mp3")),
             PlaybackSettings::DESPAWN,
         ));
 

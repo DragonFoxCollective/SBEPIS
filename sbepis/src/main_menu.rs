@@ -58,7 +58,7 @@ pub enum MenuState {
 
 #[auto_system(plugin = MainMenuPlugin, schedule = Startup)]
 fn setup_global(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(DenySound(asset_server.load("deny.mp3")));
+    commands.insert_resource(DenySound(asset_server.load("unlicensed/deny.mp3")));
 }
 
 #[auto_system(plugin = MainMenuPlugin, schedule = OnEnter(GameState::MainMenu))]
@@ -104,21 +104,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
 }
 
 #[auto_system(plugin = MainMenuPlugin, schedule = OnEnter(MenuState::Home))]
-fn setup_home(
-    mut commands: Commands,
-    title_font: Option<Res<TitleFont>>,
-    asset_server: Res<AssetServer>,
-) -> Result {
+fn setup_home(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     let font_size = 32.0;
-
-    let title_font = match title_font {
-        Some(font) => font.0.clone(),
-        None => {
-            let font = asset_server.load("Motenacity.ttf");
-            commands.insert_resource(TitleFont(font.clone()));
-            font
-        }
-    };
 
     let menu_root = commands
         .spawn((
@@ -157,23 +144,7 @@ fn setup_home(
             ..default()
         },
         ChildOf(content),
-        children![(
-            Text::new("SBEPIS"),
-            TextFont {
-                font: title_font.clone(),
-                font_size: 160.0,
-                ..default()
-            },
-            TextLayout {
-                justify: Justify::Center,
-                ..default()
-            },
-            TextColor(Color::from(Srgba::hex("03a9f4")?)),
-            TextShadow {
-                offset: Vec2::new(2.0, 2.0),
-                color: Color::from(Srgba::hex("000000")?),
-            },
-        )],
+        children![ImageNode::new(asset_server.load("title.png"))],
     ));
     commands
         .spawn((
@@ -1338,6 +1309,3 @@ pub enum DeveloperArea {
     Documentation,
     Contributor,
 }
-
-#[auto_resource(plugin = MainMenuPlugin, derive, reflect, register)]
-pub struct TitleFont(pub Handle<Font>);

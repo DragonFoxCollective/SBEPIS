@@ -50,7 +50,7 @@ pub struct ChargeAssets {
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(ChargeAssets {
-        sound: asset_server.load("worms bazooka charge.mp3"),
+        sound: asset_server.load("unlicensed/worms bazooka charge.mp3"),
     });
 }
 

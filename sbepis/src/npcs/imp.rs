@@ -78,10 +78,10 @@ fn setup_imp_assets(
     commands.insert_resource(ImpAssets {
         model: asset_server.load(GltfAssetLabel::Scene(0).from_asset("imp.glb")),
 
-        ambient_sound_1: asset_server.load("imp_ambient_1.ogg"),
-        ambient_sound_2: asset_server.load("imp_ambient_2.ogg"),
-        hurt_sound: asset_server.load("imp_hurt.ogg"),
-        death_sound: asset_server.load("imp_death.ogg"),
+        ambient_sound_1: asset_server.load("unlicensed/imp_ambient_1.ogg"),
+        ambient_sound_2: asset_server.load("unlicensed/imp_ambient_2.ogg"),
+        hurt_sound: asset_server.load("unlicensed/imp_hurt.ogg"),
+        death_sound: asset_server.load("unlicensed/imp_death.ogg"),
         sound_effect_variance: 0.3,
         ambient_sound_time: Duration::from_secs_f32(5.0),
         ambient_sound_time_variance: Duration::from_secs_f32(2.0),

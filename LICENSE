@@ -1,0 +1,6 @@
+All code assets (such as Rust and WGSL files) are dual-licensed under MIT OR Apache.
+
+All art assets (such as 3d model, language, image, and audio files) are licensed under CC-BY-NC-SA, with the following additional conditions:
+- The assets will not be used to train generative AI models.
+
+Any LICENSE file in a subdirectory supercedes this license file for all assets in that directory and any subdirectories.

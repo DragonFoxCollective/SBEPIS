@@ -261,8 +261,8 @@ pub struct TripAssets {
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(TripAssets {
-        trip_sound: asset_server.load("trip.mp3"),
-        parry_sound: asset_server.load("parry-ultrakill.mp3"),
+        trip_sound: asset_server.load("unlicensed/trip.mp3"),
+        parry_sound: asset_server.load("unlicensed/parry-ultrakill.mp3"),
     });
 }
 

@@ -193,7 +193,7 @@ fn tick_fray_music(
             if fray_music.delay.is_none() {
                 commands.spawn((
                     Name::new("Beat"),
-                    AudioPlayer::new(asset_server.load("metronome.mp3")),
+                    AudioPlayer::new(asset_server.load("unlicensed/metronome.mp3")),
                     PlaybackSettings::DESPAWN,
                 ));
             }
@@ -215,7 +215,7 @@ fn tick_fray_music(
         if beat_counter.beat != beat {
             commands.spawn((
                 Name::new("Beat"),
-                AudioPlayer::new(asset_server.load("metronome.mp3")),
+                AudioPlayer::new(asset_server.load("unlicensed/metronome.mp3")),
                 PlaybackSettings::DESPAWN.with_speed(if beat % 4 == 0 { 1.0 } else { 0.5 }),
             ));
         }

@@ -64,12 +64,12 @@ fn is_skybox_parts_loaded(
 
 #[auto_system(plugin = SkyboxPlugin, schedule = Startup)]
 fn start_loading_skybox(asset_server: Res<AssetServer>, mut current_skybox: ResMut<CurrentSkybox>) {
-    current_skybox.left = Some(asset_server.load("skybox/left.png"));
-    current_skybox.right = Some(asset_server.load("skybox/right.png"));
-    current_skybox.top = Some(asset_server.load("skybox/top.png"));
-    current_skybox.bottom = Some(asset_server.load("skybox/bottom.png"));
-    current_skybox.back = Some(asset_server.load("skybox/back.png"));
-    current_skybox.front = Some(asset_server.load("skybox/front.png"));
+    current_skybox.left = Some(asset_server.load("unlicensed/skybox/left.png"));
+    current_skybox.right = Some(asset_server.load("unlicensed/skybox/right.png"));
+    current_skybox.top = Some(asset_server.load("unlicensed/skybox/top.png"));
+    current_skybox.bottom = Some(asset_server.load("unlicensed/skybox/bottom.png"));
+    current_skybox.back = Some(asset_server.load("unlicensed/skybox/back.png"));
+    current_skybox.front = Some(asset_server.load("unlicensed/skybox/front.png"));
 }
 
 #[auto_system(plugin = SkyboxPlugin, schedule = Update, config(

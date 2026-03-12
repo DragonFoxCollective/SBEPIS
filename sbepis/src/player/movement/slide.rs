@@ -59,7 +59,7 @@ pub struct SlideAssets {
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(SlideAssets {
-        sound: asset_server.load("slide.mp3"),
+        sound: asset_server.load("unlicensed/slide.mp3"),
     });
 }
 

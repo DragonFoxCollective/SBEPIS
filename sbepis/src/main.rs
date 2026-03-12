@@ -178,7 +178,7 @@ fn set_window_icon() -> Result {
 }
 
 fn gridbox_texture(color: &str) -> String {
-    format!("Gridbox Prototype Materials/prototype_512x512_{color}.png")
+    format!("unlicensed/Gridbox Prototype Materials/prototype_512x512_{color}.png")
 }
 
 fn gridbox_material(

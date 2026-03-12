@@ -62,7 +62,7 @@ pub struct DashAssets {
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Startup)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(DashAssets {
-        sound: asset_server.load("ultrakill dash sound.mp3"),
+        sound: asset_server.load("unlicensed/ultrakill dash sound.mp3"),
     });
 }
 

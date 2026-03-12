@@ -49,7 +49,7 @@ fn add_note_to_holder(
 
     let note_entity = commands
         .spawn((
-            ImageNode::new(asset_server.load("quarter_note.png")),
+            ImageNode::new(asset_server.load("unlicensed/quarter_note.png")),
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(note_holder.next_note_left()),

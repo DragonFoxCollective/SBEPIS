@@ -142,8 +142,8 @@ impl Default for FontMeshGenerator {
     fn default() -> Self {
         // Cascadia Code is broken (Err: GlyphTriangulationError(PointOnFixedEdge(1)))
         Self::new(
-            include_bytes!("../../assets/FiraSans-Regular.ttf"),
-            include_bytes!("../../assets/FiraSans-Bold.ttf"),
+            include_bytes!("../../assets/fonts/FiraSans-Regular.ttf"),
+            include_bytes!("../../assets/fonts/FiraSans-Bold.ttf"),
         )
     }
 }
