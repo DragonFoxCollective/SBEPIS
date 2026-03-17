@@ -5,6 +5,7 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
+use crate::player::camera::third_person::PlayerCameraPositionEntities;
 use crate::prelude::Player;
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
@@ -29,7 +30,8 @@ impl Default for RollingAssets {
 fn to_rolling_assets(
     add: On<Add, Rolling>,
     players: Query<&Player>,
-    mut cameras: Query<&mut Transform>,
+    cameras: Query<&PlayerCameraPositionEntities>,
+    mut camera_transforms: Query<&mut Transform>,
     assets: Res<RollingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -37,7 +39,9 @@ fn to_rolling_assets(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    cameras.get_mut(body.camera)?.translation = assets.camera_position;
+    camera_transforms
+        .get_mut(cameras.get(body.camera)?.first_person)?
+        .translation = assets.camera_position;
     Ok(())
 }
 

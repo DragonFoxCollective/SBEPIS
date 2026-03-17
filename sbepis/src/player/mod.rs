@@ -14,6 +14,9 @@ use crate::main_bundles::Mob;
 use crate::player::camera::PlayerCamera;
 use crate::player::camera::controls::{Look, Pitch};
 use crate::player::camera::fov::PlayerFov;
+use crate::player::camera::third_person::{
+    PlayerCameraPositionEntities, PlayerCameraPositionType, SwapCameraPosition,
+};
 use crate::player::movement::charge::{ChargeDash, Charging, SpinDash};
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::{Dash, HasEnoughStaminaToDash};
@@ -189,6 +192,28 @@ fn setup(
             ))
             .id();
 
+        let camera_first_person = commands
+            .spawn((
+                Name::new("Player Camera - First Person"),
+                Transform::default(),
+                Pitch(0.0),
+            ))
+            .id();
+        let camera_third_person_boom = commands
+            .spawn((
+                Name::new("Player Camera - Third Person Boom"),
+                Transform::from_xyz(0.0, 2.0, 0.0),
+                Pitch(0.0),
+            ))
+            .id();
+        let camera_third_person = commands
+            .spawn((
+                Name::new("Player Camera - Third Person"),
+                Transform::from_xyz(0.0, 0.0, 2.0),
+                ChildOf(camera_third_person_boom),
+            ))
+            .id();
+
         let fov = 70f32.to_radians();
         let camera = commands
             .spawn((
@@ -196,11 +221,16 @@ fn setup(
                 Camera3d::default(),
                 Projection::Perspective(PerspectiveProjection { fov, ..default() }),
                 PlayerCamera,
-                Pitch(0.0),
                 SpatialListener::new(-0.25),
                 PostProcessOutlinesSettings { radius: 4.0 },
                 // PostProcessQuantizeSettings { fixed_k: 16 }, // TODO: the sorting algorithm lags the heck out. we're probably going with a different style anyway
                 Msaa::Off,
+                PlayerCameraPositionEntities {
+                    first_person: camera_first_person,
+                    third_person: camera_third_person,
+                },
+                PlayerCameraPositionType::FirstPerson,
+                input!(SwapCameraPosition, Axis1D[binding1d::key(KeyCode::KeyF)]),
             ))
             .id();
 
@@ -226,7 +256,7 @@ fn setup(
                 PlayerFov(fov),
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("player.glb"))),
             ))
-            .add_children(&[camera, collider])
+            .add_children(&[camera_first_person, camera_third_person_boom, collider])
             .id();
 
         spawn_hammer(

@@ -4,6 +4,7 @@ use bevy_rapier3d::prelude::*;
 use return_ok::ok_or_return_ok;
 
 use crate::player::PlayerControllerPlugin;
+use crate::player::camera::third_person::PlayerCameraPositionEntities;
 use crate::player::movement::crouch::Crouching;
 use crate::prelude::Player;
 
@@ -35,7 +36,8 @@ impl Default for StandingAssets {
 fn to_standing_assets(
     add: On<Add, Standing>,
     players: Query<&Player, Without<Crouching>>,
-    mut cameras: Query<&mut Transform>,
+    cameras: Query<&PlayerCameraPositionEntities>,
+    mut camera_transforms: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -43,7 +45,9 @@ fn to_standing_assets(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    cameras.get_mut(body.camera)?.translation = assets.camera_position;
+    camera_transforms
+        .get_mut(cameras.get(body.camera)?.first_person)?
+        .translation = assets.camera_position;
     Ok(())
 }
 
@@ -51,7 +55,8 @@ fn to_standing_assets(
 fn to_standing_assets_2(
     remove: On<Remove, Crouching>,
     players: Query<&Player>,
-    mut cameras: Query<&mut Transform>,
+    cameras: Query<&PlayerCameraPositionEntities>,
+    mut camera_transforms: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -59,7 +64,9 @@ fn to_standing_assets_2(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    cameras.get_mut(body.camera)?.translation = assets.camera_position;
+    camera_transforms
+        .get_mut(cameras.get(body.camera)?.first_person)?
+        .translation = assets.camera_position;
     Ok(())
 }
 

@@ -4,6 +4,7 @@ use bevy_rapier3d::prelude::*;
 
 use super::slide::Sliding;
 use crate::player::PlayerControllerPlugin;
+use crate::player::camera::third_person::PlayerCameraPositionEntities;
 use crate::player::movement::MovementControlSystems;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
 use crate::player::movement::slide::PlayerSlideSettings;
@@ -38,7 +39,8 @@ impl Default for CrouchingAssets {
 fn to_crouching_assets(
     add: On<Add, (Crouching, Sliding)>,
     players: Query<&Player>,
-    mut cameras: Query<&mut Transform>,
+    cameras: Query<&PlayerCameraPositionEntities>,
+    mut camera_transforms: Query<&mut Transform>,
     assets: Res<CrouchingAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -46,7 +48,9 @@ fn to_crouching_assets(
     commands
         .entity(body.collider)
         .insert((assets.collider.clone(), assets.collider_transform));
-    cameras.get_mut(body.camera)?.translation = assets.camera_position;
+    camera_transforms
+        .get_mut(cameras.get(body.camera)?.first_person)?
+        .translation = assets.camera_position;
     Ok(())
 }
 
