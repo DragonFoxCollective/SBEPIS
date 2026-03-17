@@ -5,21 +5,19 @@ use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player::Interact;
-use crate::player::camera::PlayerCamera;
-use crate::prelude::*;
+use crate::player::camera::{PlayerCamera, PlayerOfCamera};
 use crate::util::find_in_ancestors;
 
 pub fn interact_with<T: Component>(
     interact: On<JustPressed<Interact>>,
-    bodies: Query<&Player>,
+    players: Query<&PlayerOfCamera>,
     rapier_context: ReadRapierContext,
     cameras: Query<&GlobalTransform, With<PlayerCamera>>,
     entities: Query<Entity, With<T>>,
     parents: Query<&ChildOf>,
     mut commands: Commands,
 ) -> Result {
-    let body = bodies.get(interact.input)?;
-    let camera = cameras.get(body.camera)?;
+    let camera = cameras.get(**players.get(interact.input)?)?;
     let mut hit_entity: Option<(Option<Entity>, f32)> = None;
     rapier_context.single()?.intersect_ray(
         camera.translation(),

@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
-use return_ok::ok_or_return_ok;
 
-use crate::player::PlayerControllerPlugin;
-use crate::player::camera::third_person::PlayerCameraPositionEntities;
+use crate::player::camera::PlayerOfCamera;
+use crate::player::camera::third_person::CameraOfFirstPerson;
 use crate::player::movement::crouch::Crouching;
-use crate::prelude::Player;
+use crate::player::{PlayerControllerPlugin, PlayerOfCollider};
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct StandingAssets {
@@ -35,18 +34,22 @@ impl Default for StandingAssets {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets(
     add: On<Add, Standing>,
-    players: Query<&Player, Without<Crouching>>,
-    cameras: Query<&PlayerCameraPositionEntities>,
+    players: Query<(&PlayerOfCamera, &PlayerOfCollider, Has<Crouching>)>,
+    cameras: Query<&CameraOfFirstPerson>,
     mut camera_transforms: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = ok_or_return_ok!(players.get(add.entity));
+    let (camera, collider, crouching) = players.get(add.entity)?;
+    if crouching {
+        // Still want the side effects of panicking if a player doesn't have the other components
+        return Ok(());
+    }
     commands
-        .entity(body.collider)
+        .entity(**collider)
         .insert((assets.collider.clone(), assets.collider_transform));
     camera_transforms
-        .get_mut(cameras.get(body.camera)?.first_person)?
+        .get_mut(**cameras.get(**camera)?)?
         .translation = assets.camera_position;
     Ok(())
 }
@@ -54,18 +57,18 @@ fn to_standing_assets(
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_standing_assets_2(
     remove: On<Remove, Crouching>,
-    players: Query<&Player>,
-    cameras: Query<&PlayerCameraPositionEntities>,
+    players: Query<(&PlayerOfCamera, &PlayerOfCollider)>,
+    cameras: Query<&CameraOfFirstPerson>,
     mut camera_transforms: Query<&mut Transform>,
     assets: Res<StandingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = players.get(remove.entity)?;
+    let (camera, collider) = players.get(remove.entity)?;
     commands
-        .entity(body.collider)
+        .entity(**collider)
         .insert((assets.collider.clone(), assets.collider_transform));
     camera_transforms
-        .get_mut(cameras.get(body.camera)?.first_person)?
+        .get_mut(**cameras.get(**camera)?)?
         .translation = assets.camera_position;
     Ok(())
 }

@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 
-use crate::player::camera::PlayerCameraPlugin;
-use crate::prelude::*;
+use crate::player::camera::{PlayerCameraPlugin, PlayerOfCamera};
 
 #[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct PlayerFov(pub f32);
@@ -44,13 +43,13 @@ struct InterpolateFovBuilt {
 #[auto_observer(plugin = PlayerCameraPlugin)]
 fn build_interpolate_fov(
     add: On<Add, InterpolateFov>,
-    players: Query<(&Player, &InterpolateFov)>,
+    players: Query<(&PlayerOfCamera, &InterpolateFov)>,
     cameras: Query<&Projection>,
     time: Res<Time>,
     mut commands: Commands,
 ) -> Result {
-    let (player, fov) = players.get(add.entity)?;
-    let projection = cameras.get(player.camera)?;
+    let (camera, fov) = players.get(add.entity)?;
+    let projection = cameras.get(camera.0)?;
     let Projection::Perspective(projection) = projection else {
         return Ok(());
     };
@@ -87,12 +86,12 @@ fn build_interpolate_fov(
 
 #[auto_system(plugin = PlayerCameraPlugin, schedule = Update)]
 fn interpolate_fov(
-    players: Query<(&Player, &InterpolateFovBuilt)>,
+    players: Query<(&PlayerOfCamera, &InterpolateFovBuilt)>,
     mut cameras: Query<&mut Projection>,
     time: Res<Time>,
 ) -> Result {
-    for (player, fov) in players.iter() {
-        let mut projection = cameras.get_mut(player.camera)?;
+    for (camera, fov) in players.iter() {
+        let mut projection = cameras.get_mut(camera.0)?;
         let Projection::Perspective(projection) = projection.as_mut() else {
             continue;
         };

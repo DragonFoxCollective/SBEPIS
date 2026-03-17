@@ -15,3 +15,11 @@ pub struct PlayerCameraPlugin;
 
 #[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct PlayerCamera;
+
+#[auto_component(plugin = PlayerCameraPlugin, derive(Deref), reflect, register)]
+#[relationship_target(relationship = CameraOfPlayer, linked_spawn)]
+pub struct PlayerOfCamera(Entity);
+
+#[auto_component(plugin = PlayerCameraPlugin, derive(Deref), reflect, register)]
+#[relationship(relationship_target = PlayerOfCamera)]
+pub struct CameraOfPlayer(pub Entity);

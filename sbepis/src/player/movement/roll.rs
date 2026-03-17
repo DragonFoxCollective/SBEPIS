@@ -4,9 +4,9 @@ use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
-use crate::player::PlayerControllerPlugin;
-use crate::player::camera::third_person::PlayerCameraPositionEntities;
-use crate::prelude::Player;
+use crate::player::camera::PlayerOfCamera;
+use crate::player::camera::third_person::CameraOfFirstPerson;
+use crate::player::{PlayerControllerPlugin, PlayerOfCollider};
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, init)]
 pub struct RollingAssets {
@@ -29,18 +29,18 @@ impl Default for RollingAssets {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn to_rolling_assets(
     add: On<Add, Rolling>,
-    players: Query<&Player>,
-    cameras: Query<&PlayerCameraPositionEntities>,
+    players: Query<(&PlayerOfCamera, &PlayerOfCollider)>,
+    cameras: Query<&CameraOfFirstPerson>,
     mut camera_transforms: Query<&mut Transform>,
     assets: Res<RollingAssets>,
     mut commands: Commands,
 ) -> Result {
-    let body = players.get(add.entity)?;
+    let (camera, collider) = players.get(add.entity)?;
     commands
-        .entity(body.collider)
+        .entity(**collider)
         .insert((assets.collider.clone(), assets.collider_transform));
     camera_transforms
-        .get_mut(cameras.get(body.camera)?.first_person)?
+        .get_mut(**cameras.get(**camera)?)?
         .translation = assets.camera_position;
     Ok(())
 }

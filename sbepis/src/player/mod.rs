@@ -11,12 +11,12 @@ use self::weapons::sword::*;
 use self::weapons::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::player::camera::PlayerCamera;
 use crate::player::camera::controls::{Look, Pitch};
 use crate::player::camera::fov::PlayerFov;
 use crate::player::camera::third_person::{
-    PlayerCameraPositionEntities, PlayerCameraPositionType, SwapCameraPosition,
+    FirstPersonOfCamera, PlayerCameraPositionType, SwapCameraPosition, ThirdPersonOfCamera,
 };
+use crate::player::camera::{CameraOfPlayer, PlayerCamera};
 use crate::player::movement::charge::{ChargeDash, Charging, SpinDash};
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::{Dash, HasEnoughStaminaToDash};
@@ -182,59 +182,9 @@ fn setup(
             .id();
         menu_stack.push(input);
 
-        let collider = commands
-            .spawn((
-                Name::new("Player Collider"),
-                Friction {
-                    coefficient: 0.0,
-                    combine_rule: CoefficientCombineRule::Min,
-                },
-            ))
-            .id();
-
-        let camera_first_person = commands
-            .spawn((
-                Name::new("Player Camera - First Person"),
-                Transform::default(),
-                Pitch(0.0),
-            ))
-            .id();
-        let camera_third_person_boom = commands
-            .spawn((
-                Name::new("Player Camera - Third Person Boom"),
-                Transform::from_xyz(0.0, 2.0, 0.0),
-                Pitch(0.0),
-            ))
-            .id();
-        let camera_third_person = commands
-            .spawn((
-                Name::new("Player Camera - Third Person"),
-                Transform::from_xyz(0.0, 0.0, 2.0),
-                ChildOf(camera_third_person_boom),
-            ))
-            .id();
-
         let fov = 70f32.to_radians();
-        let camera = commands
-            .spawn((
-                Name::new("Player Camera"),
-                Camera3d::default(),
-                Projection::Perspective(PerspectiveProjection { fov, ..default() }),
-                PlayerCamera,
-                SpatialListener::new(-0.25),
-                PostProcessOutlinesSettings { radius: 4.0 },
-                // PostProcessQuantizeSettings { fixed_k: 16 }, // TODO: the sorting algorithm lags the heck out. we're probably going with a different style anyway
-                Msaa::Off,
-                PlayerCameraPositionEntities {
-                    first_person: camera_first_person,
-                    third_person: camera_third_person,
-                },
-                PlayerCameraPositionType::FirstPerson,
-                input!(SwapCameraPosition, Axis1D[binding1d::key(KeyCode::KeyF)]),
-            ))
-            .id();
 
-        let body = commands
+        let player = commands
             .spawn((
                 Name::new("Player Body"),
                 spawn_transform.compute_transform(),
@@ -245,8 +195,7 @@ fn setup(
                     max: 1.0,
                     recovery_rate: 0.1,
                 },
-                Standing,
-                Player { camera, collider },
+                Player,
                 ChunkLoader::<WorldGen>::new(3),
                 Ccd::enabled(),
                 DespawnOnExit(GameState::InGame),
@@ -256,8 +205,53 @@ fn setup(
                 PlayerFov(fov),
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("player.glb"))),
             ))
-            .add_children(&[camera_first_person, camera_third_person_boom, collider])
             .id();
+
+        commands.spawn((
+            Name::new("Player Collider"),
+            Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            ColliderOfPlayer(player),
+            ChildOf(player),
+        ));
+
+        let camera = commands
+            .spawn((
+                Name::new("Player Camera"),
+                Camera3d::default(),
+                Projection::Perspective(PerspectiveProjection { fov, ..default() }),
+                PlayerCamera,
+                SpatialListener::new(-0.25),
+                PostProcessOutlinesSettings { radius: 4.0 },
+                // PostProcessQuantizeSettings { fixed_k: 16 }, // TODO: the sorting algorithm lags the heck out. we're probably going with a different style anyway
+                Msaa::Off,
+                CameraOfPlayer(player),
+                PlayerCameraPositionType::FirstPerson,
+                input!(SwapCameraPosition, Axis1D[binding1d::key(KeyCode::KeyF)]),
+            ))
+            .id();
+
+        commands.spawn((
+            Name::new("Player Camera - First Person"),
+            Transform::default(),
+            Pitch(0.0),
+            ChildOf(player),
+            FirstPersonOfCamera(camera),
+        ));
+        commands
+            .spawn((
+                Name::new("Player Camera - Third Person Boom"),
+                Transform::from_xyz(0.0, 2.0, 0.0),
+                Pitch(0.0),
+                ChildOf(player),
+            ))
+            .with_child((
+                Name::new("Player Camera - Third Person"),
+                Transform::from_xyz(0.0, 0.0, 2.0),
+                ThirdPersonOfCamera(camera),
+            ));
 
         spawn_hammer(
             &mut commands,
@@ -266,7 +260,7 @@ fn setup(
             &mut meshes,
             &mut animations,
             &mut graphs,
-            body,
+            player,
         );
 
         spawn_sword(
@@ -276,7 +270,7 @@ fn setup(
             &mut meshes,
             &mut animations,
             &mut graphs,
-            body,
+            player,
         );
 
         spawn_rifle(
@@ -286,7 +280,7 @@ fn setup(
             &mut meshes,
             &mut animations,
             &mut graphs,
-            body,
+            player,
         );
 
         commands.spawn((
@@ -311,6 +305,9 @@ fn setup(
 
         commands.entity(spawn_point).despawn();
 
+        // Requires that the other entities' relationships are up
+        commands.entity(player).insert(Standing);
+
         debug!("Character up!");
     }
     Ok(())
@@ -333,10 +330,15 @@ fn debug_graph(_add: On<Add, Player>, graph: Res<bevy_pretty_nice_input::debug_g
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-pub struct Player {
-    pub camera: Entity,
-    pub collider: Entity,
-}
+pub struct Player;
+
+#[auto_component(plugin = PlayerControllerPlugin, derive(Deref), reflect, register)]
+#[relationship_target(relationship = ColliderOfPlayer, linked_spawn)]
+pub struct PlayerOfCollider(Entity);
+
+#[auto_component(plugin = PlayerControllerPlugin, derive(Deref), reflect, register)]
+#[relationship(relationship_target = PlayerOfCollider)]
+pub struct ColliderOfPlayer(pub Entity);
 
 #[derive(Action)]
 pub struct Interact;

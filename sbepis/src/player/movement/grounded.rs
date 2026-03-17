@@ -3,7 +3,7 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::player::movement::MovementControlSystems;
-use crate::player::{Player, PlayerControllerPlugin};
+use crate::player::{PlayerControllerPlugin, PlayerOfCollider};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Grounded;
@@ -15,13 +15,13 @@ pub struct GroundedContact(pub RayIntersection);
 	in_set = MovementControlSystems::UpdateGrounded,
 ))]
 fn update_is_grounded(
-    mut bodies: Query<(Entity, &GlobalTransform, &Player)>,
+    mut bodies: Query<(Entity, &GlobalTransform, &PlayerOfCollider)>,
     rapier_context: ReadRapierContext,
     mut commands: Commands,
 ) -> Result {
     let rapier_context = rapier_context.single()?;
-    for (player, transform, body) in bodies.iter_mut() {
-        let collider_entity = body.collider;
+    for (player, transform, collider) in bodies.iter_mut() {
+        let collider_entity = **collider;
         let mut contact = None;
         rapier_context.intersect_ray(
             transform.translation() + transform.up() * 0.05,
