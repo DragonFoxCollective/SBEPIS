@@ -2,10 +2,9 @@ use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::{Action, Pressed};
-use return_ok::ok_or_continue;
 
-use crate::player::Player;
 use crate::player::camera::{CameraOfPlayer, PlayerCameraPlugin, PlayerOfCamera};
+use crate::prelude::*;
 
 #[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 #[require(Transform)]

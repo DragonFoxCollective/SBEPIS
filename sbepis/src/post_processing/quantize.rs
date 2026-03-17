@@ -29,9 +29,9 @@ use bevy::render::{Extract, Render, RenderApp, RenderSystems};
 use bevy_auto_plugin::prelude::*;
 use rand::Rng;
 use rand::distr::{Distribution, StandardUniform};
-use return_ok::{some_or_return, some_or_return_ok};
 
 use crate::post_processing::PostProcessPlugin;
+use crate::prelude::*;
 
 const SHADER_ASSET_PATH: &str = "post_processing_quantize.wgsl";
 const KMEANS_SHADER_ASSET_PATH: &str = "post_processing_quantize_post.wgsl";

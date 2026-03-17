@@ -27,9 +27,9 @@ use bevy::render::view::{
 };
 use bevy::render::{Render, RenderApp, RenderSystems};
 use bevy_auto_plugin::prelude::*;
-use return_ok::{some_or_return, some_or_return_ok};
 
 use crate::post_processing::PostProcessPlugin;
+use crate::prelude::*;
 
 const SHADER_ASSET_PATH: &str = "post_processing_outlines.wgsl";
 
