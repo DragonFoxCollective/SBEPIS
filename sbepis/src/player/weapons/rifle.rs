@@ -181,6 +181,7 @@ fn on_rifle_fire(
     frays: Query<&FrayMusic>,
     player_cameras: Query<&GlobalTransform, With<PlayerCamera>>,
     parents: Query<&ChildOf>,
+    #[cfg(feature = "debug_rifle_hits")] mut gizmos: ResMut<Assets<GizmoAsset>>,
 ) -> Result {
     let rifle_pivot_entity = fire.trigger().target;
     let rifle_pivot = rifle_pivots.get(rifle_pivot_entity)?;
@@ -228,6 +229,25 @@ fn on_rifle_fire(
             damage,
             fray_modifier,
         });
+        #[cfg(feature = "debug_rifle_hits")]
+        commands.spawn((
+            Name::new("Hit Marker"),
+            DespawnTimer::new(2.0),
+            Gizmo {
+                handle: gizmos.add({
+                    let mut asset = GizmoAsset::default();
+                    asset.sphere(
+                        Isometry3d::from_translation(
+                            player_camera.translation() + player_camera.forward() * _distance,
+                        ),
+                        0.1,
+                        bevy::color::palettes::css::RED,
+                    );
+                    asset
+                }),
+                ..default()
+            },
+        ));
     } else {
         debug!("No hit");
     }
