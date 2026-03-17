@@ -108,8 +108,6 @@ impl Plugin for SbepisAppPlugin {
                     "symphonia_core=warn",
                     "symphonia_bundle_mp3=warn",
                     "blenvy=error",
-                    "bevy_pretty_nice_input=debug",
-                    "bevy_pretty_nice_menus=debug",
                 ]
                 .join(","),
                 ..default()
