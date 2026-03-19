@@ -11,8 +11,10 @@ use self::weapons::sword::*;
 use self::weapons::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
+use crate::player::camera::controls::Yaw;
 use crate::player::camera::controls::{Look, Pitch};
 use crate::player::camera::fov::PlayerFov;
+use crate::player::camera::third_person::CameraRootOfPlayer;
 use crate::player::camera::third_person::{
     FirstPersonOfCamera, PlayerCameraPositionType, SwapCameraPosition, ThirdPersonOfCamera,
 };
@@ -233,25 +235,43 @@ fn setup(
             ))
             .id();
 
-        commands.spawn((
-            Name::new("Player Camera - First Person"),
-            Transform::default(),
-            Pitch(0.0),
-            ChildOf(player),
-            FirstPersonOfCamera(camera),
-        ));
         commands
             .spawn((
-                Name::new("Player Camera - Third Person Boom"),
-                Transform::from_xyz(0.0, 2.0, 0.0),
-                Pitch(0.0),
-                ChildOf(player),
+                Name::new("Player Camera - First Person Root"),
+                CameraRootOfPlayer(player),
+                Transform::default(),
             ))
-            .with_child((
-                Name::new("Player Camera - Third Person"),
-                Transform::from_xyz(0.0, 0.0, 2.0),
-                ThirdPersonOfCamera(camera),
-            ));
+            .with_children(|parent| {
+                parent.spawn((
+                    Name::new("Player Camera - First Person"),
+                    Transform::default(),
+                    Pitch(0.0),
+                    Yaw,
+                    FirstPersonOfCamera(camera),
+                ));
+            });
+        commands
+            .spawn((
+                Name::new("Player Camera - Third Person Root"),
+                CameraRootOfPlayer(player),
+                Transform::default(),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Name::new("Player Camera - Third Person Boom"),
+                        Transform::from_xyz(0.0, 2.0, 0.0),
+                        Pitch(0.0),
+                        Yaw,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Name::new("Player Camera - Third Person"),
+                            Transform::from_xyz(0.0, 0.0, 2.0),
+                            ThirdPersonOfCamera(camera),
+                        ));
+                    });
+            });
 
         spawn_hammer(
             &mut commands,

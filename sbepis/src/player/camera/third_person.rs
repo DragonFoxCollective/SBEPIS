@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::{Action, Pressed};
+use bevy_rapier3d::plugin::PhysicsSet;
 
 use crate::player::camera::{CameraOfPlayer, PlayerCameraPlugin, PlayerOfCamera};
 use crate::prelude::*;
@@ -116,5 +117,35 @@ fn swap_position(
     let (mut position_type, player) = cameras.get_mut(swap.input)?;
     position_type.become_next();
     commands.trigger(UpdateHiddenInFirstPerson(**player));
+    Ok(())
+}
+
+#[auto_component(plugin = PlayerCameraPlugin, derive(Deref), reflect, register)]
+#[relationship_target(relationship = CameraRootOfPlayer, linked_spawn)]
+pub struct PlayerOfCameraRoots(Vec<Entity>);
+
+#[auto_component(plugin = PlayerCameraPlugin, derive(Deref), reflect, register)]
+#[relationship(relationship_target = PlayerOfCameraRoots)]
+pub struct CameraRootOfPlayer(pub Entity);
+
+#[auto_system(plugin = PlayerCameraPlugin, schedule = PostUpdate, config(
+    after = PhysicsSet::Writeback, before = TransformSystems::Propagate,
+))]
+fn transform_roots(
+    players: Query<(&Transform, &PlayerOfCameraRoots)>,
+    mut roots: Query<&mut Transform, Without<PlayerOfCameraRoots>>,
+) -> Result {
+    for (player_transform, player_roots) in players {
+        let player_translation = player_transform.translation;
+        let player_up = player_transform.up().as_vec3();
+
+        for root in player_roots.iter() {
+            let mut root_transform = roots.get_mut(root)?;
+            let root_up = root_transform.up().as_vec3();
+
+            root_transform.translation = player_translation;
+            root_transform.rotate(Quat::from_rotation_arc(root_up, player_up));
+        }
+    }
     Ok(())
 }

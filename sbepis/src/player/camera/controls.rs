@@ -3,13 +3,15 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
-use bevy_rapier3d::prelude::*;
 
 use crate::player::camera::PlayerCameraPlugin;
-use crate::prelude::*;
+use crate::player::camera::third_person::PlayerOfCameraRoots;
 
 #[derive(Action)]
 pub struct Look;
+
+#[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
+pub struct Yaw;
 
 #[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct Pitch(pub f32);
@@ -28,26 +30,31 @@ impl Default for MouseSensitivity {
 fn rotate_camera_and_body(
     look: On<Pressed<Look>>,
     sensitivity: Res<MouseSensitivity>,
-    mut pitches: Query<(&mut Transform, &mut Pitch)>,
-    mut players: Query<(&mut Transform, &mut Velocity), (Without<Pitch>, With<Player>)>,
+    yaws: Query<(), With<Yaw>>,
+    mut pitches: Query<&mut Pitch>,
+    mut transforms: Query<&mut Transform>,
+    players: Query<&PlayerOfCameraRoots>,
+    children: Query<&Children>,
 ) -> Result {
-    let delta = look
-        .data
-        .as_2d()
-        .ok_or::<BevyError>("Look action expects 2d data".into())?;
+    let delta = look.data.as_2d_ok()? * sensitivity.0;
+    let roots = players.get(look.input)?;
 
-    for (mut camera_transform, mut pitch) in pitches.iter_mut() {
-        pitch.0 += delta.y * sensitivity.0;
-        pitch.0 = pitch.0.clamp(-PI / 2., PI / 2.);
-        camera_transform.rotation = Quat::from_rotation_x(-pitch.0);
-    }
-
+    for child in roots
+        .iter()
+        .flat_map(|root| std::iter::once(root).chain(children.iter_descendants(root)))
     {
-        let (mut transform, mut velocity) = players.single_mut()?;
+        if yaws.get(child).is_ok() {
+            let mut transform = transforms.get_mut(child)?;
+            transform.rotate_y(-delta.x);
+        }
 
-        transform.rotation *= Quat::from_rotation_y(-delta.x * sensitivity.0);
-
-        velocity.angvel = velocity.angvel.reject_from(transform.rotation * Vec3::Z);
+        if let Ok(mut pitch) = pitches.get_mut(child) {
+            let new_pitch = (pitch.0 + delta.y).clamp(-PI / 2., PI / 2.);
+            let delta_y = new_pitch - pitch.0;
+            pitch.0 = new_pitch;
+            let mut transform = transforms.get_mut(child)?;
+            transform.rotate_local_x(-delta_y);
+        }
     }
 
     Ok(())
