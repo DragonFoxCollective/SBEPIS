@@ -5,11 +5,10 @@ use bevy::ecs::query::{QueryData, QueryFilter, ROQueryItem};
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::math::Real;
-use return_ok::ok_or_return;
 
 use crate::SbepisPlugin;
 use crate::player::camera::PlayerCamera;
-use crate::prelude::Player;
+use crate::prelude::*;
 
 pub trait MapRange<T> {
     fn map_range(self, range_out: Range<T>) -> T;

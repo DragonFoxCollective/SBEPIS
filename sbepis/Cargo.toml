@@ -45,13 +45,15 @@ debug = [
   # "skip_main_menu",
   # "debug_movement_graph",
   "bevy/track_location",
+  "debug_rifle_hits",
   "framerate_indicator",
   "inspector",
   "movement_indicators",
   "overview_camera",
-  "terminal",
+  "terminal"
 ]
 debug_movement_graph = ["bevy_pretty_nice_input/debug_graph"]
+debug_rifle_hits = []
 framerate_indicator = []
 inspector = [
   "dep:bevy-inspector-egui",  # otherwise you can't interact with the inspector...

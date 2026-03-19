@@ -11,13 +11,13 @@ use bevy_rapier3d::prelude::*;
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
+use crate::player::camera::PlayerOfCamera;
 use crate::player::camera::fov::{InterpolateFov, PlayerFov};
 use crate::player::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player::movement::walk::PlayerWalkSettings;
 use crate::player::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 use crate::player::stamina::Stamina;
-use crate::prelude::Player;
-use crate::util::MapRange as _;
+use crate::prelude::*;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -78,7 +78,7 @@ pub struct Dashing {
 fn walking_to_dashing(
     dash: On<JustPressed<Dash>>,
     mut players: Query<(
-        &Player,
+        &PlayerOfCamera,
         &Velocity,
         Option<&Moving>,
         &mut Stamina,
@@ -91,7 +91,7 @@ fn walking_to_dashing(
     mut commands: Commands,
     assets: Res<DashAssets>,
 ) -> Result {
-    let (player, velocity, moving, mut stamina, charging, fov) = players.get_mut(dash.input)?;
+    let (camera, velocity, moving, mut stamina, charging, fov) = players.get_mut(dash.input)?;
 
     let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
         let power = charging
@@ -120,7 +120,7 @@ fn walking_to_dashing(
 
     stamina.current -= stamina_cost;
 
-    let camera_transform = cameras.get(player.camera)?;
+    let camera_transform = cameras.get(**camera)?;
     let input = moving.as_input();
     let direction =
         camera_transform.rotation() * Vec3::new(input.x, 0.0, input.y).normalize_or(Vec3::NEG_Z);

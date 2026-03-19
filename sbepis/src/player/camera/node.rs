@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
-use return_ok::ok_or_return;
 
 use crate::player::camera::{PlayerCamera, PlayerCameraPlugin};
+use crate::prelude::*;
 
 #[auto_component(plugin = PlayerCameraPlugin, derive, reflect, register)]
 pub struct PlayerCameraNode;

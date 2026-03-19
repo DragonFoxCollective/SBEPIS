@@ -95,7 +95,7 @@ pub fn spawn_hammer(
                 damage: 1.0,
                 wielder: body,
                 allies: EntityHashSet::from_iter(vec![body]),
-                woosh_sound: asset_server.load("whoosh.mp3"),
+                woosh_sound: asset_server.load("unlicensed/whoosh.mp3"),
                 smash_sound: asset_server.load("unlicensed/concrete_break3.wav"),
             },
             DespawnOnExit(GameState::InGame),

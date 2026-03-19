@@ -4,6 +4,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::entity::Movement;
 use crate::player::PlayerControllerPlugin;
+use crate::player::camera::PlayerOfCamera;
 use crate::player::movement::charge::Charging;
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::grounded::Grounded;
@@ -49,6 +50,7 @@ fn update_walk_velocity(
             &mut Movement,
             &Velocity,
             &GlobalTransform,
+            &PlayerOfCamera,
             Option<&Moving>,
             Has<Grounded>,
             Has<Sprinting>,
@@ -57,18 +59,30 @@ fn update_walk_velocity(
         ),
         Or<(With<Standing>, With<Charging>)>, // ewwwww two states?
     >,
+    cameras: Query<&GlobalTransform>,
     walk_settings: Res<PlayerWalkSettings>,
     time: Res<Time>,
 ) -> Result {
-    for (mut movement, velocity, transform, moving, grounded, sprinting, crouching, charging) in
-        players.iter_mut()
+    for (
+        mut movement,
+        velocity,
+        transform,
+        camera,
+        moving,
+        grounded,
+        sprinting,
+        crouching,
+        charging,
+    ) in players.iter_mut()
     {
+        let camera_transform = cameras.get(**camera)?;
+
         // Set up vectors
         let velocity = (transform.rotation().inverse() * velocity.linvel).xz();
         let input = if charging {
             Vec2::ZERO
         } else {
-            moving.as_input()
+            moving.as_camera_input(camera_transform, transform)
         };
         let wish_speed = if sprinting {
             walk_settings.sprint_speed

@@ -7,11 +7,11 @@ use fake::Fake;
 use fake::faker::name::en::FirstName;
 use meshtext::{Face, MeshGenerator, MeshText, TextSection};
 use rand::seq::{IndexedRandom as _, IteratorRandom};
-use return_ok::some_or_return;
 
 use crate::entity::Kill;
 use crate::main_menu::{Supporter, SupporterTier, Supporters};
 use crate::npcs::NpcPlugin;
+use crate::prelude::*;
 
 // #[auto_add_plugin(plugin = NpcPlugin, generics(CandyMaterial>, init = MaterialPlugin::<CandyMaterial)::default())]
 // use bevy::pbr::MaterialPlugin;

@@ -35,6 +35,8 @@ mod worlds;
 
 mod prelude {
     #![allow(unused_imports)]
+    pub use return_ok::*;
+
     pub use crate::main_menu::GameState;
     pub use crate::player::Player;
     pub use crate::player::camera::node::PlayerCameraNode;
@@ -108,8 +110,6 @@ impl Plugin for SbepisAppPlugin {
                     "symphonia_core=warn",
                     "symphonia_bundle_mp3=warn",
                     "blenvy=error",
-                    "bevy_pretty_nice_input=debug",
-                    "bevy_pretty_nice_menus=debug",
                 ]
                 .join(","),
                 ..default()

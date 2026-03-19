@@ -154,7 +154,7 @@ pub fn spawn_sword(
                 EntityHashSet::from_iter(vec![body]),
                 left_attack_index,
                 right_attack_index,
-                asset_server.load("whoosh.mp3"),
+                asset_server.load("unlicensed/whoosh.mp3"),
             ),
             DespawnOnExit(GameState::InGame),
         ))

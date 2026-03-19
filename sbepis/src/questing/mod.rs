@@ -8,7 +8,6 @@ use bevy_rapier3d::prelude::Collider;
 use rand::Rng;
 use rand::distr::weighted::WeightedIndex;
 use rand::distr::{Distribution, StandardUniform};
-use return_ok::some_or_return_ok;
 use uuid::Uuid;
 
 use crate::entity::Kill;

@@ -3,11 +3,10 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
-use return_ok::some_or_return;
 
 use crate::entity::EntityPlugin;
 use crate::player::movement::MovementControlSystems;
-use crate::prelude::Player;
+use crate::prelude::*;
 
 #[auto_component(plugin = EntityPlugin, derive(Deref, DerefMut, Default), reflect, register)]
 /// The desired velocity in world-space. Will be projected onto the entity's floor plane.
