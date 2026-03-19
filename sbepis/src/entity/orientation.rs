@@ -13,7 +13,7 @@ pub struct GravityOrientation;
 ))]
 fn orient(mut rigidbodies: Query<(&mut Transform, &ComputedGravity), With<GravityOrientation>>) {
     for (mut transform, gravity) in rigidbodies.iter_mut() {
-        transform.rotation =
-            Quat::from_rotation_arc(transform.up().into(), gravity.up) * transform.rotation;
+        let rotation = Quat::from_rotation_arc(transform.up().into(), gravity.up);
+        transform.rotate(rotation);
     }
 }

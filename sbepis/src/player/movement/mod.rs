@@ -82,7 +82,11 @@ fn rotate_toward_moving(
     for (mut transform, global_transform, moving, camera) in players.iter_mut() {
         let camera_transform = cameras.get(**camera)?;
         let input = Some(moving).as_camera_input(camera_transform, global_transform);
-        transform.rotate_local_axis(Dir3::Y, input.angle_to(Vec2::NEG_Y) * speed.0);
+        let angle = input.angle_to(Vec2::NEG_Y) * speed.0;
+        if angle.is_nan() {
+            panic!("it was rotate_twoard_moving {} {}", input, angle);
+        }
+        transform.rotate_local_y(angle);
     }
     Ok(())
 }
