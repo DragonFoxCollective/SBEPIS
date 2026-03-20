@@ -10,9 +10,10 @@ use crate::player::PlayerControllerPlugin;
 use crate::player::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::Dashing;
+use crate::player::movement::grounded::GroundedContact;
 use crate::player::movement::slide::Sliding;
 use crate::player::stamina::Stamina;
-use crate::util::{MapRange as _, Vec3Ext as _};
+use crate::prelude::*;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
@@ -53,11 +54,11 @@ pub struct JumpSettings {
 }
 
 impl JumpSettings {
-    fn timer(&self) -> JumpTimer {
+    fn timer(&self, direction: Vec3) -> JumpTimer {
         JumpTimer {
             timer: Duration::from_secs_f32(self.max_hold_time),
             stamina_cost: self.stamina_cost,
-            speed: self.speed,
+            velocity: direction * self.speed,
         }
     }
 }
@@ -70,9 +71,9 @@ pub struct ChargeJumpSettings {
 }
 
 impl ChargeJumpSettings {
-    fn timer_from_power(&self, power: f32) -> JumpTimer {
+    fn timer_from_power(&self, direction: Vec3, power: f32) -> JumpTimer {
         JumpTimer {
-            speed: power.map_range(self.speed.clone()),
+            velocity: direction * power.map_range(self.speed.clone()),
             stamina_cost: power.map_range(self.stamina_cost.clone()),
             timer: Duration::from_secs_f32(
                 power.map_range(self.max_hold_time.start..self.max_hold_time.end),
@@ -82,6 +83,7 @@ impl ChargeJumpSettings {
 
     fn timer_from_charge(
         &self,
+        direction: Vec3,
         charge_settings: &PlayerChargeSettings,
         charging: &Charging,
         stamina: &Stamina,
@@ -89,7 +91,7 @@ impl ChargeJumpSettings {
         let power = charging
             .power_from_stamina(charge_settings, stamina.current, self.stamina_cost.clone())
             .ok_or(BevyError::from("Don't have enough stamina to charge jump"))?;
-        Ok(self.timer_from_power(power))
+        Ok(self.timer_from_power(direction, power))
     }
 }
 
@@ -135,7 +137,7 @@ impl Default for PlayerJumpSettings {
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 struct JumpTimer {
-    speed: f32,
+    velocity: Vec3,
     stamina_cost: f32,
     timer: Duration,
 }
@@ -166,15 +168,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn start_jump(
     jump: On<Add, Jumping>,
-    players: Query<(Has<Crouching>, Has<Sliding>, Option<&Charging>, &Stamina)>,
+    players: Query<(
+        Has<Crouching>,
+        Has<Sliding>,
+        Option<&Charging>,
+        &Stamina,
+        &GroundedContact,
+    )>,
     settings: Res<PlayerJumpSettings>,
     charge_settings: Res<PlayerChargeSettings>,
     assets: Res<JumpAssets>,
     mut commands: Commands,
 ) -> Result {
     let player = jump.entity;
-    let (crouching, sliding, charging, stamina) = players.get(player)?;
+    let (crouching, sliding, charging, stamina, ground) = players.get(player)?;
     let crouching = crouching || sliding;
+    let direction = ground.normal;
 
     if let Some(charging) = charging {
         commands.entity(player).remove::<Charging>().insert(
@@ -183,7 +192,7 @@ fn start_jump(
             } else {
                 &settings.charge_jump
             }
-            .timer_from_charge(&charge_settings, charging, stamina)?,
+            .timer_from_charge(direction, &charge_settings, charging, stamina)?,
         );
         commands.spawn((
             AudioPlayer(assets.charge_jump_sound.clone()),
@@ -196,7 +205,7 @@ fn start_jump(
             } else {
                 &settings.jump
             }
-            .timer(),
+            .timer(direction),
         );
     }
 
@@ -215,22 +224,19 @@ fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn jump(
-    mut players: Query<(
-        Entity,
-        &mut Velocity,
-        &Transform,
-        &mut Stamina,
-        &mut JumpTimer,
-    )>,
+    mut players: Query<(Entity, &mut Velocity, &mut Stamina, &mut JumpTimer)>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (entity, mut velocity, transform, mut stamina, mut jump_timer) in players.iter_mut() {
+    for (entity, mut velocity, mut stamina, mut jump_timer) in players.iter_mut() {
         if jump_timer.checked_sub_mut(time.delta())
             && stamina.checked_sub_mut(jump_timer.stamina_cost * time.delta_secs())
         {
-            let speed = velocity.linvel.length_projected_onto(transform.up());
-            velocity.linvel += transform.up() * (jump_timer.speed - speed).max(0.0);
+            let velocity_in_dir = velocity.linvel.project_onto(jump_timer.velocity);
+            if velocity_in_dir.length_squared() <= jump_timer.velocity.length_squared() {
+                // accelerating up
+                velocity.linvel += jump_timer.velocity - velocity_in_dir;
+            }
         } else {
             commands.entity(entity).remove::<Jumping>();
         }
