@@ -94,15 +94,11 @@ fn walking_to_dashing(
     let (camera, velocity, moving, mut stamina, charging, fov) = players.get_mut(dash.input)?;
 
     let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
-        let power = charging
-            .power_from_stamina(
-                &charge_settings,
-                stamina.current,
-                settings.charge_stamina_cost.clone(),
-            )
-            .ok_or(BevyError::from(
-                "Don't have enough stamina to charge dash, despite being in dash transition",
-            ))?;
+        let power = charging.power_from_stamina(
+            &charge_settings,
+            stamina.current,
+            settings.charge_stamina_cost.clone(),
+        )?;
         (
             power.map_range(settings.charge_speed_addon.clone()),
             Duration::from_secs_f32(

@@ -27,6 +27,7 @@ mod player;
 mod post_processing;
 mod questing;
 mod skybox;
+mod stats;
 #[cfg(test)]
 pub mod test;
 pub mod util;

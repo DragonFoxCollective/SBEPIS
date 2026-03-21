@@ -1,4 +1,3 @@
-use std::ops::Range;
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -14,138 +13,66 @@ use crate::player::movement::grounded::GroundedContact;
 use crate::player::movement::slide::Sliding;
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
+use crate::stats::{
+    JumpHeight, JumpHoldTime, JumpStaminaCost, Stat, StatModifier, StatModifierHook,
+};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
 
-struct JumpSettingsBuilder {
-    height: f32,
-    stamina_cost: f32,
-    max_hold_time: f32,
-}
-
-impl JumpSettingsBuilder {
-    fn speed(&self) -> f32 {
-        self.height / self.max_hold_time
-    }
-
-    fn build(&self) -> JumpSettings {
-        JumpSettings {
-            speed: self.speed(),
-            stamina_cost: self.stamina_cost,
-            max_hold_time: self.max_hold_time,
-        }
-    }
-
-    fn build_charge(&self, uncharged: &JumpSettingsBuilder) -> ChargeJumpSettings {
-        ChargeJumpSettings {
-            speed: uncharged.speed()..self.speed(),
-            stamina_cost: uncharged.stamina_cost..self.stamina_cost,
-            max_hold_time: uncharged.stamina_cost..self.max_hold_time,
-        }
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+struct CrouchJumpStats;
+impl StatModifier<JumpHeight> for CrouchJumpStats {
+    fn add(&self) -> f32 {
+        0.5
     }
 }
 
-#[derive(Reflect, Debug, Default)]
-pub struct JumpSettings {
-    pub speed: f32,
-    pub stamina_cost: f32,
-    pub max_hold_time: f32,
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpStaminaCost>::default())]
+struct ChargeJumpStats {
+    power: f32,
 }
-
-impl JumpSettings {
-    fn timer(&self, direction: Vec3) -> JumpTimer {
-        JumpTimer {
-            timer: Duration::from_secs_f32(self.max_hold_time),
-            stamina_cost: self.stamina_cost,
-            velocity: direction * self.speed,
-        }
+impl StatModifier<JumpHeight> for ChargeJumpStats {
+    fn add(&self) -> f32 {
+        self.power * 1.0
+    }
+}
+impl StatModifier<JumpStaminaCost> for ChargeJumpStats {
+    fn add(&self) -> f32 {
+        self.power * 0.33
     }
 }
 
-#[derive(Reflect, Debug, Default)]
-pub struct ChargeJumpSettings {
-    pub speed: Range<f32>,
-    pub stamina_cost: Range<f32>,
-    pub max_hold_time: Range<f32>,
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpStaminaCost>::default())]
+struct ChargeCrouchJumpStats {
+    power: f32,
 }
-
-impl ChargeJumpSettings {
-    fn timer_from_power(&self, direction: Vec3, power: f32) -> JumpTimer {
-        JumpTimer {
-            velocity: direction * power.map_range(self.speed.clone()),
-            stamina_cost: power.map_range(self.stamina_cost.clone()),
-            timer: Duration::from_secs_f32(
-                power.map_range(self.max_hold_time.start..self.max_hold_time.end),
-            ),
-        }
-    }
-
-    fn timer_from_charge(
-        &self,
-        direction: Vec3,
-        charge_settings: &PlayerChargeSettings,
-        charging: &Charging,
-        stamina: &Stamina,
-    ) -> Result<JumpTimer> {
-        let power = charging
-            .power_from_stamina(charge_settings, stamina.current, self.stamina_cost.clone())
-            .ok_or(BevyError::from("Don't have enough stamina to charge jump"))?;
-        Ok(self.timer_from_power(direction, power))
+impl StatModifier<JumpHeight> for ChargeCrouchJumpStats {
+    fn add(&self) -> f32 {
+        self.power * 1.5
     }
 }
-
-#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
-pub struct PlayerJumpSettings {
-    pub jump: JumpSettings,
-    pub crouch_jump: JumpSettings,
-    pub charge_jump: ChargeJumpSettings,
-    pub charge_crouch_jump: ChargeJumpSettings,
-}
-
-impl Default for PlayerJumpSettings {
-    fn default() -> Self {
-        let jump = JumpSettingsBuilder {
-            height: 1.0,
-            stamina_cost: 0.0,
-            max_hold_time: 0.3,
-        };
-        let crouch_jump = JumpSettingsBuilder {
-            height: 1.5,
-            stamina_cost: 0.0,
-            max_hold_time: 0.3,
-        };
-        let charge_jump = JumpSettingsBuilder {
-            height: 2.0,
-            stamina_cost: 0.33,
-            max_hold_time: 0.3,
-        };
-        let charge_crouch_jump = JumpSettingsBuilder {
-            height: 2.5,
-            stamina_cost: 0.66,
-            max_hold_time: 0.3,
-        };
-
-        Self {
-            jump: jump.build(),
-            crouch_jump: crouch_jump.build(),
-            charge_jump: charge_jump.build_charge(&jump),
-            charge_crouch_jump: charge_crouch_jump.build_charge(&crouch_jump),
-        }
+impl StatModifier<JumpStaminaCost> for ChargeCrouchJumpStats {
+    fn add(&self) -> f32 {
+        self.power * 0.66
     }
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 struct JumpTimer {
-    velocity: Vec3,
-    stamina_cost: f32,
+    direction: Vec3,
     timer: Duration,
 }
 
 impl JumpTimer {
-    fn checked_sub_mut(&mut self, delta: Duration) -> bool {
-        if let Some(timer) = self.timer.checked_sub(delta) {
-            self.timer = timer;
+    fn checked_add_mut(&mut self, delta: Duration, max_time: Duration) -> bool {
+        if self.timer + delta <= max_time {
+            self.timer += delta;
             true
         } else {
             false
@@ -172,41 +99,38 @@ fn start_jump(
         Has<Crouching>,
         Has<Sliding>,
         Option<&Charging>,
-        &Stamina,
         &GroundedContact,
     )>,
-    settings: Res<PlayerJumpSettings>,
     charge_settings: Res<PlayerChargeSettings>,
     assets: Res<JumpAssets>,
     mut commands: Commands,
 ) -> Result {
     let player = jump.entity;
-    let (crouching, sliding, charging, stamina, ground) = players.get(player)?;
+    let (crouching, sliding, charging, ground) = players.get(player)?;
     let crouching = crouching || sliding;
     let direction = ground.normal;
 
+    commands.entity(player).insert(JumpTimer {
+        direction,
+        timer: Duration::ZERO,
+    });
     if let Some(charging) = charging {
-        commands.entity(player).remove::<Charging>().insert(
-            if crouching {
-                &settings.charge_crouch_jump
-            } else {
-                &settings.charge_jump
-            }
-            .timer_from_charge(direction, &charge_settings, charging, stamina)?,
-        );
+        commands.entity(player).remove::<Charging>();
+        if crouching {
+            commands.entity(player).insert(ChargeCrouchJumpStats {
+                power: charging.power(&charge_settings),
+            });
+        } else {
+            commands.entity(player).insert(ChargeJumpStats {
+                power: charging.power(&charge_settings),
+            });
+        }
         commands.spawn((
             AudioPlayer(assets.charge_jump_sound.clone()),
             PlaybackSettings::DESPAWN,
         ));
-    } else {
-        commands.entity(player).insert(
-            if crouching {
-                &settings.crouch_jump
-            } else {
-                &settings.jump
-            }
-            .timer(direction),
-        );
+    } else if crouching {
+        commands.entity(player).insert(CrouchJumpStats);
     }
 
     // celeste superdash <3
@@ -219,23 +143,47 @@ fn start_jump(
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
-    commands.entity(remove.entity).remove::<JumpTimer>();
+    commands
+        .entity(remove.entity)
+        .remove::<JumpTimer>()
+        .remove::<ChargeJumpStats>()
+        .remove::<CrouchJumpStats>()
+        .remove::<ChargeCrouchJumpStats>();
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn jump(
-    mut players: Query<(Entity, &mut Velocity, &mut Stamina, &mut JumpTimer)>,
+    mut players: Query<(
+        Entity,
+        &mut Velocity,
+        &mut Stamina,
+        &mut JumpTimer,
+        &Stat<JumpHeight>,
+        &Stat<JumpHoldTime>,
+        &Stat<JumpStaminaCost>,
+    )>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (entity, mut velocity, mut stamina, mut jump_timer) in players.iter_mut() {
-        if jump_timer.checked_sub_mut(time.delta())
-            && stamina.checked_sub_mut(jump_timer.stamina_cost * time.delta_secs())
+    for (
+        entity,
+        mut velocity,
+        mut stamina,
+        mut jump_timer,
+        jump_height,
+        jump_hold_time,
+        jump_stamina_cost,
+    ) in players.iter_mut()
+    {
+        if jump_timer.checked_add_mut(
+            time.delta(),
+            Duration::from_secs_f32(jump_hold_time.total()),
+        ) && stamina.checked_sub_mut(jump_stamina_cost.total() * time.delta_secs())
         {
-            let velocity_in_dir = velocity.linvel.project_onto(jump_timer.velocity);
-            if velocity_in_dir.length_squared() <= jump_timer.velocity.length_squared() {
-                // accelerating up
-                velocity.linvel += jump_timer.velocity - velocity_in_dir;
+            let jump_speed = jump_height.total() / jump_hold_time.total();
+            let speed_in_dir = velocity.linvel.length_projected_onto(jump_timer.direction);
+            if speed_in_dir <= jump_speed {
+                velocity.linvel += (jump_speed - speed_in_dir) * jump_timer.direction;
             }
         } else {
             commands.entity(entity).remove::<Jumping>();

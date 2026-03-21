@@ -66,6 +66,10 @@ impl TransformExt for GlobalTransform {
 }
 
 pub trait Vec3Ext {
+    /// Computes the length of `self` when projected onto `rhs`.
+    ///
+    /// If `self` points in the same direction as `rhs`, the result is positive.
+    /// If `self` points in the opposite direction as `rhs`, the result is negative.
     fn length_projected_onto(&self, rhs: impl Into<Vec3>) -> f32;
 }
 impl Vec3Ext for Vec3 {

@@ -11,12 +11,11 @@ use self::weapons::sword::*;
 use self::weapons::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::player::camera::controls::Yaw;
-use crate::player::camera::controls::{Look, Pitch};
+use crate::player::camera::controls::{Look, Pitch, Yaw};
 use crate::player::camera::fov::PlayerFov;
-use crate::player::camera::third_person::CameraRootOfPlayer;
 use crate::player::camera::third_person::{
-    FirstPersonOfCamera, PlayerCameraPositionType, SwapCameraPosition, ThirdPersonOfCamera,
+    CameraRootOfPlayer, FirstPersonOfCamera, PlayerCameraPositionType, SwapCameraPosition,
+    ThirdPersonOfCamera,
 };
 use crate::player::camera::{CameraOfPlayer, PlayerCamera};
 use crate::player::movement::charge::{ChargeDash, Charging, SpinDash};
@@ -32,6 +31,7 @@ use crate::player::movement::walk::Sprinting;
 use crate::player::movement::{MovementControlSystems, Moving};
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
+use crate::stats::{JumpHeight, JumpHoldTime, JumpStaminaCost, Stat};
 use crate::worldgen::terrain::WorldGen;
 
 pub mod camera;
@@ -206,6 +206,11 @@ fn setup(
                 MenuInputOf(input),
                 PlayerFov(fov),
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("player.glb"))),
+                (
+                    Stat::<JumpHeight>::new(1.0),
+                    Stat::<JumpStaminaCost>::new(0.0),
+                    Stat::<JumpHoldTime>::new(0.3),
+                ),
             ))
             .id();
 

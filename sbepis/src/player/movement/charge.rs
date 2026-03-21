@@ -60,16 +60,25 @@ pub struct Charging {
 }
 
 impl Charging {
+    /// Gets the maximum power multiplier from this charge.
+    pub fn power(&self, settings: &PlayerChargeSettings) -> f32 {
+        let charge_time = self
+            .charge_time
+            .as_secs_f32()
+            .min(settings.max_time.as_secs_f32());
+        (charge_time / settings.max_time.as_secs_f32()).min(1.0)
+    }
+
     /// Gets the maximum power and stamina cost possible from this charge and stamina.
-    /// Returns None if not enough stamina to perform the charge.
+    /// Returns Err if not enough stamina to perform the charge.
     pub fn power_from_stamina(
         &self,
         settings: &PlayerChargeSettings,
         current_stamina: f32,
         stamina_cost: Range<f32>,
-    ) -> Option<f32> {
+    ) -> Result<f32> {
         if current_stamina < stamina_cost.start {
-            return None;
+            return Err(BevyError::from("Not enough stamina to perform maneuver"));
         }
 
         let spendable_stamina = current_stamina - stamina_cost.start;
@@ -91,7 +100,7 @@ impl Charging {
             stamina_cost.end,
             power,
         );
-        Some(power)
+        Ok(power)
     }
 }
 

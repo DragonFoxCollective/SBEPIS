@@ -15,8 +15,8 @@ use crate::gravity::ComputedGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::fov::{InterpolateFov, InterpolateFovCurve, PlayerFov};
 use crate::player::movement::MovementControlSystems;
-use crate::player::movement::jump::PlayerJumpSettings;
 use crate::player::stamina::Stamina;
+use crate::stats::{JumpHeight, JumpHoldTime, Stat};
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -224,14 +224,19 @@ fn ground_parry(
 ))]
 fn walking_too_fast_to_tripping(
     mut players: Query<
-        (Entity, &mut Velocity, &ComputedGravity),
+        (
+            Entity,
+            &mut Velocity,
+            &ComputedGravity,
+            &Stat<JumpHeight>,
+            &Stat<JumpHoldTime>,
+        ),
         (With<Standing>, Without<Dashing>, With<Grounded>),
     >,
     mut commands: Commands,
     trip_settings: Res<PlayerTripSettings>,
-    jump_settings: Res<PlayerJumpSettings>,
 ) {
-    for (player, mut velocity, gravity) in players.iter_mut() {
+    for (player, mut velocity, gravity, jump_height, jump_hold_time) in players.iter_mut() {
         let hori_velocity = velocity.linvel.reject_from(gravity.up);
         if hori_velocity.length() < trip_settings.trip_speed_threshold {
             continue;
@@ -240,7 +245,7 @@ fn walking_too_fast_to_tripping(
         debug!("Too fast! :(");
 
         velocity.linvel = gravity.up
-            * (jump_settings.jump.speed
+            * (jump_height.total() / jump_hold_time.total()
                 + hori_velocity.length()
                     * trip_settings.hori_to_vert_momentum_redirection_percentage)
             + hori_velocity * (1.0 - trip_settings.hori_to_vert_momentum_redirection_percentage);
