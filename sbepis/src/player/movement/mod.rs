@@ -83,10 +83,9 @@ fn rotate_toward_moving(
         let camera_transform = cameras.get(**camera)?;
         let input = Some(moving).as_camera_input(camera_transform, global_transform);
         let angle = input.angle_to(Vec2::NEG_Y) * speed.0;
-        if angle.is_nan() {
-            panic!("it was rotate_twoard_moving {} {}", input, angle);
+        if !angle.is_nan() {
+            transform.rotate_local_y(angle);
         }
-        transform.rotate_local_y(angle);
     }
     Ok(())
 }
