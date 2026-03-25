@@ -12,7 +12,7 @@ use crate::player::movement::charge::Charging;
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::Dashing;
 use crate::player::movement::grounded::Grounded;
-use crate::player::movement::jump::Jumping;
+use crate::player::movement::jump::{JumpCombo, Jumping};
 use crate::player::movement::roll::Rolling;
 use crate::player::movement::slide::Sliding;
 use crate::player::movement::stand::Standing;
@@ -93,6 +93,7 @@ fn check_states(
             Has<Standing>,
             Has<Moving>,
             Has<Jumping>,
+            Has<JumpCombo>,
             Has<Sprinting>,
             Has<Crouching>,
             Has<Dashing>,
@@ -113,7 +114,7 @@ fn check_states(
     for tup in players.iter() {
         let arr = [
             tup.0, tup.1, tup.2, tup.3, tup.4, tup.5, tup.6, tup.7, tup.8, tup.9, tup.10, tup.11,
-            tup.12, tup.13,
+            tup.12, tup.13, tup.14,
         ];
         let has = arr
             .into_iter()
@@ -121,6 +122,7 @@ fn check_states(
                 ShortName::of::<Standing>(),
                 ShortName::of::<Moving>(),
                 ShortName::of::<Jumping>(),
+                ShortName::of::<JumpCombo>(),
                 ShortName::of::<Sprinting>(),
                 ShortName::of::<Crouching>(),
                 ShortName::of::<Dashing>(),

@@ -9,12 +9,13 @@ use crate::player::PlayerControllerPlugin;
 use crate::player::movement::charge::{Charging, PlayerChargeSettings};
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::Dashing;
-use crate::player::movement::grounded::GroundedContact;
+use crate::player::movement::grounded::{Grounded, GroundedContact};
 use crate::player::movement::slide::Sliding;
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
 use crate::stats::{
-    JumpHeight, JumpHoldTime, JumpStaminaCost, Stat, StatModifier, StatModifierHook,
+    JumpComboMaxTime, JumpHeight, JumpHoldTime, JumpStaminaCost, Stat, StatModifier,
+    StatModifierHook,
 };
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
@@ -67,14 +68,17 @@ impl StatModifier<JumpStaminaCost> for ChargeCrouchJumpStats {
 struct JumpTimer {
     direction: Vec3,
     timer: Duration,
+    speed: f32,
+    stamina_drain: f32,
 }
 
 impl JumpTimer {
-    fn checked_add_mut(&mut self, delta: Duration, max_time: Duration) -> bool {
-        if self.timer + delta <= max_time {
-            self.timer += delta;
+    fn checked_sub_mut(&mut self, delta: Duration) -> bool {
+        if let Some(new) = self.timer.checked_sub(delta) {
+            self.timer = new;
             true
         } else {
+            self.timer = Duration::ZERO;
             false
         }
     }
@@ -95,25 +99,49 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn start_jump(
     jump: On<Add, Jumping>,
-    players: Query<(
+    mut players: Query<(
         Has<Crouching>,
         Has<Sliding>,
         Option<&Charging>,
         &GroundedContact,
+        Option<&mut JumpCombo>,
+        &Stat<JumpHeight>,
+        &Stat<JumpHoldTime>,
+        &Stat<JumpStaminaCost>,
     )>,
     charge_settings: Res<PlayerChargeSettings>,
     assets: Res<JumpAssets>,
     mut commands: Commands,
 ) -> Result {
     let player = jump.entity;
-    let (crouching, sliding, charging, ground) = players.get(player)?;
+    let (
+        crouching,
+        sliding,
+        charging,
+        ground,
+        combo,
+        jump_height,
+        jump_hold_time,
+        jump_stamina_cost,
+    ) = players.get_mut(player)?;
     let crouching = crouching || sliding;
     let direction = ground.normal;
 
-    commands.entity(player).insert(JumpTimer {
-        direction,
-        timer: Duration::ZERO,
-    });
+    if let Some(mut combo) = combo {
+        combo.0 += 1;
+    } else {
+        commands.entity(player).insert(JumpCombo::default());
+    }
+
+    commands
+        .entity(player)
+        .remove::<JustLanded>()
+        .insert(JumpTimer {
+            direction,
+            timer: Duration::from_secs_f32(jump_hold_time.total()),
+            speed: jump_height.total() / jump_hold_time.total(),
+            stamina_drain: jump_stamina_cost.total() / jump_hold_time.total(),
+        });
     if let Some(charging) = charging {
         commands.entity(player).remove::<Charging>();
         if crouching {
@@ -152,41 +180,108 @@ fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
-fn jump(
-    mut players: Query<(
-        Entity,
-        &mut Velocity,
-        &mut Stamina,
-        &mut JumpTimer,
-        &Stat<JumpHeight>,
-        &Stat<JumpHoldTime>,
-        &Stat<JumpStaminaCost>,
-    )>,
+fn update_jump(
+    mut players: Query<(Entity, &mut Velocity, &mut Stamina, &mut JumpTimer)>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (
-        entity,
-        mut velocity,
-        mut stamina,
-        mut jump_timer,
-        jump_height,
-        jump_hold_time,
-        jump_stamina_cost,
-    ) in players.iter_mut()
-    {
-        if jump_timer.checked_add_mut(
-            time.delta(),
-            Duration::from_secs_f32(jump_hold_time.total()),
-        ) && stamina.checked_sub_mut(jump_stamina_cost.total() * time.delta_secs())
+    for (entity, mut velocity, mut stamina, mut jump_timer) in players.iter_mut() {
+        if jump_timer.checked_sub_mut(time.delta())
+            && stamina.checked_sub_mut(jump_timer.stamina_drain * time.delta_secs())
         {
-            let jump_speed = jump_height.total() / jump_hold_time.total();
             let speed_in_dir = velocity.linvel.length_projected_onto(jump_timer.direction);
-            if speed_in_dir <= jump_speed {
-                velocity.linvel += (jump_speed - speed_in_dir) * jump_timer.direction;
+            if speed_in_dir <= jump_timer.speed {
+                velocity.linvel += (jump_timer.speed - speed_in_dir) * jump_timer.direction;
             }
         } else {
             commands.entity(entity).remove::<Jumping>();
+        }
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+pub struct JumpCombo(u32);
+
+impl Default for JumpCombo {
+    fn default() -> Self {
+        Self(1)
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
+pub struct JustLanded(Duration);
+
+#[auto_observer(plugin = PlayerControllerPlugin)]
+fn add_landing_timer(
+    add: On<Add, Grounded>,
+    filter: Query<(), With<Stat<JumpComboMaxTime>>>,
+    mut commands: Commands,
+) {
+    if filter.get(add.entity).is_err() {
+        return;
+    }
+    commands.entity(add.entity).insert(JustLanded::default());
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
+fn update_landing_timer(
+    mut players: Query<(Entity, &mut JustLanded, &Stat<JumpComboMaxTime>)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (player, mut just_landed, max_time) in players.iter_mut() {
+        just_landed.0 += time.delta();
+        if just_landed.0.as_secs_f32() > max_time.total() {
+            commands
+                .entity(player)
+                .remove::<JustLanded>()
+                .remove::<JumpCombo>();
+        }
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+struct JumpCombo1Stats;
+impl StatModifier<JumpHeight> for JumpCombo1Stats {
+    fn add(&self) -> f32 {
+        0.5
+    }
+}
+
+#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+struct JumpCombo2Stats;
+impl StatModifier<JumpHeight> for JumpCombo2Stats {
+    fn add(&self) -> f32 {
+        1.0
+    }
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
+    after = update_landing_timer
+))]
+fn update_combo_stats(
+    players: Query<&JumpCombo>,
+    changes: Query<Entity, Changed<JumpCombo>>,
+    mut removals: RemovedComponents<JumpCombo>,
+    mut commands: Commands,
+) {
+    for player in changes.iter().chain(removals.read()) {
+        commands
+            .entity(player)
+            .remove::<JumpCombo1Stats>()
+            .remove::<JumpCombo2Stats>();
+
+        if let Ok(combo) = players.get(player) {
+            match combo.0 {
+                1 => {
+                    commands.entity(player).insert(JumpCombo1Stats);
+                }
+                _ => {
+                    commands.entity(player).insert(JumpCombo2Stats);
+                }
+            }
         }
     }
 }

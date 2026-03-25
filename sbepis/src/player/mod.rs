@@ -31,7 +31,9 @@ use crate::player::movement::walk::Sprinting;
 use crate::player::movement::{MovementControlSystems, Moving};
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
-use crate::stats::{JumpHeight, JumpHoldTime, JumpStaminaCost, Stat};
+use crate::stats::{
+    JumpComboMaxLevel, JumpComboMaxTime, JumpHeight, JumpHoldTime, JumpStaminaCost, Stat,
+};
 use crate::worldgen::terrain::WorldGen;
 
 pub mod camera;
@@ -210,6 +212,8 @@ fn setup(
                     Stat::<JumpHeight>::new(1.0),
                     Stat::<JumpStaminaCost>::new(0.0),
                     Stat::<JumpHoldTime>::new(0.3),
+                    Stat::<JumpComboMaxTime>::new(0.3),
+                    Stat::<JumpComboMaxLevel>::new(3),
                 ),
             ))
             .id();
