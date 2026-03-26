@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
+use sbepistats::{Stat, StatModifierAdd, StatModifierAddHook, StatType, StatTypeHook};
 
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
@@ -13,52 +14,48 @@ use crate::player::movement::grounded::{Grounded, GroundedContact};
 use crate::player::movement::slide::Sliding;
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
-use crate::stats::{
-    JumpComboMaxTime, JumpHeight, JumpHoldTime, JumpStaminaCost, Stat, StatModifier,
-    StatModifierHook,
-};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
 struct CrouchJumpStats;
-impl StatModifier<JumpHeight> for CrouchJumpStats {
+impl StatModifierAdd<JumpHeight> for CrouchJumpStats {
     fn add(&self) -> f32 {
         0.5
     }
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpStaminaCost>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpStaminaCost>::default())]
 struct ChargeJumpStats {
     power: f32,
 }
-impl StatModifier<JumpHeight> for ChargeJumpStats {
+impl StatModifierAdd<JumpHeight> for ChargeJumpStats {
     fn add(&self) -> f32 {
         self.power * 1.0
     }
 }
-impl StatModifier<JumpStaminaCost> for ChargeJumpStats {
+impl StatModifierAdd<JumpStaminaCost> for ChargeJumpStats {
     fn add(&self) -> f32 {
         self.power * 0.33
     }
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpStaminaCost>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpStaminaCost>::default())]
 struct ChargeCrouchJumpStats {
     power: f32,
 }
-impl StatModifier<JumpHeight> for ChargeCrouchJumpStats {
+impl StatModifierAdd<JumpHeight> for ChargeCrouchJumpStats {
     fn add(&self) -> f32 {
         self.power * 1.5
     }
 }
-impl StatModifier<JumpStaminaCost> for ChargeCrouchJumpStats {
+impl StatModifierAdd<JumpStaminaCost> for ChargeCrouchJumpStats {
     fn add(&self) -> f32 {
         self.power * 0.66
     }
@@ -199,6 +196,29 @@ fn update_jump(
     }
 }
 
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct JumpHeight;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct JumpStaminaCost;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct JumpHoldTime;
+
+/// The max time a grounded player has to jump to activate the next combo.
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct JumpComboMaxTime;
+
+/// The max jump combo level.
+#[derive(StatType)]
+#[stat_type(u32)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct JumpComboMaxLevel;
+
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct JumpCombo(u32);
 
@@ -241,18 +261,18 @@ fn update_landing_timer(
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
 struct JumpCombo1Stats;
-impl StatModifier<JumpHeight> for JumpCombo1Stats {
+impl StatModifierAdd<JumpHeight> for JumpCombo1Stats {
     fn add(&self) -> f32 {
         0.5
     }
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
 struct JumpCombo2Stats;
-impl StatModifier<JumpHeight> for JumpCombo2Stats {
+impl StatModifierAdd<JumpHeight> for JumpCombo2Stats {
     fn add(&self) -> f32 {
         1.0
     }

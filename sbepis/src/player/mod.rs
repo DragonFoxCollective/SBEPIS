@@ -4,6 +4,7 @@ use bevy_cube_marcher::ChunkLoader;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_pretty_nice_menus::{MenuInputOf, MenuStack, MenuWithInput, MenuWithoutMouse};
 use bevy_rapier3d::prelude::*;
+use sbepistats::Stat;
 
 use self::weapons::hammer::*;
 use self::weapons::rifle::*;
@@ -22,7 +23,9 @@ use crate::player::movement::charge::{ChargeDash, Charging, SpinDash};
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::{Dash, HasEnoughStaminaToDash};
 use crate::player::movement::grounded::Grounded;
-use crate::player::movement::jump::Jumping;
+use crate::player::movement::jump::{
+    JumpComboMaxLevel, JumpComboMaxTime, JumpHeight, JumpHoldTime, JumpStaminaCost, Jumping,
+};
 use crate::player::movement::roll::Rolling;
 use crate::player::movement::slide::Sliding;
 use crate::player::movement::stand::Standing;
@@ -31,9 +34,6 @@ use crate::player::movement::walk::Sprinting;
 use crate::player::movement::{MovementControlSystems, Moving};
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
-use crate::stats::{
-    JumpComboMaxLevel, JumpComboMaxTime, JumpHeight, JumpHoldTime, JumpStaminaCost, Stat,
-};
 use crate::worldgen::terrain::WorldGen;
 
 pub mod camera;

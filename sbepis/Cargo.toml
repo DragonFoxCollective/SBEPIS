@@ -30,6 +30,7 @@ num-traits = "0.2.19"
 paste = "1.0.15"
 rand = "0.9"
 return-ok = "0.1"
+sbepistats = { version = "0.1.0", features = ["bevy_auto_plugin"] }
 serde = "1.0.215"
 soundyrust = { path = "../soundyrust" }
 typetag = "0.2.19"

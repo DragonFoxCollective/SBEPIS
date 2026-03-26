@@ -5798,12 +5798,37 @@ dependencies = [
  "paste",
  "rand",
  "return-ok",
+ "sbepistats",
  "serde",
  "soundyrust",
  "typetag",
  "uuid",
  "winit",
  "winres",
+]
+
+[[package]]
+name = "sbepistats"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1d53346380d6e602c79ca48bb6f5ebfd8738d17b231fa6fb15d1ffb69da6898"
+dependencies = [
+ "bevy",
+ "bevy_auto_plugin",
+ "num-traits",
+ "paste",
+ "sbepistats_derive",
+]
+
+[[package]]
+name = "sbepistats_derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c26ccbd530fe622c5ed28e7e26e84fa4863f9f04fe644d40a8226e3e6691b98"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

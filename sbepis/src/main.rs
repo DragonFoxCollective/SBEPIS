@@ -27,7 +27,6 @@ mod player;
 mod post_processing;
 mod questing;
 mod skybox;
-mod stats;
 #[cfg(test)]
 pub mod test;
 pub mod util;
@@ -157,6 +156,8 @@ impl Plugin for SbepisAppPlugin {
             bevy_pretty_nice_input::PrettyNiceInputPlugin,
             bevy_pretty_nice_menus::PrettyNiceMenusPlugin,
         ));
+
+        app.add_plugins(sbepistats::StatsPlugin);
     }
 }
 

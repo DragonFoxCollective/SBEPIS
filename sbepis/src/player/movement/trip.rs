@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::Velocity;
+use sbepistats::Stat;
 
 use super::dash::Dashing;
 use super::grounded::Grounded;
@@ -15,8 +16,8 @@ use crate::gravity::ComputedGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::fov::{InterpolateFov, InterpolateFovCurve, PlayerFov};
 use crate::player::movement::MovementControlSystems;
+use crate::player::movement::jump::{JumpHeight, JumpHoldTime};
 use crate::player::stamina::Stamina;
-use crate::stats::{JumpHeight, JumpHoldTime, Stat};
 
 #[derive(Action)]
 #[action(invalidate = false)]
