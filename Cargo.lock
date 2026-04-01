@@ -1557,9 +1557,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_pretty_nice_input"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bcb12a16e88817c053b7a7d0e99b08dd9211c98ef76fcc1c419d4e080da53cc"
+checksum = "b3a489458630d1bed674f83030e069f2c998023d3d36e80f44371e1b309b217d"
 dependencies = [
  "bevy",
  "bevy_event_chain",
@@ -2745,6 +2745,17 @@ name = "data-encoding"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7a1e2f27636f116493b8b860f5546edb47c8d8f8ea73e1d2a20be88e28d1fea"
+
+[[package]]
+name = "derive-where"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d08b3a0bcc0d079199cd476b2cae8435016ec11d1c0986c6901c5ac223041534"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "derive_more"
@@ -5809,12 +5820,13 @@ dependencies = [
 
 [[package]]
 name = "sbepistats"
-version = "0.1.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1d53346380d6e602c79ca48bb6f5ebfd8738d17b231fa6fb15d1ffb69da6898"
+checksum = "c7946a9f825dbd8ab8a03e202227d13f8a0fcb8124bcecba6594f2af81671b35"
 dependencies = [
  "bevy",
  "bevy_auto_plugin",
+ "derive-where",
  "num-traits",
  "paste",
  "sbepistats_derive",

@@ -19,7 +19,10 @@ use crate::player::camera::third_person::{
     ThirdPersonOfCamera,
 };
 use crate::player::camera::{CameraOfPlayer, PlayerCamera};
-use crate::player::movement::charge::{ChargeDash, Charging, SpinDash};
+use crate::player::movement::charge::{
+    ChargeDash, ChargeMaxPower, ChargeMaxTime, ChargedCrouchJumpStaminaCost, ChargedJumpHeight,
+    ChargedJumpStaminaCost, Charging, SpinDash, SpindashSpeed, SpindashStaminaCost,
+};
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::{Dash, HasEnoughStaminaToDash};
 use crate::player::movement::grounded::Grounded;
@@ -209,11 +212,22 @@ fn setup(
                 PlayerFov(fov),
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("player.glb"))),
                 (
-                    Stat::<JumpHeight>::new(1.0),
-                    Stat::<JumpStaminaCost>::new(0.0),
-                    Stat::<JumpHoldTime>::new(0.3),
-                    Stat::<JumpComboMaxTime>::new(0.3),
-                    Stat::<JumpComboMaxLevel>::new(3),
+                    (
+                        Stat::<JumpHeight>::new(1.0),
+                        Stat::<JumpStaminaCost>::new(0.0),
+                        Stat::<JumpHoldTime>::new(0.3),
+                        Stat::<JumpComboMaxTime>::new(0.3),
+                        Stat::<JumpComboMaxLevel>::new(3),
+                    ),
+                    (
+                        Stat::<ChargedJumpHeight>::new(1.0),
+                        Stat::<ChargedJumpStaminaCost>::new(0.33),
+                        Stat::<ChargedCrouchJumpStaminaCost>::new(0.66),
+                        Stat::<ChargeMaxPower>::new(1.0),
+                        Stat::<ChargeMaxTime>::new(1.0),
+                        Stat::<SpindashStaminaCost>::new(0.2),
+                        Stat::<SpindashSpeed>::new(10.0),
+                    ),
                 ),
             ))
             .id();

@@ -3,11 +3,13 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
-use sbepistats::{Stat, StatModifierAdd, StatModifierAddHook, StatType, StatTypeHook};
+use sbepistats::{
+    ConfigureStatTypeAddHook, Stat, StatModifierAdd, StatModifierAddHook, StatType, StatTypeHook,
+};
 
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
-use crate::player::movement::charge::{Charging, PlayerChargeSettings};
+use crate::player::movement::charge::Charging;
 use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::Dashing;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
@@ -24,40 +26,6 @@ struct CrouchJumpStats;
 impl StatModifierAdd<JumpHeight> for CrouchJumpStats {
     fn add(&self) -> f32 {
         0.5
-    }
-}
-
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpStaminaCost>::default())]
-struct ChargeJumpStats {
-    power: f32,
-}
-impl StatModifierAdd<JumpHeight> for ChargeJumpStats {
-    fn add(&self) -> f32 {
-        self.power * 1.0
-    }
-}
-impl StatModifierAdd<JumpStaminaCost> for ChargeJumpStats {
-    fn add(&self) -> f32 {
-        self.power * 0.33
-    }
-}
-
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpStaminaCost>::default())]
-struct ChargeCrouchJumpStats {
-    power: f32,
-}
-impl StatModifierAdd<JumpHeight> for ChargeCrouchJumpStats {
-    fn add(&self) -> f32 {
-        self.power * 1.5
-    }
-}
-impl StatModifierAdd<JumpStaminaCost> for ChargeCrouchJumpStats {
-    fn add(&self) -> f32 {
-        self.power * 0.66
     }
 }
 
@@ -99,14 +67,13 @@ fn start_jump(
     mut players: Query<(
         Has<Crouching>,
         Has<Sliding>,
-        Option<&Charging>,
+        Has<Charging>,
         &GroundedContact,
         Option<&mut JumpCombo>,
         &Stat<JumpHeight>,
         &Stat<JumpHoldTime>,
         &Stat<JumpStaminaCost>,
     )>,
-    charge_settings: Res<PlayerChargeSettings>,
     assets: Res<JumpAssets>,
     mut commands: Commands,
 ) -> Result {
@@ -139,17 +106,8 @@ fn start_jump(
             speed: jump_height.total() / jump_hold_time.total(),
             stamina_drain: jump_stamina_cost.total() / jump_hold_time.total(),
         });
-    if let Some(charging) = charging {
+    if charging {
         commands.entity(player).remove::<Charging>();
-        if crouching {
-            commands.entity(player).insert(ChargeCrouchJumpStats {
-                power: charging.power(&charge_settings),
-            });
-        } else {
-            commands.entity(player).insert(ChargeJumpStats {
-                power: charging.power(&charge_settings),
-            });
-        }
         commands.spawn((
             AudioPlayer(assets.charge_jump_sound.clone()),
             PlaybackSettings::DESPAWN,
@@ -171,9 +129,7 @@ fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
     commands
         .entity(remove.entity)
         .remove::<JumpTimer>()
-        .remove::<ChargeJumpStats>()
-        .remove::<CrouchJumpStats>()
-        .remove::<ChargeCrouchJumpStats>();
+        .remove::<CrouchJumpStats>();
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
@@ -202,6 +158,7 @@ pub struct JumpHeight;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = ConfigureStatTypeAddHook)]
 pub struct JumpStaminaCost;
 
 #[derive(StatType)]

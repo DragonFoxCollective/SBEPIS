@@ -6,12 +6,14 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
+use sbepistats::{DataTypeOp, OrderStatBeforeHook, Stat, StatSystems, StatType, StatTypeHook};
 
 use super::trip::{PlayerTripSettings, Tripping};
 use crate::gravity::ComputedGravity;
 use crate::player::PlayerControllerPlugin;
+use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::Dash;
-use crate::player::movement::jump::JumpAssets;
+use crate::player::movement::jump::{JumpAssets, JumpHeight, JumpStaminaCost};
 use crate::player::movement::trip::Trip;
 use crate::player::movement::{Moving, MovingOptExt as _};
 use crate::player::stamina::Stamina;
@@ -24,23 +26,6 @@ pub struct ChargeDash;
 #[derive(Action)]
 #[action(invalidate = false)]
 pub struct SpinDash;
-
-#[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register, init)]
-pub struct PlayerChargeSettings {
-    pub max_time: Duration,
-    pub spindash_speed: f32,
-    pub spindash_stamina: f32,
-}
-
-impl Default for PlayerChargeSettings {
-    fn default() -> Self {
-        Self {
-            max_time: Duration::from_secs_f32(1.0),
-            spindash_speed: 10.0,
-            spindash_stamina: 0.0,
-        }
-    }
-}
 
 #[auto_resource(plugin = PlayerControllerPlugin, derive, reflect, register)]
 pub struct ChargeAssets {
@@ -61,19 +46,16 @@ pub struct Charging {
 
 impl Charging {
     /// Gets the maximum power multiplier from this charge.
-    pub fn power(&self, settings: &PlayerChargeSettings) -> f32 {
-        let charge_time = self
-            .charge_time
-            .as_secs_f32()
-            .min(settings.max_time.as_secs_f32());
-        (charge_time / settings.max_time.as_secs_f32()).min(1.0)
+    pub fn power(&self, max_power: f32, max_time: f32) -> f32 {
+        (self.charge_time.as_secs_f32() / max_time).min(max_power)
     }
 
     /// Gets the maximum power and stamina cost possible from this charge and stamina.
     /// Returns Err if not enough stamina to perform the charge.
     pub fn power_from_stamina(
         &self,
-        settings: &PlayerChargeSettings,
+        max_power: f32,
+        max_time: f32,
         current_stamina: f32,
         stamina_cost: Range<f32>,
     ) -> Result<f32> {
@@ -82,25 +64,69 @@ impl Charging {
         }
 
         let spendable_stamina = current_stamina - stamina_cost.start;
-        let stamina_per_charge_second =
-            (stamina_cost.end - stamina_cost.start) / settings.max_time.as_secs_f32();
+        let stamina_per_charge_second = (stamina_cost.end - stamina_cost.start) / max_time;
         let available_charge_time = spendable_stamina / stamina_per_charge_second;
-        let charge_time = self
-            .charge_time
-            .as_secs_f32()
-            .min(available_charge_time)
-            .min(settings.max_time.as_secs_f32());
-        let power = (charge_time / settings.max_time.as_secs_f32()).min(1.0);
+        let charge_time = self.charge_time.as_secs_f32().min(available_charge_time);
+        let power = (charge_time / max_time).min(max_power);
 
-        debug!(
-            "Given max stamina {}, max power {}, min/max_stamina_cost {} {}, resulted in power {}",
-            current_stamina,
-            (self.charge_time.as_secs_f32() / settings.max_time.as_secs_f32()).min(1.0),
-            stamina_cost.start,
-            stamina_cost.end,
-            power,
-        );
         Ok(power)
+    }
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = PreUpdate, config(
+    in_set = StatSystems::<JumpHeight>::Op(DataTypeOp::Add),
+))]
+fn charging_jump_height(
+    mut players: Query<(
+        &mut Stat<JumpHeight>,
+        &Charging,
+        &Stat<ChargedJumpHeight>,
+        &Stat<ChargeMaxPower>,
+        &Stat<ChargeMaxTime>,
+    )>,
+) {
+    for (mut jump_height, charging, charged_jump_height, charge_max_power, charge_max_time) in
+        players.iter_mut()
+    {
+        jump_height.add_modifier(
+            charging.power(charge_max_power.total(), charge_max_time.total())
+                * charged_jump_height.total(),
+        );
+    }
+}
+
+#[auto_system(plugin = PlayerControllerPlugin, schedule = PreUpdate, config(
+    in_set = StatSystems::<JumpStaminaCost>::Op(DataTypeOp::Add),
+))]
+fn charging_jump_stamina_cost(
+    mut players: Query<(
+        &mut Stat<JumpStaminaCost>,
+        &Charging,
+        Has<Crouching>,
+        &Stat<ChargedJumpStaminaCost>,
+        &Stat<ChargedCrouchJumpStaminaCost>,
+        &Stat<ChargeMaxPower>,
+        &Stat<ChargeMaxTime>,
+    )>,
+) {
+    for (
+        mut jump_stamina_cost,
+        charging,
+        crouching,
+        charged_jump_stamina_cost,
+        charged_crouch_jump_stamina_cost,
+        charge_max_power,
+        charge_max_time,
+    ) in players.iter_mut()
+    {
+        jump_stamina_cost.add_modifier(
+            charging.power(charge_max_power.total(), charge_max_time.total())
+                * if crouching {
+                    charged_crouch_jump_stamina_cost.total()
+                } else {
+                    charged_jump_stamina_cost.total()
+                },
+        );
     }
 }
 
@@ -176,22 +202,36 @@ fn spindash(
         &Moving,
         &Stamina,
         &GlobalTransform,
+        &Stat<ChargeMaxPower>,
+        &Stat<ChargeMaxTime>,
+        &Stat<SpindashStaminaCost>,
+        &Stat<SpindashSpeed>,
     )>,
     mut commands: Commands,
-    charge_settings: Res<PlayerChargeSettings>,
     assets: Res<JumpAssets>,
 ) -> Result {
-    let (mut velocity, charging, moving, stamina, transform) = players.get_mut(sprint.input)?;
+    let (
+        mut velocity,
+        charging,
+        moving,
+        stamina,
+        transform,
+        charge_max_power,
+        charge_max_time,
+        spindash_stamina_cost,
+        spindash_speed,
+    ) = players.get_mut(sprint.input)?;
     let input = Some(moving).as_input();
     let wish_dir = transform.transform_vector3(Vec3::new(input.x, 0.0, input.y));
     velocity.linvel = charging
         .power_from_stamina(
-            &charge_settings,
+            charge_max_power.total(),
+            charge_max_time.total(),
             stamina.current,
-            0.0..charge_settings.spindash_stamina,
+            0.0..spindash_stamina_cost.total(),
         )
         .unwrap_or_default()
-        * charge_settings.spindash_speed
+        * spindash_speed.total()
         * wish_dir;
     commands.entity(sprint.input).remove::<Charging>();
     commands.spawn((
@@ -200,3 +240,38 @@ fn spindash(
     ));
     Ok(())
 }
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpHeight>::default())]
+pub struct ChargedJumpHeight;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpStaminaCost>::default())]
+pub struct ChargedJumpStaminaCost;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpStaminaCost>::default())]
+pub struct ChargedCrouchJumpStaminaCost;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpStaminaCost>::default())]
+pub struct ChargeMaxPower;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = OrderStatBeforeHook::<JumpStaminaCost>::default())]
+pub struct ChargeMaxTime;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct SpindashStaminaCost;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct SpindashSpeed;

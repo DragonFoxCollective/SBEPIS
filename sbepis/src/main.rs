@@ -157,7 +157,10 @@ impl Plugin for SbepisAppPlugin {
             bevy_pretty_nice_menus::PrettyNiceMenusPlugin,
         ));
 
-        app.add_plugins(sbepistats::StatsPlugin);
+        app.configure_sets(
+            PreUpdate,
+            sbepistats::StatsSystems.before(bevy_pretty_nice_input::PrettyNiceInputSystems),
+        );
     }
 }
 

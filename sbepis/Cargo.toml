@@ -17,7 +17,7 @@ bevy-inspector-egui = { version = "0.36", default-features = false, features = [
   "egui_clipboard",
 ], optional = true }
 bevy_panorbit_camera = { version = "0.34", optional = true }
-bevy_pretty_nice_input = { version = "0.6" }
+bevy_pretty_nice_input = { version = "0.6.1" }
 bevy_pretty_nice_menus = { version = "0.5", features = ["pretty_nice_input"] }
 bevy_rapier3d = { git = "https://github.com/Buncys/bevy_rapier.git", branch = "bevy-0.18.0" }
 bevy_skein = "0.5"
@@ -30,7 +30,7 @@ num-traits = "0.2.19"
 paste = "1.0.15"
 rand = "0.9"
 return-ok = "0.1"
-sbepistats = { version = "0.1.0", features = ["bevy_auto_plugin"] }
+sbepistats = { version = "0.2.1", features = ["bevy_auto_plugin"] }
 serde = "1.0.215"
 soundyrust = { path = "../soundyrust" }
 typetag = "0.2.19"

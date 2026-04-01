@@ -7,13 +7,14 @@ use bevy_pretty_nice_input::bevy_event_chain::*;
 use bevy_pretty_nice_input::bundles::observe;
 use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
+use sbepistats::Stat;
 
 use crate::entity::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::PlayerOfCamera;
 use crate::player::camera::fov::{InterpolateFov, PlayerFov};
-use crate::player::movement::charge::{Charging, PlayerChargeSettings};
+use crate::player::movement::charge::{ChargeMaxPower, ChargeMaxTime, Charging};
 use crate::player::movement::walk::PlayerWalkSettings;
 use crate::player::movement::{MovementControlSystems, Moving, MovingOptExt as _};
 use crate::player::stamina::Stamina;
@@ -84,18 +85,21 @@ fn walking_to_dashing(
         &mut Stamina,
         Option<&Charging>,
         &PlayerFov,
+        &Stat<ChargeMaxPower>,
+        &Stat<ChargeMaxTime>,
     )>,
     cameras: Query<&GlobalTransform>,
-    charge_settings: Res<PlayerChargeSettings>,
     settings: Res<PlayerDashSettings>,
     mut commands: Commands,
     assets: Res<DashAssets>,
 ) -> Result {
-    let (camera, velocity, moving, mut stamina, charging, fov) = players.get_mut(dash.input)?;
+    let (camera, velocity, moving, mut stamina, charging, fov, charge_max_power, charge_max_time) =
+        players.get_mut(dash.input)?;
 
     let (speed_addon, dash_time, stamina_cost) = if let Some(charging) = charging {
         let power = charging.power_from_stamina(
-            &charge_settings,
+            charge_max_power.total(),
+            charge_max_time.total(),
             stamina.current,
             settings.charge_stamina_cost.clone(),
         )?;

@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
+use sbepistats::{StatModifierAdd, StatModifierAddHook};
 
 use super::slide::Sliding;
 use crate::player::camera::PlayerOfCamera;
 use crate::player::camera::third_person::CameraOfFirstPerson;
 use crate::player::movement::MovementControlSystems;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
+use crate::player::movement::jump::JumpHeight;
 use crate::player::movement::slide::PlayerSlideSettings;
 use crate::player::movement::stand::Standing;
 use crate::player::{PlayerControllerPlugin, PlayerOfCollider};
@@ -55,7 +57,14 @@ fn to_crouching_assets(
 }
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
 pub struct Crouching;
+
+impl StatModifierAdd<JumpHeight> for Crouching {
+    fn add(&self) -> f32 {
+        0.5
+    }
+}
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
     in_set = MovementControlSystems::UpdateState,
