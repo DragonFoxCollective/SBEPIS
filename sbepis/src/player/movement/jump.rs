@@ -10,24 +10,13 @@ use sbepistats::{
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::movement::charge::Charging;
-use crate::player::movement::crouch::Crouching;
 use crate::player::movement::dash::Dashing;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
-use crate::player::movement::slide::Sliding;
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
-
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
-struct CrouchJumpStats;
-impl StatModifierAdd<JumpHeight> for CrouchJumpStats {
-    fn add(&self) -> f32 {
-        0.5
-    }
-}
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 struct JumpTimer {
@@ -65,8 +54,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn start_jump(
     jump: On<Add, Jumping>,
     mut players: Query<(
-        Has<Crouching>,
-        Has<Sliding>,
         Has<Charging>,
         &GroundedContact,
         Option<&mut JumpCombo>,
@@ -78,17 +65,8 @@ fn start_jump(
     mut commands: Commands,
 ) -> Result {
     let player = jump.entity;
-    let (
-        crouching,
-        sliding,
-        charging,
-        ground,
-        combo,
-        jump_height,
-        jump_hold_time,
-        jump_stamina_cost,
-    ) = players.get_mut(player)?;
-    let crouching = crouching || sliding;
+    let (charging, ground, combo, jump_height, jump_hold_time, jump_stamina_cost) =
+        players.get_mut(player)?;
     let direction = ground.normal;
 
     if let Some(mut combo) = combo {
@@ -112,8 +90,6 @@ fn start_jump(
             AudioPlayer(assets.charge_jump_sound.clone()),
             PlaybackSettings::DESPAWN,
         ));
-    } else if crouching {
-        commands.entity(player).insert(CrouchJumpStats);
     }
 
     // celeste superdash <3
@@ -126,10 +102,7 @@ fn start_jump(
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
-    commands
-        .entity(remove.entity)
-        .remove::<JumpTimer>()
-        .remove::<CrouchJumpStats>();
+    commands.entity(remove.entity).remove::<JumpTimer>();
 }
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
@@ -177,11 +150,18 @@ pub struct JumpComboMaxTime;
 pub struct JumpComboMaxLevel;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
 pub struct JumpCombo(u32);
 
 impl Default for JumpCombo {
     fn default() -> Self {
         Self(1)
+    }
+}
+
+impl StatModifierAdd<JumpHeight> for JumpCombo {
+    fn add(&self) -> f32 {
+        self.0.min(3) as f32 * 0.5
     }
 }
 
@@ -213,52 +193,6 @@ fn update_landing_timer(
                 .entity(player)
                 .remove::<JustLanded>()
                 .remove::<JumpCombo>();
-        }
-    }
-}
-
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
-struct JumpCombo1Stats;
-impl StatModifierAdd<JumpHeight> for JumpCombo1Stats {
-    fn add(&self) -> f32 {
-        0.5
-    }
-}
-
-#[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
-#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
-struct JumpCombo2Stats;
-impl StatModifierAdd<JumpHeight> for JumpCombo2Stats {
-    fn add(&self) -> f32 {
-        1.0
-    }
-}
-
-#[auto_system(plugin = PlayerControllerPlugin, schedule = Update, config(
-    after = update_landing_timer
-))]
-fn update_combo_stats(
-    players: Query<&JumpCombo>,
-    changes: Query<Entity, Changed<JumpCombo>>,
-    mut removals: RemovedComponents<JumpCombo>,
-    mut commands: Commands,
-) {
-    for player in changes.iter().chain(removals.read()) {
-        commands
-            .entity(player)
-            .remove::<JumpCombo1Stats>()
-            .remove::<JumpCombo2Stats>();
-
-        if let Ok(combo) = players.get(player) {
-            match combo.0 {
-                1 => {
-                    commands.entity(player).insert(JumpCombo1Stats);
-                }
-                _ => {
-                    commands.entity(player).insert(JumpCombo2Stats);
-                }
-            }
         }
     }
 }
