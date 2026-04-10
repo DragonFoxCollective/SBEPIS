@@ -899,9 +899,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_cube_marcher"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f653f9b1bc6992c01e03ab462fff6255000ed04c971094dbd3660f3966de0552"
+checksum = "e2ac14ba87631f94448058cd55d632d8b2ec77e2bec4f57acbe407c940a54ae9"
 dependencies = [
  "bevy",
  "encase",
