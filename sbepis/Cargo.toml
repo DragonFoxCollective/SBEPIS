@@ -7,7 +7,7 @@ edition = "2024"
 bevy = { version = "0.18", features = ["mp3", "wav"] }
 bevy_auto_plugin = "0.10"
 bevy_common_assets = { version = "0.15", features = ["ron"] }
-bevy_cube_marcher = "0.4"
+bevy_cube_marcher = "0.4.2"
 bevy_hanabi = "0.18"
 bevy-inspector-egui = { version = "0.36", default-features = false, features = [
   "bevy_core_pipeline",
