@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
+use num_traits::Pow;
 use sbepistats::{
     ConfigureStatTypeAddHook, Stat, StatModifierAdd, StatModifierAddHook, StatType, StatTypeHook,
 };
@@ -12,18 +13,20 @@ use crate::player::PlayerControllerPlugin;
 use crate::player::movement::charge::Charging;
 use crate::player::movement::dash::Dashing;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
+use crate::player::movement::{Moving, MovingOptExt as _};
 use crate::player::stamina::Stamina;
 use crate::prelude::*;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
 pub struct Jumping;
 
-#[auto_component(plugin = PlayerControllerPlugin, derive(Debug, Default), reflect, register)]
+#[auto_component(plugin = PlayerControllerPlugin, derive(Debug), reflect, register)]
 struct JumpTimer {
     direction: Vec3,
     timer: Duration,
     speed: f32,
     stamina_drain: f32,
+    jump_type: JumpType,
 }
 
 impl JumpTimer {
@@ -50,6 +53,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
+fn exp_decay(x: f32, y0: f32, x1: f32, y1: f32, limit: f32) -> f32 {
+    // i hate logarithms
+    (y0 - limit) * ((y1 - limit) / (y0 - limit)).pow(x / x1) + limit
+}
+
+#[derive(Debug, Reflect)]
+enum JumpType {
+    Neutral,
+    LongJump,
+    TwirlJump,
+    Backflip,
+}
+
 #[auto_observer(plugin = PlayerControllerPlugin)]
 fn start_jump(
     jump: On<Add, Jumping>,
@@ -57,7 +73,10 @@ fn start_jump(
         Has<Charging>,
         &GroundedContact,
         Option<&mut JumpCombo>,
+        &Velocity,
+        Option<&Moving>,
         &Stat<JumpHeight>,
+        &Stat<SpeedToJumpHeightMultiplier>,
         &Stat<JumpHoldTime>,
         &Stat<JumpStaminaCost>,
     )>,
@@ -65,15 +84,45 @@ fn start_jump(
     mut commands: Commands,
 ) -> Result {
     let player = jump.entity;
-    let (charging, ground, combo, jump_height, jump_hold_time, jump_stamina_cost) =
-        players.get_mut(player)?;
+    let (
+        charging,
+        ground,
+        combo,
+        velocity,
+        moving,
+        jump_height,
+        jump_height_mult,
+        jump_hold_time,
+        jump_stamina_cost,
+    ) = players.get_mut(player)?;
     let direction = ground.normal;
+    let input = moving.as_input();
+    let speed = velocity.linvel.length();
 
     if let Some(mut combo) = combo {
         combo.0 += 1;
     } else {
         commands.entity(player).insert(JumpCombo::default());
-    }
+    };
+
+    let jump_type = if input != Vec2::ZERO {
+        // angle from the horizontal, where the horizontal is the twirl jump and the vertical is the long/back jump
+        let jump_type_angle_threshold = exp_decay(speed, 30.0, 20.0, 80.0, 90.0).to_radians();
+        let jump_type_angle_right = input.to_angle().abs();
+        let jump_type_angle_left = (input * vec2(-1.0, 1.0)).to_angle().abs();
+        let jump_type_angle = jump_type_angle_left.min(jump_type_angle_right);
+        if jump_type_angle < jump_type_angle_threshold {
+            JumpType::TwirlJump
+        } else if input.y > 0.0 {
+            JumpType::LongJump
+        } else {
+            JumpType::Backflip
+        }
+    } else {
+        JumpType::Neutral
+    };
+
+    let jump_height = jump_height.total() * (jump_height_mult.total() * speed + 1.0);
 
     commands
         .entity(player)
@@ -81,8 +130,9 @@ fn start_jump(
         .insert(JumpTimer {
             direction,
             timer: Duration::from_secs_f32(jump_hold_time.total()),
-            speed: jump_height.total() / jump_hold_time.total(),
+            speed: jump_height / jump_hold_time.total(),
             stamina_drain: jump_stamina_cost.total() / jump_hold_time.total(),
+            jump_type,
         });
     if charging {
         commands.entity(player).remove::<Charging>();
@@ -128,6 +178,10 @@ fn update_jump(
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
 pub struct JumpHeight;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct SpeedToJumpHeightMultiplier;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
