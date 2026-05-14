@@ -33,6 +33,7 @@ pub struct Moving(pub Vec2);
 
 pub trait MovingOptExt {
     fn as_input(&self) -> Vec2;
+    fn as_motion(&self, relative_transform: &GlobalTransform) -> Vec3;
     fn as_camera_input(
         &self,
         camera_transform: &GlobalTransform,
@@ -43,9 +44,14 @@ pub trait MovingOptExt {
 impl MovingOptExt for Option<&Moving> {
     fn as_input(&self) -> Vec2 {
         match self {
-            Some(Moving(input)) => Vec2::new(input.x, -input.y).clamp_length_max(1.0),
+            Some(Moving(input)) => input.clamp_length_max(1.0),
             None => Vec2::ZERO,
         }
+    }
+
+    fn as_motion(&self, relative_transform: &GlobalTransform) -> Vec3 {
+        let input = self.as_input();
+        relative_transform.transform_vector3(Vec3::new(input.x, 0.0, -input.y))
     }
 
     fn as_camera_input(
@@ -64,7 +70,8 @@ impl MovingOptExt for Option<&Moving> {
             camera_up.xz().normalize()
         }
         .rotate(Vec2::Y); // x-forward to y-forward
-        self.as_input().rotate(rotate)
+        let input = self.as_input();
+        Vec2::new(input.x, -input.y).rotate(rotate)
     }
 }
 

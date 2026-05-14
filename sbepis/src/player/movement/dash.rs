@@ -121,9 +121,7 @@ fn walking_to_dashing(
     stamina.current -= stamina_cost;
 
     let camera_transform = cameras.get(**camera)?;
-    let input = moving.as_input();
-    let direction =
-        camera_transform.rotation() * Vec3::new(input.x, 0.0, input.y).normalize_or(Vec3::NEG_Z);
+    let direction = moving.as_motion(camera_transform).normalize_or(Vec3::NEG_Z);
 
     commands
         .entity(dash.input)

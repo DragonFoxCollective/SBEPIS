@@ -58,7 +58,7 @@ fn exp_decay(x: f32, y0: f32, x1: f32, y1: f32, limit: f32) -> f32 {
     (y0 - limit) * ((y1 - limit) / (y0 - limit)).pow(x / x1) + limit
 }
 
-#[derive(Debug, Reflect)]
+#[derive(Debug, Reflect, Eq, PartialEq)]
 enum JumpType {
     Neutral,
     LongJump,
@@ -70,6 +70,7 @@ enum JumpType {
 fn start_jump(
     jump: On<Add, Jumping>,
     mut players: Query<(
+        &GlobalTransform,
         Has<Charging>,
         &GroundedContact,
         Option<&mut JumpCombo>,
@@ -77,6 +78,8 @@ fn start_jump(
         Option<&Moving>,
         &Stat<JumpHeight>,
         &Stat<SpeedToJumpHeightMultiplier>,
+        &Stat<TwirlJumpHeightMultiplier>,
+        &Stat<LongJumpAngle>,
         &Stat<JumpHoldTime>,
         &Stat<JumpStaminaCost>,
     )>,
@@ -85,6 +88,7 @@ fn start_jump(
 ) -> Result {
     let player = jump.entity;
     let (
+        transform,
         charging,
         ground,
         combo,
@@ -92,10 +96,11 @@ fn start_jump(
         moving,
         jump_height,
         jump_height_mult,
+        twirl_jump_mult,
+        long_jump_angle,
         jump_hold_time,
         jump_stamina_cost,
     ) = players.get_mut(player)?;
-    let direction = ground.normal;
     let input = moving.as_input();
     let speed = velocity.linvel.length();
 
@@ -122,7 +127,21 @@ fn start_jump(
         JumpType::Neutral
     };
 
-    let jump_height = jump_height.total() * (jump_height_mult.total() * speed + 1.0);
+    let neutral_jump_height = jump_height.total() * (jump_height_mult.total() * speed + 1.0);
+    let jump_height = match jump_type {
+        JumpType::Neutral => neutral_jump_height,
+        JumpType::LongJump => neutral_jump_height,
+        JumpType::Backflip => neutral_jump_height,
+        JumpType::TwirlJump => neutral_jump_height * twirl_jump_mult.total(),
+    };
+    let direction = match jump_type {
+        JumpType::Neutral => ground.normal,
+        JumpType::LongJump => velocity
+            .linvel
+            .rotate_towards(ground.normal, long_jump_angle.total()),
+        JumpType::Backflip => ground.normal,
+        JumpType::TwirlJump => transform.up().into(),
+    };
 
     commands
         .entity(player)
@@ -182,6 +201,14 @@ pub struct JumpHeight;
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
 pub struct SpeedToJumpHeightMultiplier;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct TwirlJumpHeightMultiplier;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct LongJumpAngle;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]

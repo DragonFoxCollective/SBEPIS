@@ -17,7 +17,6 @@ use crate::player::movement::jump::{JumpAssets, JumpHeight, JumpStaminaCost};
 use crate::player::movement::trip::Trip;
 use crate::player::movement::{Moving, MovingOptExt as _};
 use crate::player::stamina::Stamina;
-use crate::util::TransformExt;
 
 #[derive(Action)]
 #[action(invalidate = false)]
@@ -221,8 +220,7 @@ fn spindash(
         spindash_stamina_cost,
         spindash_speed,
     ) = players.get_mut(sprint.input)?;
-    let input = Some(moving).as_input();
-    let wish_dir = transform.transform_vector3(Vec3::new(input.x, 0.0, input.y));
+    let wish_dir = Some(moving).as_motion(transform);
     velocity.linvel = charging
         .power_from_stamina(
             charge_max_power.total(),

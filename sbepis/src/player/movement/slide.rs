@@ -29,11 +29,11 @@ impl Default for PlayerSlideSettings {
         let turn_friction = 0.0;
         let forward_friction = 0.0;
 
-        let easing = EasingCurve::new(brake_friction, turn_friction, EaseFunction::CircularInOut)
+        let easing = EasingCurve::new(forward_friction, turn_friction, EaseFunction::CircularInOut)
             .reparametrize_linear(Interval::new(0.0, PI / 2.0).unwrap())
             .unwrap()
             .chain(
-                EasingCurve::new(turn_friction, forward_friction, EaseFunction::CircularInOut)
+                EasingCurve::new(turn_friction, brake_friction, EaseFunction::CircularInOut)
                     .reparametrize_linear(Interval::new(PI / 2.0, PI).unwrap())
                     .unwrap(),
             )

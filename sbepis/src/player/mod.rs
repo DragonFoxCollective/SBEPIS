@@ -28,7 +28,7 @@ use crate::player::movement::dash::{Dash, HasEnoughStaminaToDash};
 use crate::player::movement::grounded::Grounded;
 use crate::player::movement::jump::{
     JumpComboMaxLevel, JumpComboMaxTime, JumpHeight, JumpHoldTime, JumpStaminaCost, Jumping,
-    SpeedToJumpHeightMultiplier,
+    LongJumpAngle, SpeedToJumpHeightMultiplier, TwirlJumpHeightMultiplier,
 };
 use crate::player::movement::roll::Rolling;
 use crate::player::movement::slide::Sliding;
@@ -216,6 +216,8 @@ fn setup(
                     (
                         Stat::<JumpHeight>::new(1.0),
                         Stat::<SpeedToJumpHeightMultiplier>::new(0.05),
+                        Stat::<TwirlJumpHeightMultiplier>::new(0.1),
+                        Stat::<LongJumpAngle>::new(20.0f32.to_radians()),
                         Stat::<JumpStaminaCost>::new(0.0),
                         Stat::<JumpHoldTime>::new(0.3),
                         Stat::<JumpComboMaxTime>::new(0.3),
