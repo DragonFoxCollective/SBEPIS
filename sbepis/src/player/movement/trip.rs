@@ -11,7 +11,7 @@ use super::grounded::Grounded;
 use super::slide::Sliding;
 use super::stand::Standing;
 use super::walk::Sprinting;
-use crate::entity::Movement;
+use crate::entity::movement::Movement;
 use crate::gravity::ComputedGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::fov::{InterpolateFov, InterpolateFovCurve, PlayerFov};

@@ -5,7 +5,7 @@ use bevy_pretty_nice_input::prelude::ComponentBuffer;
 use bevy_rapier3d::prelude::*;
 use itertools::Itertools as _;
 
-use crate::entity::Movement;
+use crate::entity::movement::Movement;
 use crate::gravity::ComputedGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::movement::charge::Charging;

@@ -48,8 +48,9 @@ impl MapRangeBetween<Real> for Real {
 pub trait TransformExt {
     fn transform_vector3(&self, vector: Vec3) -> Vec3;
     fn inverse_transform_point(&self, point: Vec3) -> Vec3;
-    #[allow(dead_code)]
     fn inverse_transform_vector3(&self, vector: Vec3) -> Vec3;
+    fn rejected_forward_relative_to(&self, forward_transform: &GlobalTransform) -> Vec2;
+    fn rejected_forward(&self) -> Vec2;
 }
 impl TransformExt for GlobalTransform {
     fn transform_vector3(&self, vector: Vec3) -> Vec3 {
@@ -62,6 +63,49 @@ impl TransformExt for GlobalTransform {
 
     fn inverse_transform_vector3(&self, vector: Vec3) -> Vec3 {
         self.affine().inverse().transform_vector3(vector)
+    }
+
+    fn rejected_forward_relative_to(&self, relative_transform: &GlobalTransform) -> Vec2 {
+        let forward: Vec3 = relative_transform.inverse_transform_vector3(self.forward().into());
+        let up: Vec3 = relative_transform.inverse_transform_vector3(self.up().into());
+        if forward.xz().length() >= 0.1 {
+            forward.xz().normalize()
+        } else if forward.y > 0.0 {
+            -up.xz().normalize()
+        } else {
+            up.xz().normalize()
+        }
+    }
+
+    fn rejected_forward(&self) -> Vec2 {
+        let forward: Vec3 = self.forward().into();
+        let up: Vec3 = self.up().into();
+        if forward.xz().length() >= 0.1 {
+            forward.xz().normalize()
+        } else if forward.y > 0.0 {
+            -up.xz().normalize()
+        } else {
+            up.xz().normalize()
+        }
+    }
+}
+
+pub trait Vec2Ext {
+    fn extend_bevy(&self) -> Vec3;
+    fn invert_y(&self) -> Self;
+    fn extend_y(&self, y: f32) -> Vec3;
+}
+impl Vec2Ext for Vec2 {
+    fn extend_bevy(&self) -> Vec3 {
+        self.invert_y().extend_y(0.0)
+    }
+
+    fn invert_y(&self) -> Self {
+        Vec2::new(self.x, -self.y)
+    }
+
+    fn extend_y(&self, y: f32) -> Vec3 {
+        Vec3::new(self.x, y, self.y)
     }
 }
 

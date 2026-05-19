@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::entity::GelViscosity;
+use crate::entity::health::GelViscosity;
 use crate::entity::spawner::Spawner;
 use crate::gravity::{AffectedByGravity, GravityPoint, GravityPriority};
 use crate::npcs::consort::ConsortSpawner;

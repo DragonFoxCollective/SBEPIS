@@ -6,10 +6,10 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
 
 use super::name_tags::SpawnNameTag;
+use crate::entity::Kill;
+use crate::entity::health::{GelViscosity, SpawnHealthBar};
+use crate::entity::movement::{Movement, RotateTowardMovement, TargetPlayer};
 use crate::entity::spawner::{ActivateSpawner, Spawn};
-use crate::entity::{
-    GelViscosity, Kill, Movement, RotateTowardMovement, SpawnHealthBar, TargetPlayer,
-};
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
 use crate::player::weapons::Damage;

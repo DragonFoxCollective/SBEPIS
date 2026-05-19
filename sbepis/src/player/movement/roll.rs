@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::entity::Movement;
+use crate::entity::movement::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player::camera::PlayerOfCamera;
 use crate::player::camera::third_person::CameraOfFirstPerson;

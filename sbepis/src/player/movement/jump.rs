@@ -1,3 +1,4 @@
+use std::f32::consts::{FRAC_PI_2, PI};
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -10,6 +11,7 @@ use sbepistats::{
 
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
+use crate::player::camera::PlayerOfCamera;
 use crate::player::movement::charge::Charging;
 use crate::player::movement::dash::Dashing;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
@@ -22,11 +24,9 @@ pub struct Jumping;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Debug), reflect, register)]
 struct JumpTimer {
-    direction: Vec3,
-    timer: Duration,
-    speed: f32,
-    stamina_drain: f32,
     jump_type: JumpType,
+    timer: Duration,
+    stamina_drain: f32,
 }
 
 impl JumpTimer {
@@ -58,12 +58,24 @@ fn exp_decay(x: f32, y0: f32, x1: f32, y1: f32, limit: f32) -> f32 {
     (y0 - limit) * ((y1 - limit) / (y0 - limit)).pow(x / x1) + limit
 }
 
-#[derive(Debug, Reflect, Eq, PartialEq)]
+#[derive(Debug, Reflect)]
 enum JumpType {
-    Neutral,
-    LongJump,
-    TwirlJump,
-    Backflip,
+    Neutral {
+        upward_velocity: Vec3,
+    },
+    LongJump {
+        upward_velocity: Vec3,
+        forward_velocity: Vec3,
+    },
+    TwirlJump {
+        upward_velocity: Vec3,
+        forward_velocity: Vec3,
+        sideward_velocity: Vec3,
+    },
+    Backflip {
+        upward_velocity: Vec3,
+        backward_velocity: Vec3,
+    },
 }
 
 #[auto_observer(plugin = PlayerControllerPlugin)]
@@ -71,38 +83,62 @@ fn start_jump(
     jump: On<Add, Jumping>,
     mut players: Query<(
         &GlobalTransform,
+        &PlayerOfCamera,
         Has<Charging>,
         &GroundedContact,
         Option<&mut JumpCombo>,
         &Velocity,
         Option<&Moving>,
-        &Stat<JumpHeight>,
-        &Stat<SpeedToJumpHeightMultiplier>,
-        &Stat<TwirlJumpHeightMultiplier>,
-        &Stat<LongJumpAngle>,
-        &Stat<JumpHoldTime>,
-        &Stat<JumpStaminaCost>,
+        (
+            &Stat<JumpHeight>,
+            &Stat<SpeedToJumpHeightMultiplier>,
+            &Stat<TwirlJumpHeight>,
+            &Stat<TwirlJumpSpeedMultiplier>,
+            &Stat<LongJumpHeight>,
+            &Stat<LongJumpSpeedMultiplier>,
+            &Stat<BackflipSpeedMultiplier>,
+            &Stat<JumpHoldTime>,
+            &Stat<JumpStaminaCost>,
+        ),
     )>,
+    cameras: Query<&GlobalTransform>,
     assets: Res<JumpAssets>,
     mut commands: Commands,
 ) -> Result {
     let player = jump.entity;
     let (
         transform,
+        camera,
         charging,
         ground,
         combo,
         velocity,
         moving,
-        jump_height,
-        jump_height_mult,
-        twirl_jump_mult,
-        long_jump_angle,
-        jump_hold_time,
-        jump_stamina_cost,
+        (
+            jump_height,
+            jump_height_mult,
+            twirl_jump_height,
+            twirl_jump_mult,
+            long_jump_height,
+            long_jump_mult,
+            backflip_mult,
+            jump_hold_time,
+            jump_stamina_cost,
+        ),
     ) = players.get_mut(player)?;
-    let input = moving.as_input();
-    let speed = velocity.linvel.length();
+    let camera_transform = cameras.get(**camera)?;
+    let input_motion = moving.as_motion(transform);
+    let input_angle = {
+        let local_velocity = transform
+            .inverse_transform_vector3(velocity.linvel)
+            .xz()
+            .invert_y();
+        let local_input = moving.as_camera_input(camera_transform, transform);
+        debug!("{local_input} {local_velocity}");
+        local_velocity.angle_to(local_input).abs()
+    };
+    let linvel = velocity.linvel.reject_from(transform.up().into());
+    let hold_time = jump_hold_time.total();
 
     if let Some(mut combo) = combo {
         combo.0 += 1;
@@ -110,48 +146,48 @@ fn start_jump(
         commands.entity(player).insert(JumpCombo::default());
     };
 
-    let jump_type = if input != Vec2::ZERO {
+    let jump_type = if !input_angle.is_nan() {
         // angle from the horizontal, where the horizontal is the twirl jump and the vertical is the long/back jump
-        let jump_type_angle_threshold = exp_decay(speed, 30.0, 20.0, 80.0, 90.0).to_radians();
-        let jump_type_angle_right = input.to_angle().abs();
-        let jump_type_angle_left = (input * vec2(-1.0, 1.0)).to_angle().abs();
-        let jump_type_angle = jump_type_angle_left.min(jump_type_angle_right);
+        let jump_type_angle_threshold =
+            exp_decay(linvel.length(), 30.0, 20.0, 80.0, 90.0).to_radians();
+        let jump_type_angle = FRAC_PI_2 - input_angle.min(PI - input_angle);
         if jump_type_angle < jump_type_angle_threshold {
-            JumpType::TwirlJump
-        } else if input.y > 0.0 {
-            JumpType::LongJump
+            JumpType::TwirlJump {
+                upward_velocity: transform.up() * twirl_jump_height.total(),
+                forward_velocity: linvel * twirl_jump_mult.total(),
+                sideward_velocity: input_motion * linvel.length() * twirl_jump_mult.total(),
+            }
+        } else if input_angle < FRAC_PI_2 {
+            JumpType::LongJump {
+                upward_velocity: transform.up() * long_jump_height.total(),
+                forward_velocity: input_motion * linvel.length() * long_jump_mult.total(),
+            }
         } else {
-            JumpType::Backflip
+            JumpType::Backflip {
+                upward_velocity: ground.normal
+                    * jump_height.total()
+                    * (jump_height_mult.total() * linvel.length() + 1.0)
+                    / hold_time,
+                backward_velocity: input_motion * linvel.length() * backflip_mult.total(),
+            }
         }
     } else {
-        JumpType::Neutral
+        JumpType::Neutral {
+            upward_velocity: ground.normal
+                * jump_height.total()
+                * (jump_height_mult.total() * linvel.length() + 1.0)
+                / hold_time,
+        }
     };
-
-    let neutral_jump_height = jump_height.total() * (jump_height_mult.total() * speed + 1.0);
-    let jump_height = match jump_type {
-        JumpType::Neutral => neutral_jump_height,
-        JumpType::LongJump => neutral_jump_height,
-        JumpType::Backflip => neutral_jump_height,
-        JumpType::TwirlJump => neutral_jump_height * twirl_jump_mult.total(),
-    };
-    let direction = match jump_type {
-        JumpType::Neutral => ground.normal,
-        JumpType::LongJump => velocity
-            .linvel
-            .rotate_towards(ground.normal, long_jump_angle.total()),
-        JumpType::Backflip => ground.normal,
-        JumpType::TwirlJump => transform.up().into(),
-    };
+    debug!("Jumping {input_angle} {jump_type:?}");
 
     commands
         .entity(player)
         .remove::<JustLanded>()
         .insert(JumpTimer {
-            direction,
-            timer: Duration::from_secs_f32(jump_hold_time.total()),
-            speed: jump_height / jump_hold_time.total(),
-            stamina_drain: jump_stamina_cost.total() / jump_hold_time.total(),
             jump_type,
+            timer: Duration::from_secs_f32(hold_time),
+            stamina_drain: jump_stamina_cost.total() / hold_time,
         });
     if charging {
         commands.entity(player).remove::<Charging>();
@@ -174,6 +210,14 @@ fn jump_release(remove: On<Remove, Jumping>, mut commands: Commands) {
     commands.entity(remove.entity).remove::<JumpTimer>();
 }
 
+fn go_up(velocity: Vec3, linvel: &mut Vec3, velocity_mult: f32) {
+    let (direction, speed) = velocity.normalize_and_length();
+    let impulse = speed * velocity_mult - linvel.length_projected_onto(velocity);
+    if impulse > 0.0 {
+        *linvel += impulse * direction;
+    }
+}
+
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_jump(
     mut players: Query<(Entity, &mut Velocity, &mut Stamina, &mut JumpTimer)>,
@@ -184,9 +228,35 @@ fn update_jump(
         if jump_timer.checked_sub_mut(time.delta())
             && stamina.checked_sub_mut(jump_timer.stamina_drain * time.delta_secs())
         {
-            let speed_in_dir = velocity.linvel.length_projected_onto(jump_timer.direction);
-            if speed_in_dir <= jump_timer.speed {
-                velocity.linvel += (jump_timer.speed - speed_in_dir) * jump_timer.direction;
+            match jump_timer.jump_type {
+                JumpType::Neutral { upward_velocity } => {
+                    go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                }
+                JumpType::LongJump {
+                    upward_velocity,
+                    forward_velocity,
+                } => {
+                    go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                    go_up(forward_velocity, &mut velocity.linvel, 1.0);
+                }
+                JumpType::TwirlJump {
+                    upward_velocity,
+                    forward_velocity,
+                    sideward_velocity,
+                } => {
+                    let lerp = jump_timer.timer.as_secs_f32().clamp(0.0, 1.0);
+                    go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                    go_up(forward_velocity, &mut velocity.linvel, lerp);
+                    go_up(sideward_velocity, &mut velocity.linvel, 1.0 - lerp);
+                }
+                JumpType::Backflip {
+                    upward_velocity,
+                    backward_velocity,
+                } => {
+                    let lerp = jump_timer.timer.as_secs_f32().clamp(0.0, 1.0);
+                    go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                    go_up(backward_velocity, &mut velocity.linvel, 1.0 - lerp);
+                }
             }
         } else {
             commands.entity(entity).remove::<Jumping>();
@@ -204,11 +274,23 @@ pub struct SpeedToJumpHeightMultiplier;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
-pub struct TwirlJumpHeightMultiplier;
+pub struct TwirlJumpHeight;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
-pub struct LongJumpAngle;
+pub struct TwirlJumpSpeedMultiplier;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct LongJumpHeight;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct LongJumpSpeedMultiplier;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct BackflipSpeedMultiplier;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
@@ -224,7 +306,6 @@ pub struct JumpHoldTime;
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
 pub struct JumpComboMaxTime;
 
-/// The max jump combo level.
 #[derive(StatType)]
 #[stat_type(u32)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]

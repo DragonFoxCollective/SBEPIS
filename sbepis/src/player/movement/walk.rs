@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::entity::Movement;
+use crate::entity::movement::Movement;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::PlayerOfCamera;
 use crate::player::movement::charge::Charging;
@@ -10,6 +10,7 @@ use crate::player::movement::crouch::Crouching;
 use crate::player::movement::grounded::Grounded;
 use crate::player::movement::stand::Standing;
 use crate::player::movement::{MovementControlSystems, Moving, MovingOptExt as _};
+use crate::util::{TransformExt, Vec2Ext};
 
 #[auto_component(plugin = PlayerControllerPlugin, derive(Default), reflect, register)]
 pub struct Sprinting;
@@ -78,11 +79,11 @@ fn update_walk_velocity(
         let camera_transform = cameras.get(**camera)?;
 
         // Set up vectors
-        let velocity = (transform.rotation().inverse() * velocity.linvel).xz();
+        let velocity = transform.inverse_transform_vector3(velocity.linvel).xz();
         let input = if charging {
             Vec2::ZERO
         } else {
-            moving.as_camera_input(camera_transform, transform)
+            moving.as_camera_input_motion(camera_transform, transform)
         };
         let wish_speed = if sprinting {
             walk_settings.sprint_speed
@@ -114,7 +115,7 @@ fn update_walk_velocity(
             .clamp(0.0, acceleration * wish_speed * time.delta_secs()); // TODO: In absolute units, ignores relativity
         let new_velocity = velocity + wish_direction * add_speed;
 
-        movement.0 = transform.rotation() * Vec3::new(new_velocity.x, 0.0, new_velocity.y);
+        movement.0 = transform.transform_vector3(new_velocity.extend_y(0.0));
     }
 
     Ok(())

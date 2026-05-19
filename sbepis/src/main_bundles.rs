@@ -3,7 +3,9 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use crate::SbepisPlugin;
-use crate::entity::{GelViscosity, GravityOrientation, Movement};
+use crate::entity::health::GelViscosity;
+use crate::entity::movement::Movement;
+use crate::entity::orientation::GravityOrientation;
 use crate::gravity::AffectedByGravity;
 
 #[auto_component(plugin = SbepisPlugin, derive, reflect, register)]

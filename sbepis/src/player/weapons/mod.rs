@@ -7,7 +7,8 @@ use bevy_rapier3d::na::Vector3;
 use bevy_rapier3d::parry::shape::{self, SharedShape};
 use bevy_rapier3d::prelude::*;
 
-use crate::entity::{GelViscosity, Kill};
+use crate::entity::Kill;
+use crate::entity::health::GelViscosity;
 use crate::fray::FrayMusic;
 use crate::player::PlayerControllerPlugin;
 use crate::prelude::*;

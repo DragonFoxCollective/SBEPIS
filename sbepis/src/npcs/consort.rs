@@ -6,8 +6,9 @@ use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::geometry::Collider;
 
 use super::name_tags::SpawnNameTag;
+use crate::entity::health::{Healing, SpawnHealthBar};
+use crate::entity::movement::{Movement, RandomInput, RotateTowardMovement};
 use crate::entity::spawner::{ActivateSpawner, Spawn};
-use crate::entity::{Healing, Movement, RandomInput, RotateTowardMovement, SpawnHealthBar};
 use crate::main_bundles::Mob;
 use crate::npcs::NpcPlugin;
 use crate::questing::{QuestGiver, SpawnQuestMarker};

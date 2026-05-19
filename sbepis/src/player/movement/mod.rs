@@ -32,9 +32,25 @@ pub enum MovementControlSystems {
 pub struct Moving(pub Vec2);
 
 pub trait MovingOptExt {
+    /// Raw controls input.
     fn as_input(&self) -> Vec2;
+
+    /// Controls in 3D pointing relative to the given transform (usually the player body).
     fn as_motion(&self, relative_transform: &GlobalTransform) -> Vec3;
+
+    /// Control input added with the camera relative to the player body.
+    ///
+    /// For example, if the input is right and the camera is looking to the right, the result would be backward (negative Y).
     fn as_camera_input(
+        &self,
+        camera_transform: &GlobalTransform,
+        player_transform: &GlobalTransform,
+    ) -> Vec2;
+
+    /// Control input added with the camera relative to the player body, but corrected for neg-z-forward.
+    ///
+    /// For example, if the input is right and the camera is looking to the right, the result would be backward (positive Y).
+    fn as_camera_input_motion(
         &self,
         camera_transform: &GlobalTransform,
         player_transform: &GlobalTransform,
@@ -51,7 +67,7 @@ impl MovingOptExt for Option<&Moving> {
 
     fn as_motion(&self, relative_transform: &GlobalTransform) -> Vec3 {
         let input = self.as_input();
-        relative_transform.transform_vector3(Vec3::new(input.x, 0.0, -input.y))
+        relative_transform.transform_vector3(input.extend_bevy())
     }
 
     fn as_camera_input(
@@ -59,19 +75,18 @@ impl MovingOptExt for Option<&Moving> {
         camera_transform: &GlobalTransform,
         player_transform: &GlobalTransform,
     ) -> Vec2 {
-        let camera_forward =
-            player_transform.inverse_transform_vector3(camera_transform.forward().into());
-        let camera_up = player_transform.inverse_transform_vector3(camera_transform.up().into());
-        let rotate = if camera_forward.xz().length() >= 0.1 {
-            camera_forward.xz().normalize()
-        } else if camera_forward.y > 0.0 {
-            -camera_up.xz().normalize()
-        } else {
-            camera_up.xz().normalize()
-        }
-        .rotate(Vec2::Y); // x-forward to y-forward
-        let input = self.as_input();
-        Vec2::new(input.x, -input.y).rotate(rotate)
+        let forward = camera_transform.rejected_forward_relative_to(player_transform);
+        let rotate = Vec2::NEG_Y.rotate(forward.invert_y()); // neg-y-forward to x-forward because math
+        rotate.rotate(self.as_input())
+    }
+
+    fn as_camera_input_motion(
+        &self,
+        camera_transform: &GlobalTransform,
+        player_transform: &GlobalTransform,
+    ) -> Vec2 {
+        self.as_camera_input(camera_transform, player_transform)
+            .invert_y()
     }
 }
 
@@ -88,7 +103,7 @@ fn rotate_toward_moving(
 ) -> Result {
     for (mut transform, global_transform, moving, camera) in players.iter_mut() {
         let camera_transform = cameras.get(**camera)?;
-        let input = Some(moving).as_camera_input(camera_transform, global_transform);
+        let input = Some(moving).as_camera_input_motion(camera_transform, global_transform);
         let angle = input.angle_to(Vec2::NEG_Y) * speed.0;
         if !angle.is_nan() {
             transform.rotate_local_y(angle);

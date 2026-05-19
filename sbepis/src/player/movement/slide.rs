@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_auto_plugin::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::entity::Movement;
+use crate::entity::movement::Movement;
 use crate::player::PlayerControllerPlugin;
 use crate::player::movement::grounded::Grounded;
 use crate::player::movement::{MovementControlSystems, Moving, MovingOptExt as _};

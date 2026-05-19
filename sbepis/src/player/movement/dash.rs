@@ -9,7 +9,7 @@ use bevy_pretty_nice_input::prelude::*;
 use bevy_rapier3d::prelude::*;
 use sbepistats::Stat;
 
-use crate::entity::Movement;
+use crate::entity::movement::Movement;
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::PlayerOfCamera;
