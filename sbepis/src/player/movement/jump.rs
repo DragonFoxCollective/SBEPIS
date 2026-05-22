@@ -66,16 +66,21 @@ enum JumpType {
     },
     LongJump {
         upward_velocity: Vec3,
+        upward_time: Duration,
         forward_velocity: Vec3,
     },
     TwirlJump {
         upward_velocity: Vec3,
+        upward_time: Duration,
         forward_velocity: Vec3,
         sideward_velocity: Vec3,
     },
     Backflip {
         upward_velocity: Vec3,
         backward_velocity: Vec3,
+    },
+    Helicopter {
+        previous_speed: f32,
     },
 }
 
@@ -132,6 +137,7 @@ fn start_jump(
     let raw_input_angle = moving.as_input().angle_to(Vec2::Y);
     let input_angle = raw_input_angle.abs();
     let linvel = velocity.linvel.reject_from(transform.up().into());
+    let speed = linvel.length();
     let hold_time = jump_hold_time.total();
 
     if let Some(mut combo) = combo {
@@ -142,19 +148,20 @@ fn start_jump(
 
     let jump_type = if !input_angle.is_nan() {
         // angle from the horizontal, where the horizontal is the twirl jump and the vertical is the long/back jump
-        let jump_type_angle_threshold =
-            exp_decay(linvel.length(), 30.0, 20.0, 80.0, 90.0).to_radians();
+        let jump_type_angle_threshold = exp_decay(speed, 30.0, 20.0, 80.0, 90.0).to_radians();
         let jump_type_angle = FRAC_PI_2 - input_angle.min(PI - input_angle);
         if jump_type_angle < jump_type_angle_threshold {
             JumpType::TwirlJump {
-                upward_velocity: transform.up() * twirl_jump_height.total(),
+                upward_time: Duration::from_secs_f32(twirl_jump_height.total() / speed),
+                upward_velocity: transform.up() * speed,
                 forward_velocity: linvel * twirl_jump_mult.total(),
-                sideward_velocity: input_motion * linvel.length() * twirl_jump_mult.total(),
+                sideward_velocity: input_motion * speed * twirl_jump_mult.total(),
             }
         } else if input_angle < FRAC_PI_2 {
             JumpType::LongJump {
-                upward_velocity: transform.up() * long_jump_height.total(),
-                forward_velocity: input_motion * linvel.length() * long_jump_mult.total(),
+                upward_time: Duration::from_secs_f32(long_jump_height.total() / speed),
+                upward_velocity: transform.up() * speed,
+                forward_velocity: input_motion * speed * long_jump_mult.total(),
             }
         } else {
             commands
@@ -163,19 +170,20 @@ fn start_jump(
             JumpType::Backflip {
                 upward_velocity: ground.normal
                     * jump_height.total()
-                    * (jump_height_mult.total() * linvel.length() + 1.0)
+                    * (jump_height_mult.total() * speed + 1.0)
                     / hold_time,
-                backward_velocity: input_motion * linvel.length() * backflip_mult.total(),
+                backward_velocity: input_motion * speed * backflip_mult.total(),
             }
         }
     } else {
         JumpType::Neutral {
             upward_velocity: ground.normal
                 * jump_height.total()
-                * (jump_height_mult.total() * linvel.length() + 1.0)
+                * (jump_height_mult.total() * speed + 1.0)
                 / hold_time,
         }
     };
+    debug!("Jumping {jump_type:?}");
 
     commands
         .entity(player)
@@ -216,11 +224,20 @@ fn go_up(velocity: Vec3, linvel: &mut Vec3, velocity_mult: f32) {
 
 #[auto_system(plugin = PlayerControllerPlugin, schedule = Update)]
 fn update_jump(
-    mut players: Query<(Entity, &mut Velocity, &mut Stamina, &mut JumpTimer)>,
+    mut players: Query<
+        (
+            Entity,
+            &mut Velocity,
+            &mut Stamina,
+            &mut JumpTimer,
+            &GlobalTransform,
+        ),
+        With<Jumping>,
+    >,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (entity, mut velocity, mut stamina, mut jump_timer) in players.iter_mut() {
+    for (entity, mut velocity, mut stamina, mut jump_timer, transform) in players.iter_mut() {
         if jump_timer.checked_sub_mut(time.delta())
             && stamina.checked_sub_mut(jump_timer.stamina_drain * time.delta_secs())
         {
@@ -230,18 +247,30 @@ fn update_jump(
                 }
                 JumpType::LongJump {
                     upward_velocity,
+                    ref mut upward_time,
                     forward_velocity,
                 } => {
-                    go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                    if let Some(upw) = upward_time.checked_sub(time.delta()) {
+                        *upward_time = upw;
+                        go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                    } else {
+                        go_up(upward_velocity, &mut velocity.linvel, 0.0);
+                    }
                     go_up(forward_velocity, &mut velocity.linvel, 1.0);
                 }
                 JumpType::TwirlJump {
                     upward_velocity,
+                    ref mut upward_time,
                     forward_velocity,
                     sideward_velocity,
                 } => {
+                    if let Some(upw) = upward_time.checked_sub(time.delta()) {
+                        *upward_time = upw;
+                        go_up(upward_velocity, &mut velocity.linvel, 1.0);
+                    } else {
+                        go_up(upward_velocity, &mut velocity.linvel, 0.0);
+                    }
                     let lerp = jump_timer.timer.as_secs_f32().clamp(0.0, 1.0);
-                    go_up(upward_velocity, &mut velocity.linvel, 1.0);
                     go_up(forward_velocity, &mut velocity.linvel, lerp);
                     go_up(sideward_velocity, &mut velocity.linvel, 1.0 - lerp);
                 }
@@ -253,8 +282,14 @@ fn update_jump(
                     go_up(upward_velocity, &mut velocity.linvel, 1.0);
                     go_up(backward_velocity, &mut velocity.linvel, 1.0 - lerp);
                 }
+                JumpType::Helicopter { .. } => {
+                    go_up(transform.up().into(), &mut velocity.linvel, 0.0);
+                }
             }
         } else {
+            if let JumpType::Helicopter { previous_speed } = jump_timer.jump_type {
+                velocity.linvel += transform.up() * previous_speed;
+            }
             commands.entity(entity).remove::<Jumping>();
         }
     }
@@ -309,6 +344,8 @@ pub struct JumpComboMaxLevel;
 
 #[auto_component(plugin = PlayerControllerPlugin, derive, reflect, register)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<JumpHeight>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<TwirlJumpSpeedMultiplier>::default())]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatModifierAddHook::<LongJumpSpeedMultiplier>::default())]
 pub struct JumpCombo(u32);
 
 impl Default for JumpCombo {
@@ -320,6 +357,18 @@ impl Default for JumpCombo {
 impl StatModifierAdd<JumpHeight> for JumpCombo {
     fn add(&self) -> f32 {
         self.0.min(3) as f32 * 0.5
+    }
+}
+
+impl StatModifierAdd<TwirlJumpSpeedMultiplier> for JumpCombo {
+    fn add(&self) -> f32 {
+        self.0.min(3) as f32 * 0.1
+    }
+}
+
+impl StatModifierAdd<LongJumpSpeedMultiplier> for JumpCombo {
+    fn add(&self) -> f32 {
+        self.0.min(3) as f32 * 0.1
     }
 }
 
