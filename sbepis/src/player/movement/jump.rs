@@ -99,8 +99,10 @@ fn start_jump(
             &Stat<JumpHeight>,
             &Stat<SpeedToJumpHeightMultiplier>,
             &Stat<TwirlJumpHeight>,
+            &Stat<SpeedToTwirlJumpHeightSpeedMultiplier>,
             &Stat<TwirlJumpSpeedMultiplier>,
             &Stat<LongJumpHeight>,
+            &Stat<SpeedToLongJumpHeightSpeedMultiplier>,
             &Stat<LongJumpSpeedMultiplier>,
             &Stat<BackflipSpeedMultiplier>,
             &Stat<JumpHoldTime>,
@@ -124,8 +126,10 @@ fn start_jump(
             jump_height,
             jump_height_mult,
             twirl_jump_height,
+            twirl_jump_height_mult,
             twirl_jump_mult,
             long_jump_height,
+            long_jump_height_mult,
             long_jump_mult,
             backflip_mult,
             jump_hold_time,
@@ -151,16 +155,18 @@ fn start_jump(
         let jump_type_angle_threshold = exp_decay(speed, 30.0, 20.0, 80.0, 90.0).to_radians();
         let jump_type_angle = FRAC_PI_2 - input_angle.min(PI - input_angle);
         if jump_type_angle < jump_type_angle_threshold {
+            let vertical_speed = speed * twirl_jump_height_mult.total();
             JumpType::TwirlJump {
-                upward_time: Duration::from_secs_f32(twirl_jump_height.total() / speed),
-                upward_velocity: transform.up() * speed,
+                upward_time: Duration::from_secs_f32(twirl_jump_height.total() / vertical_speed),
+                upward_velocity: transform.up() * vertical_speed,
                 forward_velocity: linvel * twirl_jump_mult.total(),
                 sideward_velocity: input_motion * speed * twirl_jump_mult.total(),
             }
         } else if input_angle < FRAC_PI_2 {
+            let vertical_speed = speed * long_jump_height_mult.total();
             JumpType::LongJump {
-                upward_time: Duration::from_secs_f32(long_jump_height.total() / speed),
-                upward_velocity: transform.up() * speed,
+                upward_time: Duration::from_secs_f32(long_jump_height.total() / vertical_speed),
+                upward_velocity: transform.up() * vertical_speed,
                 forward_velocity: input_motion * speed * long_jump_mult.total(),
             }
         } else {
@@ -309,11 +315,19 @@ pub struct TwirlJumpHeight;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct SpeedToTwirlJumpHeightSpeedMultiplier;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
 pub struct TwirlJumpSpeedMultiplier;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
 pub struct LongJumpHeight;
+
+#[derive(StatType)]
+#[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]
+pub struct SpeedToLongJumpHeightSpeedMultiplier;
 
 #[derive(StatType)]
 #[auto_plugin_build_hook(plugin = PlayerControllerPlugin, hook = StatTypeHook)]

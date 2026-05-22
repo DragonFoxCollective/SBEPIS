@@ -29,7 +29,8 @@ use crate::player::movement::grounded::Grounded;
 use crate::player::movement::jump::{
     BackflipSpeedMultiplier, JumpComboMaxLevel, JumpComboMaxTime, JumpHeight, JumpHoldTime,
     JumpStaminaCost, Jumping, LongJumpHeight, LongJumpSpeedMultiplier, SpeedToJumpHeightMultiplier,
-    TwirlJumpHeight, TwirlJumpSpeedMultiplier,
+    SpeedToLongJumpHeightSpeedMultiplier, SpeedToTwirlJumpHeightSpeedMultiplier, TwirlJumpHeight,
+    TwirlJumpSpeedMultiplier,
 };
 use crate::player::movement::roll::Rolling;
 use crate::player::movement::slide::Sliding;
@@ -218,8 +219,10 @@ fn setup(
                         Stat::<JumpHeight>::new(1.0),
                         Stat::<SpeedToJumpHeightMultiplier>::new(0.02),
                         Stat::<TwirlJumpHeight>::new(0.5),
+                        Stat::<SpeedToTwirlJumpHeightSpeedMultiplier>::new(0.4),
                         Stat::<TwirlJumpSpeedMultiplier>::new(0.9),
                         Stat::<LongJumpHeight>::new(0.5),
+                        Stat::<SpeedToLongJumpHeightSpeedMultiplier>::new(0.4),
                         Stat::<LongJumpSpeedMultiplier>::new(1.1),
                         Stat::<BackflipSpeedMultiplier>::new(0.9),
                         Stat::<JumpStaminaCost>::new(0.0),
