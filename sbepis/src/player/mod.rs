@@ -12,7 +12,7 @@ use self::weapons::sword::*;
 use self::weapons::*;
 use crate::inventory::Inventory;
 use crate::main_bundles::Mob;
-use crate::player::camera::controls::{Look, Pitch, Yaw};
+use crate::player::camera::controls::{CameraSlerpRate, Look, Pitch, Yaw};
 use crate::player::camera::fov::PlayerFov;
 use crate::player::camera::third_person::{
     CameraRootOfPlayer, FirstPersonOfCamera, PlayerCameraPositionType, SwapCameraPosition,
@@ -236,6 +236,7 @@ fn setup(
                         Stat::<SpindashStaminaCost>::new(0.2),
                         Stat::<SpindashSpeed>::new(10.0),
                     ),
+                    (Stat::<CameraSlerpRate>::new(20.0),),
                 ),
             ))
             .id();

@@ -35,8 +35,15 @@ pub trait MovingOptExt {
     /// Raw controls input.
     fn as_input(&self) -> Vec2;
 
-    /// Controls in 3D pointing relative to the given transform (usually the player body).
+    /// Controls in 3D pointing relative to the given transform (usually the player camera).
     fn as_motion(&self, relative_transform: &GlobalTransform) -> Vec3;
+
+    /// Controls in 3D pointing relative to the player camera.
+    fn as_camera_motion(
+        &self,
+        camera_transform: &GlobalTransform,
+        player_transform: &GlobalTransform,
+    ) -> Vec3;
 
     /// Control input added with the camera relative to the player body.
     ///
@@ -66,8 +73,18 @@ impl MovingOptExt for Option<&Moving> {
     }
 
     fn as_motion(&self, relative_transform: &GlobalTransform) -> Vec3 {
-        let input = self.as_input();
-        relative_transform.transform_vector3(input.extend_bevy())
+        relative_transform.transform_vector3(self.as_input().extend_bevy())
+    }
+
+    fn as_camera_motion(
+        &self,
+        camera_transform: &GlobalTransform,
+        player_transform: &GlobalTransform,
+    ) -> Vec3 {
+        player_transform.transform_vector3(
+            self.as_camera_input(camera_transform, player_transform)
+                .extend_bevy(),
+        )
     }
 
     fn as_camera_input(

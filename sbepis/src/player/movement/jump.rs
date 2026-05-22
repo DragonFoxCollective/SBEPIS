@@ -12,6 +12,7 @@ use sbepistats::{
 use crate::gravity::AffectedByGravity;
 use crate::player::PlayerControllerPlugin;
 use crate::player::camera::PlayerOfCamera;
+use crate::player::camera::controls::SlerpYaw;
 use crate::player::movement::charge::Charging;
 use crate::player::movement::dash::Dashing;
 use crate::player::movement::grounded::{Grounded, GroundedContact};
@@ -127,16 +128,9 @@ fn start_jump(
         ),
     ) = players.get_mut(player)?;
     let camera_transform = cameras.get(**camera)?;
-    let input_motion = moving.as_motion(transform);
-    let input_angle = {
-        let local_velocity = transform
-            .inverse_transform_vector3(velocity.linvel)
-            .xz()
-            .invert_y();
-        let local_input = moving.as_camera_input(camera_transform, transform);
-        debug!("{local_input} {local_velocity}");
-        local_velocity.angle_to(local_input).abs()
-    };
+    let input_motion = moving.as_camera_motion(camera_transform, transform);
+    let raw_input_angle = moving.as_input().angle_to(Vec2::Y);
+    let input_angle = raw_input_angle.abs();
     let linvel = velocity.linvel.reject_from(transform.up().into());
     let hold_time = jump_hold_time.total();
 
@@ -163,6 +157,9 @@ fn start_jump(
                 forward_velocity: input_motion * linvel.length() * long_jump_mult.total(),
             }
         } else {
+            commands
+                .entity(player)
+                .insert(SlerpYaw::new(raw_input_angle));
             JumpType::Backflip {
                 upward_velocity: ground.normal
                     * jump_height.total()
@@ -179,7 +176,6 @@ fn start_jump(
                 / hold_time,
         }
     };
-    debug!("Jumping {input_angle} {jump_type:?}");
 
     commands
         .entity(player)
